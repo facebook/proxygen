@@ -8,58 +8,60 @@
 
 #include <proxygen/lib/http/webtransport/QuicWtSession.h>
 
-using FCState = proxygen::WebTransport::FCState;
-
-namespace proxygen {
+using namespace proxygen;
+using namespace proxygen::detail;
+using FCState = WebTransport::FCState;
 
 namespace {
 static constexpr uint64_t kMaxWtIngressBuf = 65'535;
 
-detail::WtStreamManager::WtConfig createConfig() {
-  detail::WtStreamManager::WtConfig config;
-  config.selfMaxStreamsBidi = detail::kMaxVarint;
-  config.selfMaxStreamsUni = detail::kMaxVarint;
-  config.selfMaxConnData = detail::kMaxVarint;
-  config.selfMaxStreamDataBidi = detail::kMaxVarint;
-  config.selfMaxStreamDataUni = detail::kMaxVarint;
-  config.peerMaxStreamsBidi = detail::kMaxVarint;
-  config.peerMaxStreamsUni = detail::kMaxVarint;
-  config.peerMaxConnData = detail::kMaxVarint;
-  config.peerMaxStreamDataBidi = detail::kMaxVarint;
-  config.peerMaxStreamDataUni = detail::kMaxVarint;
+WtStreamManager::WtConfig createConfig() {
+  WtStreamManager::WtConfig config;
+  config.selfMaxStreamsBidi = kMaxVarint;
+  config.selfMaxStreamsUni = kMaxVarint;
+  config.selfMaxConnData = kMaxVarint;
+  config.selfMaxStreamDataBidi = kMaxVarint;
+  config.selfMaxStreamDataUni = kMaxVarint;
+  config.peerMaxStreamsBidi = kMaxVarint;
+  config.peerMaxStreamsUni = kMaxVarint;
+  config.peerMaxConnData = kMaxVarint;
+  config.peerMaxStreamDataBidi = kMaxVarint;
+  config.peerMaxStreamDataUni = kMaxVarint;
   return config;
 }
 
-struct WtEventVisitor {
+struct QuicWtEventVisitor {
   std::shared_ptr<quic::QuicSocket>& quicSocket;
 
-  void operator()(const detail::WtStreamManager::ResetStream& ev) const {
+  void operator()(const WtStreamManager::ResetStream& ev) const {
     quicSocket->resetStream(ev.streamId, ev.err);
   }
 
-  void operator()(const detail::WtStreamManager::StopSending& ev) const {
+  void operator()(const WtStreamManager::StopSending& ev) const {
     quicSocket->setReadCallback(ev.streamId, nullptr, ev.err);
   }
 
-  void operator()(const detail::WtStreamManager::CloseSession& /*ev*/) const {
+  void operator()(const WtStreamManager::CloseSession& /*ev*/) const {
     // Don't call wtHandler_->onSessionEnd here, it's handled in
     // onConnectionEndImpl. WtStreamManager generates CloseSession when
     // we call shutdown(), which already means we're closing the session.
   }
 
-  void operator()(const detail::WtStreamManager::MaxConnData& /*ev*/) const {
+  void operator()(const WtStreamManager::MaxConnData& /*ev*/) const {
   }
-  void operator()(const detail::WtStreamManager::MaxStreamData& /*ev*/) const {
+  void operator()(const WtStreamManager::MaxStreamData& /*ev*/) const {
   }
-  void operator()(const detail::WtStreamManager::MaxStreamsBidi& /*ev*/) const {
+  void operator()(const WtStreamManager::MaxStreamsBidi& /*ev*/) const {
   }
-  void operator()(const detail::WtStreamManager::MaxStreamsUni& /*ev*/) const {
+  void operator()(const WtStreamManager::MaxStreamsUni& /*ev*/) const {
   }
-  void operator()(const detail::WtStreamManager::DrainSession& /*ev*/) const {
+  void operator()(const WtStreamManager::DrainSession& /*ev*/) const {
   }
 };
 
 } // namespace
+
+namespace proxygen {
 
 QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
                              std::unique_ptr<WebTransportHandler> wtHandler)
@@ -258,7 +260,7 @@ void QuicWtSession::eventsAvailable() noexcept {
   // process control events first
   auto events = sm_.moveEvents();
   for (auto& event : events) {
-    std::visit(WtEventVisitor{quicSocket_}, event);
+    std::visit(QuicWtEventVisitor{quicSocket_}, event);
   }
   // then process writable streams
   while (!priorityQueue_->empty()) {
