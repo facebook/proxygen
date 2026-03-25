@@ -97,11 +97,18 @@ class CoroWtSession
     , public proxygen::detail::WtSessionBase {
  public:
   using Ptr = std::shared_ptr<CoroWtSession>;
+  struct Config {
+    using milliseconds = std::chrono::milliseconds;
+    static constexpr auto kDefaultTimeout = milliseconds(5'000);
+    milliseconds readTimeout{kDefaultTimeout};
+    milliseconds writeTimeout{kDefaultTimeout};
+  };
   CoroWtSession(folly::EventBase* evb,
                 WtDir dir,
                 WtStreamManager::WtConfig wtConfig,
                 std::unique_ptr<WebTransportHandler> handler,
-                std::unique_ptr<folly::coro::TransportIf> transport) noexcept;
+                std::unique_ptr<folly::coro::TransportIf> transport,
+                Config config) noexcept;
 
   ~CoroWtSession() noexcept override;
 
@@ -121,6 +128,7 @@ class CoroWtSession
   std::unique_ptr<WebTransportHandler> wtHandler_;
   folly::CancellationSource cs_;
   std::unique_ptr<folly::coro::TransportIf> transport_;
+  Config config_;
   bool readLoopDone_ : 1 {false};
   bool writeLoopDone_ : 1 {false};
 };

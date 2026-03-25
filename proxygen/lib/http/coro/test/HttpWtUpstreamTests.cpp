@@ -277,6 +277,9 @@ class WtTest : public H2WtUpstreamSessionTest {
 
   void SetUp() override {
     H2WtUpstreamSessionTest::SetUp();
+    constexpr auto kTimeout = std::chrono::milliseconds(50);
+    session_->setConnectionReadTimeout(kTimeout);
+    session_->setWriteTimeout(kTimeout);
     loopN(2);
     establishWtSession();
 
@@ -330,7 +333,6 @@ class WtTest : public H2WtUpstreamSessionTest {
     deliverRespHeaders(/*id=*/1, makeResponse(200), /*eom=*/false);
     auto res = folly::coro::blockingWait(std::move(fut), &evb_);
     wt = std::move(res.wt);
-    // EXPECT_TRUE(wtHandler->wtSession);
   }
 
   std::unique_ptr<folly::IOBuf> coalesceWrites() {
@@ -631,6 +633,15 @@ CO_TEST_P_X(WtTest, SimpleBidiEcho) {
   auto read = co_await co_awaitTry(wt->readStreamData(id).value());
   EXPECT_TRUE(read.hasException());
 
+  wt->closeSession();
+}
+
+CO_TEST_P_X(WtTest, TestReadTimeout) {
+  // wait until WebTransportHandler::onSessionEnd is invoked; read timeout
+  // should kick in
+  while (!wtHandlerCtx->err.has_value()) {
+    co_await rescheduleN(1);
+  }
   wt->closeSession();
 }
 

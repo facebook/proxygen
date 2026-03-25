@@ -137,7 +137,9 @@ struct HTTPCoroSession::WtHelper {
         getWtConfig(sess.codec_->getIngressSettings(),
                     sess.codec_->getEgressSettings()),
         std::move(wtHandler),
-        std::move(transport));
+        std::move(transport),
+        CoroWtSession::Config{.readTimeout = sess.connReadTimeout_,
+                              .writeTimeout = sess.writeTimeout_});
     wt->ka = sess.acquireKeepAlive();
     wt->start(wt);
     return wt;

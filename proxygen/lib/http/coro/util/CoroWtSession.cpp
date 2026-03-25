@@ -29,11 +29,13 @@ CoroWtSession::CoroWtSession(
     WtDir dir,
     WtStreamManager::WtConfig wtConfig,
     std::unique_ptr<WebTransportHandler> handler,
-    std::unique_ptr<folly::coro::TransportIf> transport) noexcept
+    std::unique_ptr<folly::coro::TransportIf> transport,
+    Config config) noexcept
     : CoroWtSessionBase(dir, wtConfig),
       WtSessionBase(evb, sm),
       wtHandler_(std::move(handler)),
-      transport_(std::move(transport)) {
+      transport_(std::move(transport)),
+      config_(config) {
 }
 
 CoroWtSession::~CoroWtSession() noexcept {
@@ -55,12 +57,11 @@ folly::coro::Task<void> CoroWtSession::readLoop(Ptr self) {
   folly::IOBufQueue ingressBuf{folly::IOBufQueue::cacheChainLength()};
 
   while (!sm.isClosed()) {
-    auto readRes = co_await co_awaitTry(transport_->read(
-        ingressBuf,
-        /*minReadSize=*/1460,
-        /*newAllocationSize=*/4000,
-        /*timeout=*/std::chrono::milliseconds(0))); // TODO: timeout should be
-                                                    // changed from 0ms
+    auto readRes =
+        co_await co_awaitTry(transport_->read(ingressBuf,
+                                              /*minReadSize=*/1460,
+                                              /*newAllocationSize=*/4000,
+                                              /*timeout=*/config_.readTimeout));
     if (readRes.hasException()) {
       XLOG(DBG4) << __func__ << "; ex=" << readRes.exception();
       break;
@@ -125,7 +126,7 @@ folly::coro::Task<void> CoroWtSession::writeLoop(Ptr self) {
 
     if (!egressBuf.empty()) {
       auto writeRes = co_await co_awaitTry(
-          transport_->write(egressBuf)); // TODO: plumb writeTimeout here
+          transport_->write(egressBuf, config_.writeTimeout));
       if (writeRes.hasException()) {
         XLOG(DBG4) << __func__ << "; ex=" << writeRes.exception();
         break;
