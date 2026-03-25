@@ -50,6 +50,15 @@ WtExpected<folly::Unit>::Type CoroWtSession::closeSession(
   return folly::unit;
 }
 
+WtExpected<folly::Unit>::Type CoroWtSession::sendDatagram(
+    IoBufPtr datagram) noexcept {
+  if (!writeLoopDone_) {
+    std::ignore = WtSessionBase::sendDatagram(std::move(datagram));
+    wtSmEgressCb.waitForEvent.signal(); // wake up write loop
+  }
+  return folly::unit;
+}
+
 using WtCapsuleCallback = proxygen::detail::WtCapsuleCallback;
 folly::coro::Task<void> CoroWtSession::readLoop(Ptr self) {
   WtCapsuleCallback wtCapsuleCallback{sm, *self};
@@ -81,6 +90,11 @@ folly::coro::Task<void> CoroWtSession::readLoop(Ptr self) {
       }
     }
 
+    auto ingressDatagrams = moveIngressDatagrams();
+    for (auto& dgram : ingressDatagrams) {
+      wtHandler_->onDatagram(std::move(dgram));
+    }
+
     if (eom) {
       break;
     }
@@ -107,6 +121,11 @@ folly::coro::Task<void> CoroWtSession::writeLoop(Ptr self) {
     auto ctrl = sm.moveEvents();
     for (auto& ev : ctrl) {
       std::visit(eventVisitor, ev);
+    }
+    // TODO: currently datagrams can indefinitely preempt stream data
+    auto datagrams = moveEgressDatagrams();
+    for (auto& dgram : datagrams) {
+      writeDatagram(egressBuf, DatagramCapsule{std::move(dgram)});
     }
 
     auto* wh = sm.nextWritable();

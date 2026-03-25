@@ -115,6 +115,9 @@ class CoroWtSession
   WtExpected<folly::Unit>::Type closeSession(
       folly::Optional<uint32_t> error = folly::none) noexcept override;
 
+  WtExpected<folly::Unit>::Type sendDatagram(
+      IoBufPtr datagram) noexcept override;
+
   // launches read & write loops
   void start(Ptr self);
 

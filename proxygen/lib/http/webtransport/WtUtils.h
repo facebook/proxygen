@@ -117,6 +117,7 @@ using StreamId = uint64_t;
 class WtSessionBase : public WebTransport {
  public:
   using Ptr = std::shared_ptr<WtSessionBase>;
+  using IoBufPtr = std::unique_ptr<folly::IOBuf>;
   WtSessionBase(folly::EventBase* evb, WtStreamManager& sm) noexcept;
   ~WtSessionBase() noexcept override = default;
 
@@ -131,7 +132,7 @@ class WtSessionBase : public WebTransport {
 
   WtExpected<FCState>::Type writeStreamData(
       StreamId id,
-      std::unique_ptr<folly::IOBuf> data,
+      IoBufPtr data,
       bool fin,
       ByteEventCallback* byteEventCallback) noexcept override;
 
@@ -152,7 +153,7 @@ class WtSessionBase : public WebTransport {
                                             uint32_t error) noexcept override;
 
   WtExpected<folly::Unit>::Type sendDatagram(
-      std::unique_ptr<folly::IOBuf> datagram) noexcept override;
+      IoBufPtr datagram) noexcept override;
 
   [[nodiscard]] quic::TransportInfo getTransportInfo() const noexcept override;
 
@@ -163,17 +164,28 @@ class WtSessionBase : public WebTransport {
   // available uni/bidi stream credit
   void onBidiStreamCreditAvail() noexcept;
   void onUniStreamCreditAvail() noexcept;
+  // fn invoked from WebTransportCapsuleCallback
+  void onDatagram(IoBufPtr datagram) noexcept {
+    datagrams_.ingress.push_back(std::move(datagram));
+  }
 
   folly::EventBase* evb() {
     return evb_;
   }
 
  protected:
-  folly::Promise<folly::Unit>& uniCreditPromise() {
+  folly::Promise<folly::Unit>& uniCreditPromise() noexcept {
     return awaitUniCredit_;
   }
-  folly::Promise<folly::Unit>& bidiCreditPromise() {
+  folly::Promise<folly::Unit>& bidiCreditPromise() noexcept {
     return awaitBidiCredit_;
+  }
+
+  std::vector<IoBufPtr> moveIngressDatagrams() noexcept {
+    return std::move(datagrams_.ingress);
+  }
+  std::vector<IoBufPtr> moveEgressDatagrams() noexcept {
+    return std::move(datagrams_.egress);
   }
 
  private:
@@ -181,6 +193,10 @@ class WtSessionBase : public WebTransport {
   WtStreamManager& sm_;
   folly::Promise<folly::Unit> awaitUniCredit_;
   folly::Promise<folly::Unit> awaitBidiCredit_;
+  struct {
+    std::vector<IoBufPtr> egress;
+    std::vector<IoBufPtr> ingress;
+  } datagrams_;
 };
 
 } // namespace proxygen::detail

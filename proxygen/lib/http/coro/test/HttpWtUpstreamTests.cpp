@@ -64,6 +64,10 @@ struct WtCapsuleCodecCallback : public WebTransportCapsuleCodec::Callback {
     uniMaxStreams.emplace(capsule);
     baton.post();
   }
+  void onDatagramCapsule(DatagramCapsule dgram) noexcept override {
+    dgrams.push_back(std::move(dgram.httpDatagramPayload));
+    baton.post();
+  }
 
   void onWTDataBlockedCapsule(WTDataBlockedCapsule) noexcept override {
   }
@@ -76,8 +80,6 @@ struct WtCapsuleCodecCallback : public WebTransportCapsuleCodec::Callback {
       WTStreamsBlockedCapsule) noexcept override {
   }
   void onWTStreamsBlockedUniCapsule(WTStreamsBlockedCapsule) noexcept override {
-  }
-  void onDatagramCapsule(DatagramCapsule) noexcept override {
   }
   void onCloseWTSessionCapsule(
       CloseWebTransportSessionCapsule) noexcept override {
@@ -109,6 +111,7 @@ struct WtCapsuleCodecCallback : public WebTransportCapsuleCodec::Callback {
   std::optional<WTMaxStreamDataCapsule> msd;
   std::optional<WTMaxStreamsCapsule> bidiMaxStreams;
   std::optional<WTMaxStreamsCapsule> uniMaxStreams;
+  std::vector<std::unique_ptr<folly::IOBuf>> dgrams;
 
  private:
   folly::coro::Baton baton;
@@ -770,6 +773,26 @@ CO_TEST_P_X(WtTest, MaxStreamsBidiUni) {
 
   EXPECT_EQ(wtCodecCb.bidiMaxStreams->maximumStreams, 15);
   EXPECT_EQ(wtCodecCb.uniMaxStreams->maximumStreams, 15);
+
+  wt->closeSession();
+}
+
+CO_TEST_P_X(WtTest, Datagrams) {
+  XCHECK(wt);
+  // tx datagram to peer
+  wt->sendDatagram(folly::IOBuf::copyBuffer("datagram1"));
+  // wait for peer codec to receive event
+  co_await wtCodecCb.waitForEvent();
+  CHECK_EQ(wtCodecCb.dgrams.size(), 1);
+  EXPECT_EQ(wtCodecCb.dgrams.front()->toString(), "datagram1");
+
+  // rx datagram from peer
+  writeDatagram(wtBuf, {folly::IOBuf::copyBuffer("datagram2")});
+  deliverWtData(wtBuf.move());
+  // wait until client receives datagram
+  while (wtHandlerCtx->dgrams.empty()) {
+    co_await rescheduleN(1);
+  }
 
   wt->closeSession();
 }

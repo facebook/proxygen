@@ -268,8 +268,9 @@ void WtCapsuleCallback::onWTStreamsBlockedUniCapsule(
   XLOG(DBG6) << __func__;
 }
 
-void WtCapsuleCallback::onDatagramCapsule(DatagramCapsule) noexcept {
+void WtCapsuleCallback::onDatagramCapsule(DatagramCapsule dgram) noexcept {
   XLOG(DBG6) << __func__;
+  wtSess_.onDatagram(std::move(dgram.httpDatagramPayload));
 }
 
 void WtCapsuleCallback::onCloseWTSessionCapsule(
@@ -350,7 +351,7 @@ WtExpected<folly::SemiFuture<StreamData>>::Type WtSessionBase::readStreamData(
 
 WtExpected<FCState>::Type WtSessionBase::writeStreamData(
     StreamId id,
-    std::unique_ptr<folly::IOBuf> data,
+    IoBufPtr data,
     bool fin,
     ByteEventCallback* byteEventCallback) noexcept {
   if (auto* wh = sm_.getBidiHandle(id).writeHandle) {
@@ -394,8 +395,9 @@ WtExpected<folly::Unit>::Type WtSessionBase::stopSending(
 }
 
 WtExpected<folly::Unit>::Type WtSessionBase::sendDatagram(
-    std::unique_ptr<folly::IOBuf>) noexcept {
-  LOG(FATAL) << "not implemented";
+    IoBufPtr datagram) noexcept {
+  datagrams_.egress.push_back(std::move(datagram));
+  return folly::unit;
 }
 
 quic::TransportInfo WtSessionBase::getTransportInfo() const noexcept {

@@ -164,6 +164,7 @@ struct DummyWtHandler : public WebTransportHandler {
     ctx->peerStreams.push_back(bidiHandle);
   }
   void onDatagram(std::unique_ptr<folly::IOBuf> datagram) noexcept override {
+    ctx->dgrams.push_back(std::move(datagram));
   }
   void onSessionEnd(folly::Optional<uint32_t> error) noexcept override {
     ctx->err = error.value_or(0);
@@ -184,6 +185,7 @@ struct DummyWtHandler : public WebTransportHandler {
     std::vector<WebTransport::BidiStreamHandle> peerStreams;
     folly::Optional<uint32_t> err;
     std::shared_ptr<WebTransport> wtSession;
+    std::vector<std::unique_ptr<folly::IOBuf>> dgrams;
   };
   std::shared_ptr<Ctx> ctx = std::make_shared<Ctx>();
 };
