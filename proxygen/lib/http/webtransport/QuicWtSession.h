@@ -23,7 +23,6 @@ using QuicError = quic::QuicError;
 
 class QuicWtSession
     : public detail::WtSessionBase
-    , private QuicSocket::ConnectionCallback
     , private QuicSocket::DatagramCallback
     , private quic::StreamWriteCallback
     , private detail::WtStreamManager::ReadCallback
@@ -70,19 +69,6 @@ class QuicWtSession
       folly::Optional<uint32_t> error) noexcept override;
 
  private:
-  // -- QuicSocket::ConnectionCallback overrides --
-  void onNewBidirectionalStream(StreamId id) noexcept override;
-  void onNewUnidirectionalStream(StreamId id) noexcept override;
-  void onStopSending(StreamId id,
-                     quic::ApplicationErrorCode error) noexcept override;
-  void onConnectionEnd() noexcept override;
-  void onConnectionEnd(QuicError /* error */) noexcept override;
-  void onConnectionError(QuicError code) noexcept override;
-  void onBidirectionalStreamsAvailable(
-      uint64_t /*numStreamsAvailable*/) noexcept override;
-  void onUnidirectionalStreamsAvailable(
-      uint64_t /*numStreamsAvailable*/) noexcept override;
-
   // -- QuicSocket::DatagramCallback overrides --
   void onDatagramsAvailable() noexcept override;
 
@@ -118,6 +104,23 @@ class QuicWtSession
     void readAvailable(StreamId streamId) noexcept override;
     void readError(StreamId streamId, QuicError error) noexcept override;
   } readCb_{*this};
+
+  struct QuicConnectionCallback : public QuicSocket::ConnectionCallback {
+    QuicWtSession& sess;
+    explicit QuicConnectionCallback(QuicWtSession& session) : sess(session) {
+    }
+    void onNewBidirectionalStream(StreamId id) noexcept override;
+    void onNewUnidirectionalStream(StreamId id) noexcept override;
+    void onStopSending(StreamId id,
+                       quic::ApplicationErrorCode error) noexcept override;
+    void onConnectionEnd() noexcept override;
+    void onConnectionEnd(QuicError error) noexcept override;
+    void onConnectionError(QuicError code) noexcept override;
+    void onBidirectionalStreamsAvailable(
+        uint64_t numStreamsAvailable) noexcept override;
+    void onUnidirectionalStreamsAvailable(
+        uint64_t numStreamsAvailable) noexcept override;
+  } connCb_{*this};
 
   detail::WtStreamManager sm_;
 };

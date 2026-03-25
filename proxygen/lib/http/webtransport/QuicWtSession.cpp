@@ -76,7 +76,7 @@ QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
           *this,
           *this,
           *priorityQueue_} {
-  quicSocket_->setConnectionCallback(this);
+  quicSocket_->setConnectionCallback(&connCb_);
   quicSocket_->setDatagramCallback(this);
 }
 
@@ -184,52 +184,56 @@ void QuicWtSession::QuicReadCallback::readError(StreamId id,
       id, *error.code.asApplicationErrorCode()});
 }
 
-// -- QuicSocket::ConnectionCallback overrides --
-void QuicWtSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
-  XCHECK(wtHandler_);
-  auto bidiHandle = sm_.getOrCreateBidiHandle(id);
+// -- QuicConnectionCallback overrides --
+void QuicWtSession::QuicConnectionCallback::onNewBidirectionalStream(
+    StreamId id) noexcept {
+  XCHECK(sess.wtHandler_);
+  auto bidiHandle = sess.sm_.getOrCreateBidiHandle(id);
   XCHECK(bidiHandle.readHandle && bidiHandle.writeHandle);
-  sm_.setReadCb(*bidiHandle.readHandle, this);
-  quicSocket_->setReadCallback(id, &readCb_);
-  wtHandler_->onNewBidiStream(bidiHandle);
+  sess.sm_.setReadCb(*bidiHandle.readHandle, &sess);
+  sess.quicSocket_->setReadCallback(id, &sess.readCb_);
+  sess.wtHandler_->onNewBidiStream(bidiHandle);
 }
 
-void QuicWtSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
-  XCHECK(wtHandler_);
-  auto* rh = CHECK_NOTNULL(sm_.getOrCreateIngressHandle(id));
-  sm_.setReadCb(*rh, this);
-  quicSocket_->setReadCallback(id, &readCb_);
-  wtHandler_->onNewUniStream(rh);
+void QuicWtSession::QuicConnectionCallback::onNewUnidirectionalStream(
+    StreamId id) noexcept {
+  XCHECK(sess.wtHandler_);
+  auto* rh = CHECK_NOTNULL(sess.sm_.getOrCreateIngressHandle(id));
+  sess.sm_.setReadCb(*rh, &sess);
+  sess.quicSocket_->setReadCallback(id, &sess.readCb_);
+  sess.wtHandler_->onNewUniStream(rh);
 }
 
-void QuicWtSession::onStopSending(
-    quic::StreamId id, quic::ApplicationErrorCode errorCode) noexcept {
-  sm_.onStopSending({.streamId = id, .err = errorCode});
+void QuicWtSession::QuicConnectionCallback::onStopSending(
+    StreamId id, quic::ApplicationErrorCode errorCode) noexcept {
+  sess.sm_.onStopSending({.streamId = id, .err = errorCode});
 }
 
-void QuicWtSession::onConnectionEnd() noexcept {
-  onConnectionEndImpl(folly::none);
+void QuicWtSession::QuicConnectionCallback::onConnectionEnd() noexcept {
+  sess.onConnectionEndImpl(folly::none);
 }
 
-void QuicWtSession::onConnectionEnd(QuicError error) noexcept {
-  onConnectionEndImpl(error);
+void QuicWtSession::QuicConnectionCallback::onConnectionEnd(
+    QuicError error) noexcept {
+  sess.onConnectionEndImpl(error);
 }
 
-void QuicWtSession::onConnectionError(QuicError error) noexcept {
-  onConnectionEndImpl(error);
+void QuicWtSession::QuicConnectionCallback::onConnectionError(
+    QuicError error) noexcept {
+  sess.onConnectionEndImpl(error);
 }
 
-void QuicWtSession::onBidirectionalStreamsAvailable(
+void QuicWtSession::QuicConnectionCallback::onBidirectionalStreamsAvailable(
     uint64_t numStreamsAvailable) noexcept {
   if (numStreamsAvailable > 0) {
-    onBidiStreamCreditAvail();
+    sess.onBidiStreamCreditAvail();
   }
 }
 
-void QuicWtSession::onUnidirectionalStreamsAvailable(
+void QuicWtSession::QuicConnectionCallback::onUnidirectionalStreamsAvailable(
     uint64_t numStreamsAvailable) noexcept {
   if (numStreamsAvailable > 0) {
-    onUniStreamCreditAvail();
+    sess.onUniStreamCreditAvail();
   }
 }
 
