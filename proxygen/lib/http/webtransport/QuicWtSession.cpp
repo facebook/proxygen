@@ -157,7 +157,7 @@ void QuicWtSession::readAvailable(quic::StreamId id) noexcept {
   auto canRead =
       kMaxWtIngressBuf - std::min(sm_.bufferedBytes(*rh), kMaxWtIngressBuf);
   if (canRead == 0) {
-    maybePauseIngress(id);
+    maybePauseIngress(*rh);
     return;
   }
   auto readRes = quicSocket_->read(id, canRead);
@@ -169,7 +169,9 @@ void QuicWtSession::readAvailable(quic::StreamId id) noexcept {
   auto res = sm_.enqueue(
       *rh, WebTransport::StreamData{.data = std::move(data), .fin = eof});
   XCHECK_NE(res, detail::WtStreamManager::Result::Fail);
-  maybePauseIngress(id);
+  if (!eof) { // ::enqueue w/ eof=true may deallocate rh
+    maybePauseIngress(*rh);
+  }
 }
 
 void QuicWtSession::readError(quic::StreamId id,
@@ -256,7 +258,6 @@ void QuicWtSession::readReady(
 // -- WtStreamManager::EgressCallback overrides --
 void QuicWtSession::eventsAvailable() noexcept {
   XCHECK(quicSocket_);
-
   // process control events first
   auto events = sm_.moveEvents();
   for (auto& event : events) {
@@ -346,14 +347,11 @@ void QuicWtSession::onConnectionEndImpl(
   wtHandler_->onSessionEnd(errCodeOpt);
 }
 
-void QuicWtSession::maybePauseIngress(uint64_t id) noexcept {
+void QuicWtSession::maybePauseIngress(
+    detail::WtStreamManager::WtReadHandle& handle) noexcept {
   XCHECK(quicSocket_);
-  auto* handle = sm_.getBidiHandle(id).readHandle;
-  if (!handle) {
-    XLOG(DBG4) << "No read handle created for stream " << id;
-    return;
-  }
-  if (sm_.bufferedBytes(*handle) >= kMaxWtIngressBuf) {
+  const auto id = handle.getID();
+  if (sm_.bufferedBytes(handle) >= kMaxWtIngressBuf) {
     XLOG(DBG4) << "Pausing ingress for stream " << id;
     auto res = quicSocket_->pauseRead(id);
     if (res.hasError()) {

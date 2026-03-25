@@ -106,7 +106,8 @@ class QuicWtSession
   folly::Expected<folly::Unit, ErrorCode> closeSessionImpl(
       folly::Optional<uint32_t> error);
   void onConnectionEndImpl(const folly::Optional<quic::QuicError>& error);
-  void maybePauseIngress(uint64_t id) noexcept;
+  void maybePauseIngress(
+      detail::WtStreamManager::WtReadHandle& handle) noexcept;
   void maybeResumeIngress(
       detail::WtStreamManager::WtReadHandle& handle) noexcept;
 
