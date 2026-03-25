@@ -15,7 +15,7 @@ using FCState = WebTransport::FCState;
 namespace {
 static constexpr uint64_t kMaxWtIngressBuf = 65'535;
 
-WtStreamManager::WtConfig createConfig() {
+WtStreamManager::WtConfig createQuicConfig() {
   WtStreamManager::WtConfig config;
   config.selfMaxStreamsBidi = kMaxVarint;
   config.selfMaxStreamsUni = kMaxVarint;
@@ -63,8 +63,10 @@ struct QuicWtEventVisitor {
 
 namespace proxygen {
 
-QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
-                             std::unique_ptr<WebTransportHandler> wtHandler)
+QuicWtSessionBase::QuicWtSessionBase(
+    std::shared_ptr<quic::QuicSocket> quicSocket,
+    std::unique_ptr<WebTransportHandler> wtHandler,
+    WtStreamManager::WtConfig wtConfig)
     : WtSessionBase(nullptr, sm_),
       quicSocket_(std::move(quicSocket)),
       wtHandler_(std::move(wtHandler)),
@@ -72,22 +74,21 @@ QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
       sm_{quicSocket_->getState()->nodeType == quic::QuicNodeType::Server
               ? detail::WtDir::Server
               : detail::WtDir::Client,
-          createConfig(),
+          wtConfig,
           smCb_,
           smCb_,
           *priorityQueue_} {
-  quicSocket_->setConnectionCallback(&connCb_);
   quicSocket_->setDatagramCallback(this);
 }
 
-QuicWtSession::~QuicWtSession() {
+QuicWtSessionBase::~QuicWtSessionBase() {
   closeSessionImpl(folly::none);
   quicSocket_.reset();
   wtHandler_.reset();
 }
 
 folly::Expected<WebTransport::StreamWriteHandle*, WebTransport::ErrorCode>
-QuicWtSession::createUniStream() noexcept {
+QuicWtSessionBase::createUniStream() noexcept {
   XCHECK(quicSocket_);
   auto id = quicSocket_->createUnidirectionalStream();
   if (id.hasError()) {
@@ -97,7 +98,7 @@ QuicWtSession::createUniStream() noexcept {
 }
 
 folly::Expected<WebTransport::BidiStreamHandle, WebTransport::ErrorCode>
-QuicWtSession::createBidiStream() noexcept {
+QuicWtSessionBase::createBidiStream() noexcept {
   XCHECK(quicSocket_);
   auto id = quicSocket_->createBidirectionalStream();
   if (id.hasError()) {
@@ -110,7 +111,8 @@ QuicWtSession::createBidiStream() noexcept {
   return bidiHandle;
 }
 
-folly::SemiFuture<folly::Unit> QuicWtSession::awaitUniStreamCredit() noexcept {
+folly::SemiFuture<folly::Unit>
+QuicWtSessionBase::awaitUniStreamCredit() noexcept {
   XCHECK(quicSocket_);
   if (quicSocket_->getNumOpenableUnidirectionalStreams() > 0) {
     return folly::makeFuture(folly::unit);
@@ -120,7 +122,8 @@ folly::SemiFuture<folly::Unit> QuicWtSession::awaitUniStreamCredit() noexcept {
   return std::move(future);
 }
 
-folly::SemiFuture<folly::Unit> QuicWtSession::awaitBidiStreamCredit() noexcept {
+folly::SemiFuture<folly::Unit>
+QuicWtSessionBase::awaitBidiStreamCredit() noexcept {
   XCHECK(quicSocket_);
   if (quicSocket_->getNumOpenableBidirectionalStreams() > 0) {
     return folly::makeFuture(folly::unit);
@@ -131,7 +134,8 @@ folly::SemiFuture<folly::Unit> QuicWtSession::awaitBidiStreamCredit() noexcept {
 }
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
-QuicWtSession::sendDatagram(std::unique_ptr<folly::IOBuf> datagram) noexcept {
+QuicWtSessionBase::sendDatagram(
+    std::unique_ptr<folly::IOBuf> datagram) noexcept {
   XCHECK(quicSocket_);
   auto writeRes = quicSocket_->writeDatagram(std::move(datagram));
   if (writeRes.hasError()) {
@@ -142,12 +146,12 @@ QuicWtSession::sendDatagram(std::unique_ptr<folly::IOBuf> datagram) noexcept {
 }
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
-QuicWtSession::closeSession(folly::Optional<uint32_t> error) noexcept {
+QuicWtSessionBase::closeSession(folly::Optional<uint32_t> error) noexcept {
   return closeSessionImpl(std::move(error));
 }
 
 // -- QuicReadCallback overrides --
-void QuicWtSession::QuicReadCallback::readAvailable(StreamId id) noexcept {
+void QuicWtSessionBase::QuicReadCallback::readAvailable(StreamId id) noexcept {
   XCHECK(sess.quicSocket_);
   auto& sm = sess.sm_;
   auto& quicSocket = sess.quicSocket_;
@@ -177,11 +181,178 @@ void QuicWtSession::QuicReadCallback::readAvailable(StreamId id) noexcept {
   }
 }
 
-void QuicWtSession::QuicReadCallback::readError(StreamId id,
-                                                QuicError error) noexcept {
+void QuicWtSessionBase::QuicReadCallback::readError(StreamId id,
+                                                    QuicError error) noexcept {
   XLOG(ERR) << "Read error on stream " << id << ": " << error;
   sess.sm_.onResetStream(detail::WtStreamManager::ResetStream{
       id, *error.code.asApplicationErrorCode()});
+}
+
+// -- QuicSocket::DatagramCallback overrides --
+void QuicWtSessionBase::onDatagramsAvailable() noexcept {
+  XCHECK(quicSocket_);
+  auto result = quicSocket_->readDatagramBufs();
+  if (result.hasError()) {
+    XLOG(ERR) << "Got error while reading datagrams, err="
+              << toString(result.error());
+    closeSession(WebTransport::kInternalError);
+    return;
+  }
+  XLOG(DBG4) << "Received " << result.value().size() << " datagrams";
+  XCHECK(wtHandler_);
+  for (auto& datagram : result.value()) {
+    if (wtHandler_) {
+      wtHandler_->onDatagram(std::move(datagram));
+    }
+  }
+}
+
+// -- StreamManagerCallback overrides --
+void QuicWtSessionBase::StreamManagerCallback::readReady(
+    detail::WtStreamManager::WtReadHandle& rh) noexcept {
+  sess.maybeResumeIngress(rh);
+}
+
+void QuicWtSessionBase::StreamManagerCallback::eventsAvailable() noexcept {
+  XCHECK(sess.quicSocket_);
+  // process control events first
+  auto events = sess.sm_.moveEvents();
+  for (auto& event : events) {
+    std::visit(QuicWtEventVisitor{*sess.quicSocket_}, event);
+  }
+  // then process writable streams
+  while (!sess.priorityQueue_->empty()) {
+    auto id = sess.priorityQueue_->getNextScheduledID(std::nullopt);
+    if (!id.isStreamID()) { // skip datagrams
+      break;
+    }
+    auto streamId = id.asStreamID();
+    auto maxData = sess.quicSocket_->getMaxWritableOnStream(streamId);
+    auto* wh = sess.sm_.getBidiHandle(streamId).writeHandle;
+    if (!wh || !maxData) {
+      XLOG(DBG4) << "Write handle or stream not found for " << streamId;
+      sess.priorityQueue_->erase(id);
+      continue;
+    }
+    if (*maxData == 0) {
+      XLOG(DBG4) << "Blocked on QUIC flow control for stream " << streamId;
+      sess.priorityQueue_->erase(id);
+      sess.quicSocket_->notifyPendingWriteOnStream(streamId, &sess);
+      continue;
+    }
+    auto streamData = sess.sm_.dequeue(*wh, *maxData);
+    if (streamData.data || streamData.fin) {
+      auto res = sess.quicSocket_->writeChain(streamId,
+                                              std::move(streamData.data),
+                                              streamData.fin,
+                                              streamData.deliveryCallback);
+      if (res.hasError()) {
+        XLOG(ERR) << "Failed to write to stream " << streamId;
+        wh->resetStream(WebTransport::kInternalError);
+      }
+    }
+  }
+}
+
+void QuicWtSessionBase::StreamManagerCallback::onNewPeerStream(
+    uint64_t /*streamId*/) noexcept {
+}
+
+// -- StreamWriteCallback overrides --
+void QuicWtSessionBase::onStreamWriteReady(quic::StreamId streamId,
+                                           uint64_t /*maxToSend*/) noexcept {
+  auto* wh = sm_.getBidiHandle(streamId).writeHandle;
+  if (wh) {
+    priorityQueue_->insertOrUpdate(
+        quic::PriorityQueue::Identifier::fromStreamID(wh->getID()),
+        wh->getPriority());
+    smCb_.eventsAvailable();
+  }
+}
+
+void QuicWtSessionBase::onStreamWriteError(quic::StreamId streamId,
+                                           QuicError error) noexcept {
+  XLOG(ERR) << "Write error on stream " << streamId << ": " << error;
+  auto* wh = sm_.getBidiHandle(streamId).writeHandle;
+  if (wh) {
+    wh->resetStream(WebTransport::kInternalError);
+  }
+}
+
+folly::Expected<folly::Unit, WebTransport::ErrorCode>
+QuicWtSessionBase::closeSessionImpl(folly::Optional<uint32_t> error) {
+  XCHECK(quicSocket_);
+  sm_.shutdown({.err = error.value_or(0), .msg = "closeSession"});
+  quicSocket_->setConnectionCallback(nullptr);
+  quicSocket_->setDatagramCallback(nullptr);
+  return folly::unit;
+}
+
+void QuicWtSessionBase::onConnectionEndImpl(
+    const folly::Optional<QuicError>& error) {
+  XCHECK(quicSocket_);
+  XCHECK(wtHandler_);
+  folly::Optional<uint32_t> errCodeOpt;
+  if (error && error->code.asApplicationErrorCode()) {
+    errCodeOpt = *error->code.asApplicationErrorCode();
+  }
+  sm_.shutdown({.err = errCodeOpt.value_or(0), .msg = ""});
+  quicSocket_->setConnectionCallback(nullptr);
+  quicSocket_->setDatagramCallback(nullptr);
+  wtHandler_->onSessionEnd(errCodeOpt);
+}
+
+void QuicWtSessionBase::maybePauseIngress(
+    detail::WtStreamManager::WtReadHandle& handle) noexcept {
+  XCHECK(quicSocket_);
+  const auto id = handle.getID();
+  if (sm_.bufferedBytes(handle) >= kMaxWtIngressBuf) {
+    XLOG(DBG4) << "Pausing ingress for stream " << id;
+    auto res = quicSocket_->pauseRead(id);
+    if (res.hasError()) {
+      XLOG(ERR) << "Failed to pause read for stream " << id;
+      return;
+    }
+  }
+}
+
+void QuicWtSessionBase::maybeResumeIngress(
+    detail::WtStreamManager::WtReadHandle& handle) noexcept {
+  XCHECK(quicSocket_);
+  const auto id = handle.getID();
+  if (sm_.bufferedBytes(handle) < kMaxWtIngressBuf) {
+    XLOG(DBG4) << "Resuming ingress for stream " << id;
+    auto res = quicSocket_->resumeRead(id);
+    if (res.hasError()) {
+      XLOG(ERR) << "Failed to resume read for stream " << id;
+    }
+  }
+}
+
+/**
+ * QuicWtSession implementation below. Most of the functionality is shared with
+ * QuicWtSessionBase - however this derived class assumes ownership of all of
+ * QuicSocket's streams, so it owns and installs a
+ * QuicConnectionCallback. Similarly the destructor/::closeSession closes all
+ * streams on the underlying QuicSocket via QuicSocket::close.
+ */
+QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
+                             std::unique_ptr<WebTransportHandler> wtHandler)
+    : QuicWtSessionBase(
+          std::move(quicSocket), std::move(wtHandler), createQuicConfig()) {
+  quicSocket_->setConnectionCallback(&connCb_);
+}
+
+QuicWtSession::~QuicWtSession() {
+  closeSession(folly::none);
+}
+
+folly::Expected<folly::Unit, WebTransport::ErrorCode>
+QuicWtSession::closeSession(folly::Optional<uint32_t> error) noexcept {
+  quicSocket_->setConnectionCallback(nullptr);
+  quicSocket_->close(QuicError(quic::ApplicationErrorCode(error.value_or(0))));
+  QuicWtSessionBase::closeSession(error);
+  return folly::unit;
 }
 
 // -- QuicConnectionCallback overrides --
@@ -234,148 +405,6 @@ void QuicWtSession::QuicConnectionCallback::onUnidirectionalStreamsAvailable(
     uint64_t numStreamsAvailable) noexcept {
   if (numStreamsAvailable > 0) {
     sess.onUniStreamCreditAvail();
-  }
-}
-
-// -- QuicSocket::DatagramCallback overrides --
-void QuicWtSession::onDatagramsAvailable() noexcept {
-  XCHECK(quicSocket_);
-  auto result = quicSocket_->readDatagramBufs();
-  if (result.hasError()) {
-    XLOG(ERR) << "Got error while reading datagrams, err="
-              << toString(result.error());
-    closeSession(WebTransport::kInternalError);
-    return;
-  }
-  XLOG(DBG4) << "Received " << result.value().size() << " datagrams";
-  XCHECK(wtHandler_);
-  for (auto& datagram : result.value()) {
-    if (wtHandler_) {
-      wtHandler_->onDatagram(std::move(datagram));
-    }
-  }
-}
-
-// -- StreamManagerCallback overrides --
-void QuicWtSession::StreamManagerCallback::readReady(
-    detail::WtStreamManager::WtReadHandle& rh) noexcept {
-  sess.maybeResumeIngress(rh);
-}
-
-void QuicWtSession::StreamManagerCallback::eventsAvailable() noexcept {
-  XCHECK(sess.quicSocket_);
-  // process control events first
-  auto events = sess.sm_.moveEvents();
-  for (auto& event : events) {
-    std::visit(QuicWtEventVisitor{*sess.quicSocket_}, event);
-  }
-  // then process writable streams
-  while (!sess.priorityQueue_->empty()) {
-    auto id = sess.priorityQueue_->getNextScheduledID(std::nullopt);
-    if (!id.isStreamID()) { // skip datagrams
-      break;
-    }
-    auto streamId = id.asStreamID();
-    auto maxData = sess.quicSocket_->getMaxWritableOnStream(streamId);
-    auto* wh = sess.sm_.getBidiHandle(streamId).writeHandle;
-    if (!wh || !maxData) {
-      XLOG(DBG4) << "Write handle or stream not found for " << streamId;
-      sess.priorityQueue_->erase(id);
-      continue;
-    }
-    if (*maxData == 0) {
-      XLOG(DBG4) << "Blocked on QUIC flow control for stream " << streamId;
-      sess.priorityQueue_->erase(id);
-      sess.quicSocket_->notifyPendingWriteOnStream(streamId, &sess);
-      continue;
-    }
-    auto streamData = sess.sm_.dequeue(*wh, *maxData);
-    if (streamData.data || streamData.fin) {
-      auto res = sess.quicSocket_->writeChain(streamId,
-                                              std::move(streamData.data),
-                                              streamData.fin,
-                                              streamData.deliveryCallback);
-      if (res.hasError()) {
-        XLOG(ERR) << "Failed to write to stream " << streamId;
-        wh->resetStream(WebTransport::kInternalError);
-      }
-    }
-  }
-}
-
-void QuicWtSession::StreamManagerCallback::onNewPeerStream(
-    uint64_t /*streamId*/) noexcept {
-}
-
-// -- StreamWriteCallback overrides --
-void QuicWtSession::onStreamWriteReady(quic::StreamId streamId,
-                                       uint64_t /*maxToSend*/) noexcept {
-  auto* wh = sm_.getBidiHandle(streamId).writeHandle;
-  if (wh) {
-    priorityQueue_->insertOrUpdate(
-        quic::PriorityQueue::Identifier::fromStreamID(wh->getID()),
-        wh->getPriority());
-    smCb_.eventsAvailable();
-  }
-}
-
-void QuicWtSession::onStreamWriteError(quic::StreamId streamId,
-                                       QuicError error) noexcept {
-  XLOG(ERR) << "Write error on stream " << streamId << ": " << error;
-  auto* wh = sm_.getBidiHandle(streamId).writeHandle;
-  if (wh) {
-    wh->resetStream(WebTransport::kInternalError);
-  }
-}
-
-folly::Expected<folly::Unit, WebTransport::ErrorCode>
-QuicWtSession::closeSessionImpl(folly::Optional<uint32_t> error) {
-  XCHECK(quicSocket_);
-  sm_.shutdown({.err = error.value_or(0), .msg = "closeSession"});
-  quicSocket_->close(QuicError(quic::ApplicationErrorCode(error.value_or(0))));
-  quicSocket_->setConnectionCallback(nullptr);
-  quicSocket_->setDatagramCallback(nullptr);
-  return folly::unit;
-}
-
-void QuicWtSession::onConnectionEndImpl(
-    const folly::Optional<QuicError>& error) {
-  XCHECK(quicSocket_);
-  XCHECK(wtHandler_);
-  folly::Optional<uint32_t> errCodeOpt;
-  if (error && error->code.asApplicationErrorCode()) {
-    errCodeOpt = *error->code.asApplicationErrorCode();
-  }
-  sm_.shutdown({.err = errCodeOpt.value_or(0), .msg = ""});
-  quicSocket_->setConnectionCallback(nullptr);
-  quicSocket_->setDatagramCallback(nullptr);
-  wtHandler_->onSessionEnd(errCodeOpt);
-}
-
-void QuicWtSession::maybePauseIngress(
-    detail::WtStreamManager::WtReadHandle& handle) noexcept {
-  XCHECK(quicSocket_);
-  const auto id = handle.getID();
-  if (sm_.bufferedBytes(handle) >= kMaxWtIngressBuf) {
-    XLOG(DBG4) << "Pausing ingress for stream " << id;
-    auto res = quicSocket_->pauseRead(id);
-    if (res.hasError()) {
-      XLOG(ERR) << "Failed to pause read for stream " << id;
-      return;
-    }
-  }
-}
-
-void QuicWtSession::maybeResumeIngress(
-    detail::WtStreamManager::WtReadHandle& handle) noexcept {
-  XCHECK(quicSocket_);
-  const auto id = handle.getID();
-  if (sm_.bufferedBytes(handle) < kMaxWtIngressBuf) {
-    XLOG(DBG4) << "Resuming ingress for stream " << id;
-    auto res = quicSocket_->resumeRead(id);
-    if (res.hasError()) {
-      XLOG(ERR) << "Failed to resume read for stream " << id;
-    }
   }
 }
 
