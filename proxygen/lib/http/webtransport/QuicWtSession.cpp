@@ -106,7 +106,7 @@ QuicWtSession::createBidiStream() noexcept {
   auto bidiHandle = sm_.getOrCreateBidiHandle(*id);
   XCHECK(bidiHandle.readHandle && bidiHandle.writeHandle);
   sm_.setReadCb(*bidiHandle.readHandle, this);
-  quicSocket_->setReadCallback(*id, this);
+  quicSocket_->setReadCallback(*id, &readCb_);
   return bidiHandle;
 }
 
@@ -146,38 +146,41 @@ QuicWtSession::closeSession(folly::Optional<uint32_t> error) noexcept {
   return closeSessionImpl(std::move(error));
 }
 
-// -- QuicSocket::ReadCallback overrides --
-void QuicWtSession::readAvailable(quic::StreamId id) noexcept {
-  XCHECK(quicSocket_);
-  auto* rh = sm_.getBidiHandle(id).readHandle;
+// -- QuicReadCallback overrides --
+void QuicWtSession::QuicReadCallback::readAvailable(StreamId id) noexcept {
+  XCHECK(sess.quicSocket_);
+  auto& sm = sess.sm_;
+  auto& quicSocket = sess.quicSocket_;
+
+  auto* rh = sm.getBidiHandle(id).readHandle;
   if (!rh) {
     XLOG(ERR) << "Read handle not found for stream " << id;
     return;
   }
   auto canRead =
-      kMaxWtIngressBuf - std::min(sm_.bufferedBytes(*rh), kMaxWtIngressBuf);
+      kMaxWtIngressBuf - std::min(sm.bufferedBytes(*rh), kMaxWtIngressBuf);
   if (canRead == 0) {
-    maybePauseIngress(*rh);
+    sess.maybePauseIngress(*rh);
     return;
   }
-  auto readRes = quicSocket_->read(id, canRead);
+  auto readRes = quicSocket->read(id, canRead);
   if (readRes.hasError()) {
     XLOG(ERR) << "Read error for stream " << id;
     return;
   }
   auto& [data, eof] = readRes.value();
-  auto res = sm_.enqueue(
+  auto res = sm.enqueue(
       *rh, WebTransport::StreamData{.data = std::move(data), .fin = eof});
   XCHECK_NE(res, detail::WtStreamManager::Result::Fail);
   if (!eof) { // ::enqueue w/ eof=true may deallocate rh
-    maybePauseIngress(*rh);
+    sess.maybePauseIngress(*rh);
   }
 }
 
-void QuicWtSession::readError(quic::StreamId id,
-                              quic::QuicError error) noexcept {
+void QuicWtSession::QuicReadCallback::readError(StreamId id,
+                                                QuicError error) noexcept {
   XLOG(ERR) << "Read error on stream " << id << ": " << error;
-  sm_.onResetStream(detail::WtStreamManager::ResetStream{
+  sess.sm_.onResetStream(detail::WtStreamManager::ResetStream{
       id, *error.code.asApplicationErrorCode()});
 }
 
@@ -187,7 +190,7 @@ void QuicWtSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
   auto bidiHandle = sm_.getOrCreateBidiHandle(id);
   XCHECK(bidiHandle.readHandle && bidiHandle.writeHandle);
   sm_.setReadCb(*bidiHandle.readHandle, this);
-  quicSocket_->setReadCallback(id, this);
+  quicSocket_->setReadCallback(id, &readCb_);
   wtHandler_->onNewBidiStream(bidiHandle);
 }
 
@@ -195,7 +198,7 @@ void QuicWtSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
   XCHECK(wtHandler_);
   auto* rh = CHECK_NOTNULL(sm_.getOrCreateIngressHandle(id));
   sm_.setReadCb(*rh, this);
-  quicSocket_->setReadCallback(id, this);
+  quicSocket_->setReadCallback(id, &readCb_);
   wtHandler_->onNewUniStream(rh);
 }
 
@@ -208,11 +211,11 @@ void QuicWtSession::onConnectionEnd() noexcept {
   onConnectionEndImpl(folly::none);
 }
 
-void QuicWtSession::onConnectionEnd(quic::QuicError error) noexcept {
+void QuicWtSession::onConnectionEnd(QuicError error) noexcept {
   onConnectionEndImpl(error);
 }
 
-void QuicWtSession::onConnectionError(quic::QuicError error) noexcept {
+void QuicWtSession::onConnectionError(QuicError error) noexcept {
   onConnectionEndImpl(error);
 }
 
@@ -314,7 +317,7 @@ void QuicWtSession::onStreamWriteReady(quic::StreamId streamId,
 }
 
 void QuicWtSession::onStreamWriteError(quic::StreamId streamId,
-                                       quic::QuicError error) noexcept {
+                                       QuicError error) noexcept {
   XLOG(ERR) << "Write error on stream " << streamId << ": " << error;
   auto* wh = sm_.getBidiHandle(streamId).writeHandle;
   if (wh) {
@@ -326,15 +329,14 @@ folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWtSession::closeSessionImpl(folly::Optional<uint32_t> error) {
   XCHECK(quicSocket_);
   sm_.shutdown({.err = error.value_or(0), .msg = "closeSession"});
-  quicSocket_->close(
-      quic::QuicError(quic::ApplicationErrorCode(error.value_or(0))));
+  quicSocket_->close(QuicError(quic::ApplicationErrorCode(error.value_or(0))));
   quicSocket_->setConnectionCallback(nullptr);
   quicSocket_->setDatagramCallback(nullptr);
   return folly::unit;
 }
 
 void QuicWtSession::onConnectionEndImpl(
-    const folly::Optional<quic::QuicError>& error) {
+    const folly::Optional<QuicError>& error) {
   XCHECK(quicSocket_);
   XCHECK(wtHandler_);
   folly::Optional<uint32_t> errCodeOpt;

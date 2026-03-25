@@ -17,18 +17,21 @@
 
 namespace proxygen {
 
+using QuicSocket = quic::QuicSocket;
+using StreamId = quic::StreamId;
+using QuicError = quic::QuicError;
+
 class QuicWtSession
     : public detail::WtSessionBase
-    , private quic::QuicSocket::ReadCallback
-    , private quic::QuicSocket::ConnectionCallback
-    , private quic::QuicSocket::DatagramCallback
+    , private QuicSocket::ConnectionCallback
+    , private QuicSocket::DatagramCallback
     , private quic::StreamWriteCallback
     , private detail::WtStreamManager::ReadCallback
     , public detail::WtStreamManager::EgressCallback
     , public detail::WtStreamManager::IngressCallback {
 
  public:
-  explicit QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
+  explicit QuicWtSession(std::shared_ptr<QuicSocket> quicSocket,
                          std::unique_ptr<WebTransportHandler> wtHandler);
 
   ~QuicWtSession() override;
@@ -67,19 +70,14 @@ class QuicWtSession
       folly::Optional<uint32_t> error) noexcept override;
 
  private:
-  // -- quic::QuicSocket::ReadCallback overrides --
-  void readAvailable(quic::StreamId streamId) noexcept override;
-  void readError(quic::StreamId streamId,
-                 quic::QuicError error) noexcept override;
-
   // -- QuicSocket::ConnectionCallback overrides --
-  void onNewBidirectionalStream(quic::StreamId id) noexcept override;
-  void onNewUnidirectionalStream(quic::StreamId id) noexcept override;
-  void onStopSending(quic::StreamId id,
+  void onNewBidirectionalStream(StreamId id) noexcept override;
+  void onNewUnidirectionalStream(StreamId id) noexcept override;
+  void onStopSending(StreamId id,
                      quic::ApplicationErrorCode error) noexcept override;
   void onConnectionEnd() noexcept override;
-  void onConnectionEnd(quic::QuicError /* error */) noexcept override;
-  void onConnectionError(quic::QuicError code) noexcept override;
+  void onConnectionEnd(QuicError /* error */) noexcept override;
+  void onConnectionError(QuicError code) noexcept override;
   void onBidirectionalStreamsAvailable(
       uint64_t /*numStreamsAvailable*/) noexcept override;
   void onUnidirectionalStreamsAvailable(
@@ -89,10 +87,8 @@ class QuicWtSession
   void onDatagramsAvailable() noexcept override;
 
   // -- StreamWriteCallback overrides --
-  void onStreamWriteReady(quic::StreamId id,
-                          uint64_t maxToSend) noexcept override;
-  void onStreamWriteError(quic::StreamId id,
-                          quic::QuicError error) noexcept override;
+  void onStreamWriteReady(StreamId id, uint64_t maxToSend) noexcept override;
+  void onStreamWriteError(StreamId id, QuicError error) noexcept override;
 
   // -- WtStreamManager::ReadCallback overrides --
   void readReady(detail::WtStreamManager::WtReadHandle& rh) noexcept override;
@@ -105,7 +101,7 @@ class QuicWtSession
 
   folly::Expected<folly::Unit, ErrorCode> closeSessionImpl(
       folly::Optional<uint32_t> error);
-  void onConnectionEndImpl(const folly::Optional<quic::QuicError>& error);
+  void onConnectionEndImpl(const folly::Optional<QuicError>& error);
   void maybePauseIngress(
       detail::WtStreamManager::WtReadHandle& handle) noexcept;
   void maybeResumeIngress(
@@ -114,6 +110,15 @@ class QuicWtSession
   std::shared_ptr<quic::QuicSocket> quicSocket_{nullptr};
   std::unique_ptr<WebTransportHandler> wtHandler_;
   std::unique_ptr<quic::HTTPPriorityQueue> priorityQueue_;
+
+  struct QuicReadCallback : public quic::QuicSocket::ReadCallback {
+    QuicWtSession& sess;
+    explicit QuicReadCallback(QuicWtSession& session) : sess(session) {
+    }
+    void readAvailable(StreamId streamId) noexcept override;
+    void readError(StreamId streamId, QuicError error) noexcept override;
+  } readCb_{*this};
+
   detail::WtStreamManager sm_;
 };
 
