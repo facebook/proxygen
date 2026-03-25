@@ -31,14 +31,14 @@ WtStreamManager::WtConfig createConfig() {
 }
 
 struct QuicWtEventVisitor {
-  std::shared_ptr<quic::QuicSocket>& quicSocket;
+  quic::QuicSocket& quicSocket;
 
   void operator()(const WtStreamManager::ResetStream& ev) const {
-    quicSocket->resetStream(ev.streamId, ev.err);
+    quicSocket.resetStream(ev.streamId, ev.err);
   }
 
   void operator()(const WtStreamManager::StopSending& ev) const {
-    quicSocket->setReadCallback(ev.streamId, nullptr, ev.err);
+    quicSocket.setReadCallback(ev.streamId, nullptr, ev.err);
   }
 
   void operator()(const WtStreamManager::CloseSession& /*ev*/) const {
@@ -260,7 +260,7 @@ void QuicWtSession::eventsAvailable() noexcept {
   // process control events first
   auto events = sm_.moveEvents();
   for (auto& event : events) {
-    std::visit(QuicWtEventVisitor{quicSocket_}, event);
+    std::visit(QuicWtEventVisitor{*quicSocket_}, event);
   }
   // then process writable streams
   while (!priorityQueue_->empty()) {
