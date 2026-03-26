@@ -18,6 +18,7 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <quic/server/QuicHandshakeSocketHolder.h>
 #include <quic/server/QuicServer.h>
+#include <quic/state/EarlyDataAppParamsHandler.h>
 
 namespace proxygen {
 class HQSession;
@@ -169,6 +170,10 @@ class HQServerTransportFactory
     }
   }
 
+  void setEarlyDataAppParamsHandler(quic::EarlyDataAppParamsHandler* handler) {
+    earlyDataAppParamsHandler_ = handler;
+  }
+
  private:
   void onQuicTransportReady(
       std::shared_ptr<quic::QuicSocket> quicSocket) override;
@@ -185,6 +190,7 @@ class HQServerTransportFactory
   std::function<void(proxygen::HQSession*)> onTransportReadyFn_;
   folly::EventBaseLocal<wangle::ConnectionManager::UniquePtr> connMgr_;
   std::map<std::string, AlpnHandlerFn> alpnHandlers_;
+  quic::EarlyDataAppParamsHandler* earlyDataAppParamsHandler_{nullptr};
 };
 
 } // namespace quic::samples

@@ -168,6 +168,9 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
     transport->setQLogger(std::make_shared<HQLoggerHelper>(
         params_.qLoggerPath, params_.prettyJson, quic::VantagePoint::Server));
   }
+  if (earlyDataAppParamsHandler_) {
+    transport->setEarlyDataAppParamsHandler(earlyDataAppParamsHandler_);
+  }
   return transport;
 }
 

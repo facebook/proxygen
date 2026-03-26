@@ -49,6 +49,7 @@ proxygen_add_library(proxygen_hq_server
     mvfst::mvfst_fizz_client_handshake_psk_cache
     mvfst::mvfst_server_quic_handshake_socket_holder
     mvfst::mvfst_server_server
+    mvfst::mvfst_state_early_data_app_params_handler
     mvfst::mvfst_state_transport_settings
     wangle::wangle_ssl_ssl_config
     Folly::folly_network_address
