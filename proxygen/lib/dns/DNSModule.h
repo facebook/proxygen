@@ -38,7 +38,10 @@ class DNSModule {
     auto resolver =
         CachingDNSResolver::newResolver(DNSResolver::UniquePtr(cares.release()),
                                         cacheMaxSize_,
-                                        cacheClearSize_);
+                                        cacheClearSize_,
+                                        staleCacheSizeMultiplier_,
+                                        staleCacheTTLMin_,
+                                        staleCacheTTLScale_);
 
     return DNSResolver::UniquePtr(resolver.release());
   }
