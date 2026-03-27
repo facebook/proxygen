@@ -118,6 +118,9 @@ struct WtStreamManager {
     uint64_t peerMaxConnData{kDefaultFc};
     uint64_t peerMaxStreamDataBidi{kDefaultFc};
     uint64_t peerMaxStreamDataUni{kDefaultFc};
+
+    // move to a new struct options?
+    bool trackClosedStreams{true};
   };
 
   WtStreamManager(WtDir dir,
@@ -322,12 +325,14 @@ struct WtStreamManager {
   [[nodiscard]] bool canCreateBidi() const noexcept;
 
  private:
-  [[nodiscard]] bool isSelf(uint64_t streamId) const;
-  [[nodiscard]] bool isPeer(uint64_t streamId) const;
-  [[nodiscard]] bool isEgress(uint64_t streamId) const;
-  [[nodiscard]] bool isIngress(uint64_t streamId) const;
-  [[nodiscard]] bool isUni(uint64_t streamId) const;
-  [[nodiscard]] bool isBidi(uint64_t streamId) const;
+  [[nodiscard]] bool isSelf(uint64_t streamId) const noexcept;
+  [[nodiscard]] bool isPeer(uint64_t streamId) const noexcept;
+  [[nodiscard]] bool isEgress(uint64_t streamId) const noexcept;
+  [[nodiscard]] bool isIngress(uint64_t streamId) const noexcept;
+  [[nodiscard]] bool isUni(uint64_t streamId) const noexcept;
+  [[nodiscard]] bool isBidi(uint64_t streamId) const noexcept;
+  [[nodiscard]] bool isClosed(uint64_t streamId) const noexcept;
+  void onClosed(uint64_t streamId) const noexcept;
 
   void enqueueEvent(Event&& ev) noexcept;
   void onStreamWritable(WtWriteHandle& wh) noexcept;
@@ -387,6 +392,9 @@ struct WtStreamManager {
    private:
     Type maxStreams_;
   } maxStreams_;
+
+  struct ClosedStreams;
+  std::unique_ptr<ClosedStreams> closedStreams_;
 
   /**
    * Priority queue wrapper for scheduling stream egress.

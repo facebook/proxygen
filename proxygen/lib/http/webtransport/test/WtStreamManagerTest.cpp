@@ -1230,4 +1230,40 @@ TEST(WtStreamManager, ByteEventCancellation) {
   h->resetStream(/*error=*/0);
 }
 
+TEST(WtStreamManager, CannotOpenPreviouslyClosedStreams) {
+  WtConfig config{.peerMaxStreamsUni = 100};
+  WtSmEgressCb egressCb;
+  WtSmIngressCb ingressCb;
+  auto priorityQueue = std::make_unique<quic::HTTPPriorityQueue>();
+  WtStreamManager streamManager{
+      detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
+
+  // create stream 2 then immediately dealloc
+  auto* handle = CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(2));
+  handle->resetStream(0);
+  // attempt to re-create stream id 2 should fail
+  handle = streamManager.getOrCreateEgressHandle(2);
+  EXPECT_EQ(handle, nullptr);
+
+  // create stream 10 then immediately dealloc
+  handle = CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(10));
+  handle->resetStream(0);
+  // attempt to re-create stream id 10 should fail
+  handle = streamManager.getOrCreateEgressHandle(10);
+  EXPECT_EQ(handle, nullptr);
+
+  // create stream 6 then immediately dealloc
+  handle = CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(6));
+  handle->resetStream(0);
+  // attempt to re-create stream id 6 should fail
+  handle = streamManager.getOrCreateEgressHandle(6);
+  EXPECT_EQ(handle, nullptr);
+
+  // all streams should still fail
+  for (auto id : {2, 6, 10}) {
+    handle = streamManager.getOrCreateEgressHandle(id);
+    EXPECT_EQ(handle, nullptr);
+  }
+}
+
 } // namespace proxygen::coro::test

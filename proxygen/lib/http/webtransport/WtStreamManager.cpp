@@ -65,6 +65,7 @@
 
 #include <proxygen/lib/http/webtransport/WtStreamManager.h>
 
+#include <deque>
 #include <folly/logging/xlog.h>
 
 // fwd decls for Accessor
@@ -344,28 +345,31 @@ WtStreamManager::WtStreamManager(WtDir dir,
       egressCb_(egressCb),
       ingressCb_(ingressCb) {
   XCHECK(dir <= WtDir::Server) << "invalid dir";
+  if (config.trackClosedStreams) {
+    closedStreams_ = std::make_unique<ClosedStreams>();
+  }
 }
 
 WtStreamManager::~WtStreamManager() noexcept = default;
 
-bool WtStreamManager::isSelf(uint64_t streamId) const {
+bool WtStreamManager::isSelf(uint64_t streamId) const noexcept {
   return (streamId & 0x01) == uint8_t(dir_);
 }
-bool WtStreamManager::isPeer(uint64_t streamId) const {
+bool WtStreamManager::isPeer(uint64_t streamId) const noexcept {
   return !isSelf(streamId);
 }
 
-bool WtStreamManager::isUni(uint64_t streamId) const {
+bool WtStreamManager::isUni(uint64_t streamId) const noexcept {
   return (streamId & 0x02) != 0;
 }
-bool WtStreamManager::isBidi(uint64_t streamId) const {
+bool WtStreamManager::isBidi(uint64_t streamId) const noexcept {
   return !isUni(streamId);
 }
 
-bool WtStreamManager::isIngress(uint64_t streamId) const {
+bool WtStreamManager::isIngress(uint64_t streamId) const noexcept {
   return isBidi(streamId) || isPeer(streamId);
 }
-bool WtStreamManager::isEgress(uint64_t streamId) const {
+bool WtStreamManager::isEgress(uint64_t streamId) const noexcept {
   return isBidi(streamId) || isSelf(streamId);
 }
 
@@ -450,10 +454,12 @@ WtStreamManager::BidiHandle* WtStreamManager::getOrCreateBidiHandleImpl(
   if (it != streams_.end()) {
     return it->second.get();
   }
-  // prevent new streams if shutdown or either peer/self limit saturated
-  if (streamLimitExceeded(streamId) || shutdown_) {
+  // cannot create if shutdown, closed, or either peer/self limit saturated
+  if (streamLimitExceeded(streamId) || shutdown_ || isClosed(streamId)) {
     return nullptr;
   }
+
+  XLOG(DBG8) << "creating id=" << streamId;
   streamsCounter_.getCounter(streamId).opened++;
   it = streams_.emplace(streamId, BidiHandle::make(streamId, *this)).first;
   return it->second.get();
@@ -676,6 +682,7 @@ void WtStreamManager::erase(uint64_t streamId) noexcept {
   if (!erased) { // may not be in map if invoked via ::shutdown
     return;
   }
+  onClosed(streamId);
   auto& counter = streamsCounter_.getCounter(streamId);
   const uint64_t opened = counter.opened;
   const uint64_t closed = ++counter.closed;
@@ -720,6 +727,87 @@ WtStreamManager::WtWriteHandle* WtStreamManager::nextWritable() const noexcept {
                  wh->bufferedSendData_.onlyFinPending()))
              ? wh
              : nullptr;
+}
+
+/**
+ * Tracks closed streams to prevent attempts at creating streams that have
+ * already been closed. Some transports (e.g. quic) already provide this
+ * facility on our behalf, but for http/2 and/or QMux we need to track closed
+ * streams ourselves.
+ *
+ * This is a simple implementation of an IntervalSet. We have four deques per
+ * stream type (i.e. client bidi, client uni, server bidi, server uni). Based on
+ * the stream being closed, we insert it into its respective deque.
+ *
+ * NOTE:
+ *  - maybe switch to quic::IntervalSet?
+ *  - large-ish size overhead due to four std::deques
+ */
+struct WtStreamManager::ClosedStreams {
+  struct Interval {
+    int64_t start{-1}; // inclusive
+    int64_t end{-1};   // inclusive
+
+    [[nodiscard]] bool within(int64_t value) const noexcept {
+      return start <= value && value <= end;
+    }
+
+    bool operator<(const Interval& other) const noexcept {
+      return start < other.start;
+    }
+  };
+
+  ClosedStreams() noexcept {
+    // insert dummy head ({-inf, -inf}) & tail ({inf, inf}) to remove edge-cases
+    // and simplify ::add & ::contains
+    constexpr int64_t kMin = std::numeric_limits<int64_t>::min();
+    constexpr int64_t kMax = std::numeric_limits<int64_t>::max();
+    for (auto& deque : closedStreams) {
+      deque.push_front({kMin, kMin});
+      deque.push_back({kMax, kMax});
+    }
+  }
+
+  void add(uint64_t streamId) noexcept {
+    auto& deque = closedStreams[streamType(streamId)];
+    const int64_t id = streamId >> 2;
+    Interval interval{id, id};
+    auto it = std::lower_bound(deque.begin(), deque.end(), interval);
+    XCHECK_NE(it, deque.end());
+    it = deque.insert(it, interval); // insert after
+    // potentially merge std::prev(), it, & std::next()
+    for (int8_t idx = 0; idx < 2; idx++) {
+      auto prev = std::prev(it);
+      const bool adjacent = prev->end == it->start - 1;
+      if (adjacent) {
+        prev->end = it->end;
+        it = std::prev(deque.erase(it));
+      }
+      it++;
+    }
+  }
+
+  [[nodiscard]] bool contains(uint64_t streamId) const noexcept {
+    const auto& deque = closedStreams[streamType(streamId)];
+    const int64_t id = streamId >> 2;
+    Interval interval{.start = id, .end = id};
+    auto it =
+        std::prev(std::upper_bound(deque.cbegin(), deque.cend(), interval));
+    XCHECK_NE(it, deque.end());
+    return it->within(id);
+  }
+
+  std::array<std::deque<Interval>, StreamType::Max> closedStreams;
+};
+
+bool WtStreamManager::isClosed(uint64_t streamId) const noexcept {
+  return closedStreams_ ? closedStreams_->contains(streamId) : false;
+}
+
+void WtStreamManager::onClosed(uint64_t streamId) const noexcept {
+  if (closedStreams_) {
+    closedStreams_->add(streamId);
+  }
 }
 
 } // namespace proxygen::detail
