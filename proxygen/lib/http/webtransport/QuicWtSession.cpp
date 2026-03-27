@@ -78,7 +78,6 @@ QuicWtSessionBase::QuicWtSessionBase(
           smCb_,
           smCb_,
           *priorityQueue_} {
-  quicSocket_->setDatagramCallback(this);
 }
 
 QuicWtSessionBase::~QuicWtSessionBase() {
@@ -186,25 +185,6 @@ void QuicWtSessionBase::QuicReadCallback::readError(StreamId id,
   XLOG(ERR) << "Read error on stream " << id << ": " << error;
   sess.sm_.onResetStream(detail::WtStreamManager::ResetStream{
       id, *error.code.asApplicationErrorCode()});
-}
-
-// -- QuicSocket::DatagramCallback overrides --
-void QuicWtSessionBase::onDatagramsAvailable() noexcept {
-  XCHECK(quicSocket_);
-  auto result = quicSocket_->readDatagramBufs();
-  if (result.hasError()) {
-    XLOG(ERR) << "Got error while reading datagrams, err="
-              << toString(result.error());
-    closeSession(WebTransport::kInternalError);
-    return;
-  }
-  XLOG(DBG4) << "Received " << result.value().size() << " datagrams";
-  XCHECK(wtHandler_);
-  for (auto& datagram : result.value()) {
-    if (wtHandler_) {
-      wtHandler_->onDatagram(std::move(datagram));
-    }
-  }
 }
 
 // -- StreamManagerCallback overrides --
@@ -341,6 +321,7 @@ QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
     : QuicWtSessionBase(
           std::move(quicSocket), std::move(wtHandler), createQuicConfig()) {
   quicSocket_->setConnectionCallback(&connCb_);
+  quicSocket_->setDatagramCallback(&dgramCb_);
 }
 
 QuicWtSession::~QuicWtSession() {
@@ -405,6 +386,27 @@ void QuicWtSession::QuicConnectionCallback::onUnidirectionalStreamsAvailable(
     uint64_t numStreamsAvailable) noexcept {
   if (numStreamsAvailable > 0) {
     sess.onUniStreamCreditAvail();
+  }
+}
+
+void QuicWtSession::QuicDgramCallback::onDatagramsAvailable() noexcept {
+  XCHECK(sess.quicSocket_);
+  auto& quicSocket = sess.quicSocket_;
+  auto& wtHandler = sess.wtHandler_;
+
+  auto result = quicSocket->readDatagramBufs();
+  if (result.hasError()) {
+    XLOG(ERR) << __func__ << "err=" << toString(result.error());
+    sess.closeSession(WebTransport::kInternalError);
+    return;
+  }
+
+  XLOG(DBG4) << "rx nDatagrams=" << result->size();
+  XCHECK(wtHandler);
+  for (auto& datagram : result.value()) {
+    if (wtHandler) {
+      wtHandler->onDatagram(std::move(datagram));
+    }
   }
 }
 

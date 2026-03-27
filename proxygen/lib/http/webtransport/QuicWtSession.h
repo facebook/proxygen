@@ -39,7 +39,6 @@ using QuicError = quic::QuicError;
 
 class QuicWtSessionBase
     : public detail::WtSessionBase
-    , private QuicSocket::DatagramCallback
     , private quic::StreamWriteCallback {
  public:
   [[nodiscard]] quic::TransportInfo getTransportInfo() const noexcept override {
@@ -102,9 +101,6 @@ class QuicWtSessionBase
   detail::WtStreamManager sm_;
 
  private:
-  // -- QuicSocket::DatagramCallback overrides --
-  void onDatagramsAvailable() noexcept override;
-
   // -- StreamWriteCallback overrides --
   void onStreamWriteReady(StreamId id, uint64_t maxToSend) noexcept override;
   void onStreamWriteError(StreamId id, QuicError error) noexcept override;
@@ -143,6 +139,13 @@ class QuicWtSession final : public QuicWtSessionBase {
     void onUnidirectionalStreamsAvailable(
         uint64_t numStreamsAvailable) noexcept override;
   } connCb_{*this};
+
+  struct QuicDgramCallback : public QuicSocket::DatagramCallback {
+    QuicWtSession& sess;
+    explicit QuicDgramCallback(QuicWtSession& session) : sess(session) {
+    }
+    void onDatagramsAvailable() noexcept override;
+  } dgramCb_{*this};
 };
 
 } // namespace proxygen
