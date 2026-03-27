@@ -43,8 +43,8 @@ folly::coro::Task<HTTPBodyEvent> RateLimitFilter::readAndUpdateBytesCount(
     // update bytes count in this case.
     co_return readEvent;
   }
-  if (readEvent->eventType == HTTPBodyEvent::EventType::BODY) {
-    readBytesCount_ += readEvent->event.body.chainLength();
+  if (auto* body = asBodyEv(*readEvent)) {
+    readBytesCount_ += body->chainLength();
   }
   co_return readEvent;
 }

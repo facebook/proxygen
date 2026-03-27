@@ -71,11 +71,10 @@ folly::coro::Task<HTTPBodyEvent> CompressionFilter::readBodyEvent(
   }
 
   // try to compress body, validate success
-  if (bodyEvent->eventType == HTTPBodyEvent::BODY) {
+  if (auto* body = asBodyEv(*bodyEvent)) {
     CHECK(compressor_);
     folly::IOBuf emptyBuf{};
-    auto* pBuf = bodyEvent->event.body.empty() ? &emptyBuf
-                                               : bodyEvent->event.body.front();
+    auto* pBuf = bodyEvent->event.body.empty() ? &emptyBuf : body->front();
     auto compressed = compressor_->compress(pBuf, bodyEvent->eom);
     if (compressor_->hasError()) {
       co_yield co_error(CompressionFailedError);

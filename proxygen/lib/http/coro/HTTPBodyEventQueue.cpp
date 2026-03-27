@@ -49,10 +49,8 @@ HTTPBodyEventQueue::readBodyEvent(uint32_t max) {
   if (bodyEvent.eventType == HTTPBodyEvent::SUSPEND) {
     co_return ReadBodyResult({.resume = std::move(bodyEvent.event.resume)});
   }
-  if (bodyEvent.eventType == HTTPBodyEvent::BODY &&
-      !bodyEvent.event.body.empty()) {
-    callback_.onEgressBytesBuffered(
-        static_cast<int64_t>(bodyEvent.event.body.chainLength()));
+  if (auto* body = asBodyEv(bodyEvent); body && !body->empty()) {
+    callback_.onEgressBytesBuffered(static_cast<int64_t>(body->chainLength()));
   }
   co_return ReadBodyResult({
       .resume = folly::none,
@@ -98,8 +96,8 @@ HTTPBodyEvent HTTPBodyEventQueue::dequeueBodyEvent(uint32_t max) {
   XCHECK(!bodyQueue_.empty());
   auto bodyEvent = std::move(bodyQueue_.front());
   bodyQueue_.pop_front();
-  if (bodyEvent.eventType == HTTPBodyEvent::BODY) {
-    auto length = bodyEvent.event.body.chainLength();
+  if (auto* body = asBodyEv(bodyEvent)) {
+    auto length = body->chainLength();
     auto toReturn = std::min(max, uint32_t(length));
     XCHECK_GE(bufferedBodyBytes_, toReturn);
     bool wasOverLimit = bufferedBodyBytes_ >= limit_;
@@ -109,7 +107,7 @@ HTTPBodyEvent HTTPBodyEventQueue::dequeueBodyEvent(uint32_t max) {
     }
     if (toReturn < length) {
       // only return part of it, split the buffer and re-push it to the front
-      auto resultBuf = bodyEvent.event.body.splitAtMost(toReturn);
+      auto resultBuf = body->splitAtMost(toReturn);
       bodyQueue_.emplace_front(std::move(bodyEvent));
       return {std::move(resultBuf), false};
     }
@@ -141,8 +139,8 @@ bool HTTPBodyEventQueue::processBodyEvent(HTTPBodyEvent&& bodyEvent) {
   }
   bool eom = bodyEvent.eom;
   size_t addedBodyLength = 0;
-  if (bodyEvent.eventType == HTTPBodyEvent::BODY) {
-    addedBodyLength = bodyEvent.event.body.chainLength();
+  if (auto* body = asBodyEv(bodyEvent)) {
+    addedBodyLength = body->chainLength();
     bufferedBodyBytes_ += addedBodyLength;
     observedBodyLength_ += addedBodyLength;
     if (!bodyQueue_.empty() &&
@@ -150,7 +148,7 @@ bool HTTPBodyEventQueue::processBodyEvent(HTTPBodyEvent&& bodyEvent) {
         bodyQueue_.back().byteEventRegistrations.empty()) {
       // Coalesce this bodyEvent into the last one in queue
       auto& back = bodyQueue_.back();
-      back.event.body.append(bodyEvent.event.body.move());
+      back.event.body.append(body->move());
       back.eom = eom;
       back.byteEventRegistrations = std::move(bodyEvent.byteEventRegistrations);
     } else {

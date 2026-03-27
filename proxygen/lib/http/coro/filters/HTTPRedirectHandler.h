@@ -74,8 +74,8 @@ class HTTPRedirectHandler {
     }
     folly::coro::Task<HTTPBodyEvent> readBodyEvent(uint32_t max) override {
       auto bodyEvent = co_await readBodyEventImpl(max);
-      if (bodyEvent.eventType == HTTPBodyEvent::BODY) {
-        handler_.requestBody_.append(bodyEvent.event.body.clone());
+      if (auto* body = asBodyEv(bodyEvent)) {
+        handler_.requestBody_.append(body->clone());
       }
       co_return bodyEvent;
     }

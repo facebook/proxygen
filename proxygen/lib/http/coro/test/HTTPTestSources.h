@@ -53,8 +53,8 @@ struct ErrorSource : public HTTPSourceFilter {
   folly::coro::Task<HTTPBodyEvent> readBodyEvent(uint32_t max) override {
     auto bodyEvent = co_await readBodyEventImpl(
         std::min(static_cast<uint32_t>(limit_), max));
-    if (bodyEvent.eventType == HTTPBodyEvent::EventType::BODY) {
-      bytesTillTheError_ -= bodyEvent.event.body.chainLength();
+    if (auto* body = asBodyEv(bodyEvent)) {
+      bytesTillTheError_ -= body->chainLength();
     }
 
     if (bodyEvent.eom || bytesTillTheError_ <= 0) {
@@ -77,7 +77,7 @@ class OnEOMSource : public HTTPSourceFilter {
  public:
   using CallbackReturn = folly::coro::Task<folly::Optional<HTTPError>>;
 
-  OnEOMSource(HTTPSource *source, std::function<CallbackReturn()> eomCallback)
+  OnEOMSource(HTTPSource* source, std::function<CallbackReturn()> eomCallback)
       : HTTPSourceFilter(source), eomCallback_(eomCallback) {
     setHeapAllocated();
   }

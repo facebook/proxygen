@@ -122,11 +122,9 @@ folly::coro::Task<HTTPBodyEvent> DecompressionIngressFilter::readBodyEvent(
     co_return bodyEvent;
   }
 
-  if (bodyEvent->eventType == HTTPBodyEvent::EventType::BODY) {
-    auto& body = bodyEvent->event.body;
+  if (auto* body = asBodyEv(*bodyEvent)) {
     folly::IOBuf empty{};
-
-    auto compressed = body.move();
+    auto compressed = body->move();
     auto decompressed =
         decompressor_->decompress(compressed ? compressed.get() : &empty);
     if (!decompressed || decompressor_->hasError()) {
@@ -135,7 +133,7 @@ folly::coro::Task<HTTPBodyEvent> DecompressionIngressFilter::readBodyEvent(
       }
       co_yield co_error(DecompressionFailedError);
     }
-    body.append(std::move(decompressed));
+    body->append(std::move(decompressed));
   }
 
   /**

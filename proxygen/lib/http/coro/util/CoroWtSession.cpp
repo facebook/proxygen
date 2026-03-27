@@ -11,14 +11,11 @@
 #include <proxygen/lib/http/coro/util/CoroWtSession.h>
 
 namespace {
+
 using namespace proxygen::coro;
 using folly::coro::co_error;
 using folly::coro::co_nothrow;
 constexpr uint64_t kMaxWriteSize = 65'535;
-
-BufQueue* asBodyEv(HTTPBodyEvent& event) {
-  return event.eventType == HTTPBodyEvent::BODY ? &event.event.body : nullptr;
-}
 
 }; // namespace
 

@@ -125,9 +125,8 @@ folly::coro::Task<size_t> HTTPConnectTransport::read(
       co_yield co_error(bodyEvent.exception());
     }
     eom = bodyEvent->eom;
-    if (bodyEvent->eventType == HTTPBodyEvent::BODY &&
-        !bodyEvent->event.body.empty()) {
-      folly::io::Cursor c(bodyEvent->event.body.front());
+    if (auto* body = asBodyEv(*bodyEvent); body && !body->empty()) {
+      folly::io::Cursor c(body->front());
       nRead = c.pullAtMost(buf.start(), buf.size());
     }
   } while (nRead == 0 && !eom);

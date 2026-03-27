@@ -286,6 +286,10 @@ struct HTTPBodyEvent {
   void describe(std::ostream& os) const;
 };
 
+inline BufQueue* asBodyEv(HTTPBodyEvent& ev) noexcept {
+  return ev.eventType == HTTPBodyEvent::BODY ? &ev.event.body : nullptr;
+}
+
 std::ostream& operator<<(std::ostream& os, const HTTPBodyEvent& bodyEvent);
 
 } // namespace proxygen::coro

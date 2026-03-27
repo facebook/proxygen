@@ -374,8 +374,8 @@ struct HTTPCoroSession::StreamState {
     bool flowControlBlocked = false;
     maxToSend = std::min(maxToSend, sendWindow_.getNonNegativeSize());
     HTTPBodyEvent bodyEvent(bodyEventQueue_.dequeueBodyEvent(maxToSend));
-    if (bodyEvent.eventType == HTTPBodyEvent::BODY) {
-      auto length = bodyEvent.event.body.chainLength();
+    if (auto* body = asBodyEv(bodyEvent)) {
+      auto length = body->chainLength();
       XLOG(DBG4) << "Sending body length=" << length << " id=" << getID()
                  << " eom=" << uint32_t(bodyEvent.eom);
       if (length == 0 && !bodyEvent.eom) {

@@ -92,13 +92,12 @@ folly::coro::Task<void> HTTPConnectAsyncTransport::read() {
       co_return;
     }
     XCHECK(readCallback_);
-    if (bodyEvent->eventType == HTTPBodyEvent::BODY &&
-        !bodyEvent->event.body.empty()) {
-      size = bodyEvent->event.body.chainLength();
+    if (auto* body = asBodyEv(*bodyEvent); body && !body->empty()) {
+      size = body->chainLength();
       if (readCallback_->isBufferMovable()) {
-        readCallback_->readBufferAvailable(bodyEvent->event.body.move());
+        readCallback_->readBufferAvailable(body->move());
       } else {
-        folly::io::Cursor cursor(bodyEvent->event.body.front());
+        folly::io::Cursor cursor(body->front());
         XCHECK(buf);
         cursor.pullAtMost(buf, size);
         readCallback_->readDataAvailable(size);

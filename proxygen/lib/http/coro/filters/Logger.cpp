@@ -121,8 +121,8 @@ folly::coro::Task<HTTPBodyEvent> Logger::Filter::readBodyEvent(uint32_t max) {
     done.first.setValue();
     co_yield folly::coro::co_error(std::move(bodyEvent.exception()));
   }
-  if (bodyEvent->eventType == HTTPBodyEvent::BODY) {
-    bodyBytes += bodyEvent->event.body.chainLength();
+  if (auto* body = asBodyEv(*bodyEvent)) {
+    bodyBytes += body->chainLength();
   }
   if (!firstByteTime) {
     firstByteTime = std::chrono::steady_clock::now();
