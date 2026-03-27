@@ -35,6 +35,7 @@ proxygen_add_library(proxygen_http_codec_compress_hpack
     proxygen_http_header_constants
     proxygen_http_message
     proxygen_utils_logging
+    Folly::folly_c_portability
     Folly::folly_container_reserve
     Folly::folly_indestructible
     Folly::folly_portability_sockets

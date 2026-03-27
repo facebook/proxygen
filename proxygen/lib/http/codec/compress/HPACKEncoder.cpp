@@ -8,6 +8,8 @@
 
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
 
+#include <folly/CPortability.h>
+
 using std::vector;
 
 namespace proxygen {
@@ -69,10 +71,11 @@ size_t HPACKEncoder::encodeHeader(const std::string& nameStr,
   return uncompressed;
 }
 
-void HPACKEncoder::encodeAsLiteralImpl(const HPACKHeaderName& name,
-                                       uint32_t nameIndex,
-                                       folly::StringPiece value,
-                                       bool& indexing) {
+FOLLY_ALWAYS_INLINE void HPACKEncoder::encodeAsLiteralImpl(
+    const HPACKHeaderName& name,
+    uint32_t nameIndex,
+    folly::StringPiece value,
+    bool& indexing) {
   if (HPACKHeader::bytes(name.size(), value.size()) > table_.capacity()) {
     // May want to investigate further whether or not this is wanted.
     // Flushing the table on a large header frees up some memory,
@@ -87,10 +90,11 @@ void HPACKEncoder::encodeAsLiteralImpl(const HPACKHeaderName& name,
   encodeLiteral(name, value, nameIndex, instruction);
 }
 
-bool HPACKEncoder::encodeAsLiteral(const HPACKHeaderName& name,
-                                   uint32_t nameIndex,
-                                   folly::StringPiece value,
-                                   bool indexing) {
+FOLLY_ALWAYS_INLINE bool HPACKEncoder::encodeAsLiteral(
+    const HPACKHeaderName& name,
+    uint32_t nameIndex,
+    folly::StringPiece value,
+    bool indexing) {
   encodeAsLiteralImpl(name, nameIndex, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
@@ -99,10 +103,10 @@ bool HPACKEncoder::encodeAsLiteral(const HPACKHeaderName& name,
   return true;
 }
 
-bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
-                                   uint32_t nameIndex,
-                                   folly::fbstring&& value,
-                                   bool indexing) {
+FOLLY_ALWAYS_INLINE bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
+                                                       uint32_t nameIndex,
+                                                       folly::fbstring&& value,
+                                                       bool indexing) {
   encodeAsLiteralImpl(name, nameIndex, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
@@ -111,10 +115,10 @@ bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
   return true;
 }
 
-bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
-                                   uint32_t nameIndex,
-                                   folly::StringPiece value,
-                                   bool indexing) {
+FOLLY_ALWAYS_INLINE bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
+                                                       uint32_t nameIndex,
+                                                       folly::StringPiece value,
+                                                       bool indexing) {
   encodeAsLiteralImpl(name, nameIndex, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
@@ -123,10 +127,11 @@ bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
   return true;
 }
 
-void HPACKEncoder::encodeLiteral(const HPACKHeaderName& name,
-                                 folly::StringPiece value,
-                                 uint32_t nameIndex,
-                                 const HPACK::Instruction& instruction) {
+FOLLY_ALWAYS_INLINE void HPACKEncoder::encodeLiteral(
+    const HPACKHeaderName& name,
+    folly::StringPiece value,
+    uint32_t nameIndex,
+    const HPACK::Instruction& instruction) {
   // name
   if (nameIndex) {
     VLOG(10) << "encoding name index=" << nameIndex;
@@ -139,12 +144,12 @@ void HPACKEncoder::encodeLiteral(const HPACKHeaderName& name,
   streamBuffer_.encodeLiteral(value);
 }
 
-void HPACKEncoder::encodeAsIndex(uint32_t index) {
+FOLLY_ALWAYS_INLINE void HPACKEncoder::encodeAsIndex(uint32_t index) {
   VLOG(10) << "encoding index=" << index;
   streamBuffer_.encodeInteger(index, HPACK::INDEX_REF);
 }
 
-folly::Optional<uint32_t> HPACKEncoder::encodeHeaderImpl(
+FOLLY_ALWAYS_INLINE folly::Optional<uint32_t> HPACKEncoder::encodeHeaderImpl(
     const HPACKHeaderName& name, folly::StringPiece value, bool& indexable) {
   uint32_t index = 0;
   uint32_t nameIndex = 0;
