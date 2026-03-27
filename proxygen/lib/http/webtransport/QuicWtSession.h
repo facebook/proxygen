@@ -47,13 +47,6 @@ class QuicWtSessionBase
     return quicSocket_->getTransportInfo();
   }
 
-  [[nodiscard]] quic::Expected<quic::QuicSocketLite::FlowControlState,
-                               quic::LocalErrorCode>
-  getConnectionFlowControl() const {
-    XCHECK(quicSocket_);
-    return quicSocket_->getConnectionFlowControl();
-  }
-
   folly::Expected<StreamWriteHandle*, ErrorCode> createUniStream() noexcept
       override;
   folly::Expected<BidiStreamHandle, ErrorCode> createBidiStream() noexcept
