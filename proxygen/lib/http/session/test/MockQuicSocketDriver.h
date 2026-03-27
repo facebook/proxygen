@@ -94,6 +94,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     folly::Optional<quic::ApplicationErrorCode> error;
     QuicSocket::ReadCallback* readCB{nullptr};
     QuicSocket::PeekCallback* peekCB{nullptr};
+    quic::StopSendingCallback* stopSendingCb{nullptr};
     using ByteEventList = std::list<std::pair<uint64_t, ByteEventCallback*>>;
     ByteEventList txCallbacks;
     ByteEventList deliveryCallbacks;
@@ -286,6 +287,23 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               }
               return {};
             }));
+
+    using StopSendingCBResult = quic::Expected<void, LocalErrorCode>;
+    EXPECT_CALL(*sock_, setStopSendingCallback(testing::_, testing::_))
+        .WillRepeatedly(testing::Invoke([this](StreamId id,
+                                               quic::StopSendingCallback* cb)
+                                            -> StopSendingCBResult {
+          auto it = streams_.find(id);
+          if (it == streams_.end()) {
+            return quic::make_unexpected(LocalErrorCode::STREAM_NOT_EXISTS);
+          }
+          ERROR_IF(
+              it->second.writeState == CLOSED,
+              fmt::format("setStopSendingCallback on CLOSED streamId={}", id),
+              return quic::make_unexpected(LocalErrorCode::STREAM_NOT_EXISTS));
+          it->second.stopSendingCb = cb;
+          return {};
+        }));
 
     EXPECT_CALL(*sock_, pauseRead(testing::_))
         .WillRepeatedly(testing::Invoke([this](StreamId id) -> ReadCBResult {
@@ -1475,6 +1493,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                     event.error->asApplicationErrorCode();
                 if (err) {
                   sock_->connCb_->onStopSending(event.streamId, *err);
+                  if (auto* cb = std::exchange(stream.stopSendingCb, nullptr)) {
+                    cb->onStopSending(event.streamId, *err);
+                  }
                 }
               }
               return;
