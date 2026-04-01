@@ -129,6 +129,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       nextUnidirectionalStreamId_ = 2;
     }
 
+    EXPECT_CALL(*sock_, getNodeType())
+        .WillRepeatedly(::testing::Return(
+            transportType_ == TransportEnum::CLIENT ? QuicNodeType::Client
+                                                    : QuicNodeType::Server));
     EXPECT_CALL(*sock_, setConnectionSetupCallback(testing::_))
         .WillRepeatedly(
             testing::Invoke([this](QuicSocket::ConnectionSetupCallback* cb) {
@@ -250,7 +254,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             [this](StreamId id,
                    QuicSocket::ReadCallback* cb,
                    quic::Optional<ApplicationErrorCode> error) -> ReadCBResult {
-              checkNotWriteOnlyStream(id);
+              if (isSendingStream(id)) {
+                return quic::make_unexpected(LocalErrorCode::INVALID_OPERATION);
+              }
               auto& stream = streams_[id];
               if (cb == nullptr && stream.readCB == nullptr) {
                 // matches real transport
@@ -610,7 +616,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         .WillRepeatedly(testing::Invoke(
             [this](quic::StreamId id, quic::ApplicationErrorCode error)
                 -> quic::Expected<void, quic::LocalErrorCode> {
-              checkNotReadOnlyStream(id);
+              if (isReceivingStream(id)) {
+                return quic::make_unexpected(LocalErrorCode::INVALID_OPERATION);
+              }
               auto& stream = streams_[id];
               stream.error = error;
               stream.writeState = ERROR;
@@ -634,7 +642,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         .WillRepeatedly(testing::Invoke(
             [this](quic::StreamId id, quic::ApplicationErrorCode error)
                 -> quic::Expected<void, quic::LocalErrorCode> {
-              checkNotWriteOnlyStream(id);
+              if (isSendingStream(id)) {
+                return quic::make_unexpected(LocalErrorCode::INVALID_OPERATION);
+              }
               auto& stream = streams_[id];
               stream.error = error;
               // This doesn't set readState to error, because we can
@@ -876,32 +886,22 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     localAppCb_ = localAppCb;
   }
 
+  bool isSendingStream(StreamId id) const noexcept {
+    return quic::isSendingStream(sock_->getNodeType(), id);
+  }
+  bool isReceivingStream(StreamId id) const noexcept {
+    return quic::isReceivingStream(sock_->getNodeType(), id);
+  }
+
   void checkNotReadOnlyStream(quic::StreamId id) {
-    CHECK(!(sock_->isUnidirectionalStream(id) && isReceivingStream(id)))
+    CHECK(!isReceivingStream(id))
         << "API not supported on read-only unidirectional stream. streamID="
         << id;
   }
-
   void checkNotWriteOnlyStream(quic::StreamId id) {
-    CHECK(!(sock_->isUnidirectionalStream(id) && isSendingStream(id)))
+    CHECK(!isSendingStream(id))
         << "API not supported on write-only unidirectional stream. streamID="
         << id;
-  }
-
-  bool isSendingStream(StreamId stream) {
-    return sock_->isUnidirectionalStream(stream) &&
-           ((transportType_ == TransportEnum::CLIENT &&
-             sock_->isClientStream(stream)) ||
-            (transportType_ == TransportEnum::SERVER &&
-             sock_->isServerStream(stream)));
-  }
-
-  bool isReceivingStream(StreamId stream) {
-    return sock_->isUnidirectionalStream(stream) &&
-           ((transportType_ == TransportEnum::CLIENT &&
-             sock_->isServerStream(stream)) ||
-            (transportType_ == TransportEnum::SERVER &&
-             sock_->isClientStream(stream)));
   }
 
   static bool isIdle(StateEnum state) {
