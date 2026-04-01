@@ -139,21 +139,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             testing::Invoke([this](QuicSocket::ConnectionCallback* cb) {
               sock_->connCb_ = cb;
             }));
-    EXPECT_CALL(*sock_, isClientStream(testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [](quic::StreamId stream) { return (stream & 0b01) == 0; }));
-
-    EXPECT_CALL(*sock_, isServerStream(testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [](quic::StreamId stream) { return stream & 0b01; }));
-
-    EXPECT_CALL(*sock_, isUnidirectionalStream(testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [](quic::StreamId stream) { return stream & 0b10; }));
-
-    EXPECT_CALL(*sock_, isBidirectionalStream(testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [](quic::StreamId stream) { return !(stream & 0b10); }));
 
     EXPECT_CALL(*sock_, getState()).WillRepeatedly(testing::Return(nullptr));
 
