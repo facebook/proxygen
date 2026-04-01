@@ -73,8 +73,6 @@ class QuicWtSessionBase
                     detail::WtStreamManager::WtConfig wtConfig);
   ~QuicWtSessionBase() override = 0;
 
-  void onConnectionEndImpl(const folly::Optional<QuicError>& error);
-
   struct QuicReadCallback : public quic::QuicSocket::ReadCallback {
     QuicWtSessionBase& sess;
     explicit QuicReadCallback(QuicWtSessionBase& session) : sess(session) {
@@ -105,8 +103,6 @@ class QuicWtSessionBase
   void onStreamWriteReady(StreamId id, uint64_t maxToSend) noexcept override;
   void onStreamWriteError(StreamId id, QuicError error) noexcept override;
 
-  folly::Expected<folly::Unit, ErrorCode> closeSessionImpl(
-      folly::Optional<uint32_t> error);
   void maybePauseIngress(
       detail::WtStreamManager::WtReadHandle& handle) noexcept;
   void maybeResumeIngress(

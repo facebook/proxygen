@@ -31,12 +31,17 @@ class MockDeliveryCallback : public WebTransport::ByteEventCallback {
               (quic::StreamId, uint64_t),
               (noexcept));
 };
+
 } // namespace
 
 class QuicWtSessionTest : public Test {
  protected:
   void SetUp() override {
     auto handler = std::make_unique<StrictMock<MockWebTransportHandler>>();
+    EXPECT_CALL(*handler, onSessionEnd(_)).WillOnce([this](auto err) {
+      EXPECT_EQ(err, expectedWtHandlerErr_);
+    });
+
     handler_ = handler.get();
     session_ = std::make_unique<QuicWtSession>(socketDriver_.getSocket(),
                                                std::move(handler));
@@ -45,12 +50,8 @@ class QuicWtSessionTest : public Test {
 
   void TearDown() override {
     if (session_) {
-      webTransport()->closeSession();
+      session_->closeSession(folly::none);
     }
-  }
-
-  WebTransport* webTransport() {
-    return session_.get();
   }
 
   folly::EventBase eventBase_;
@@ -62,6 +63,7 @@ class QuicWtSessionTest : public Test {
       "alpn1"};
   StrictMock<MockWebTransportHandler>* handler_{nullptr};
   std::unique_ptr<QuicWtSession> session_;
+  folly::Optional<uint32_t> expectedWtHandlerErr_{folly::none};
 };
 
 TEST_F(QuicWtSessionTest, PeerUniStream) {
@@ -101,7 +103,7 @@ TEST_F(QuicWtSessionTest, PeerBidiStream) {
 }
 
 TEST_F(QuicWtSessionTest, NewUniStream) {
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   EXPECT_TRUE(handle.hasValue());
   auto id = handle.value()->getID();
   handle.value()->resetStream(WT_ERROR_1);
@@ -110,7 +112,7 @@ TEST_F(QuicWtSessionTest, NewUniStream) {
 }
 
 TEST_F(QuicWtSessionTest, NewBidiStream) {
-  auto handle = webTransport()->createBidiStream();
+  auto handle = session_->createBidiStream();
   EXPECT_TRUE(handle.hasValue());
   auto id = handle->readHandle->getID();
   handle->readHandle->stopSending(WT_ERROR_1);
@@ -121,17 +123,17 @@ TEST_F(QuicWtSessionTest, NewBidiStream) {
 
 TEST_F(QuicWtSessionTest, AwaitUniStreamCredit) {
   // credit already available -> immediate future
-  auto fastFut = webTransport()->awaitUniStreamCredit();
+  auto fastFut = session_->awaitUniStreamCredit();
   EXPECT_TRUE(fastFut.isReady());
 
   // set max uni streams to 0 to exhaust stream credit
   socketDriver_.setMaxUniStreams(0);
 
   // try creating a uni stream when no credit is available, should fail
-  auto res = webTransport()->createUniStream();
+  auto res = session_->createUniStream();
   EXPECT_FALSE(res.hasValue());
   EXPECT_EQ(res.error(), WebTransport::ErrorCode::STREAM_CREATION_ERROR);
-  auto fut = webTransport()->awaitUniStreamCredit();
+  auto fut = session_->awaitUniStreamCredit();
   EXPECT_FALSE(fut.isReady());
 
   // calling with 0 streams available should not fulfill the promise
@@ -144,24 +146,24 @@ TEST_F(QuicWtSessionTest, AwaitUniStreamCredit) {
   std::move(fut).getTry();
 
   // now that we have credit, creating a uni stream should succeed
-  auto res2 = webTransport()->createUniStream();
+  auto res2 = session_->createUniStream();
   EXPECT_TRUE(res2.hasValue());
   EXPECT_NE(res2.value(), nullptr);
 }
 
 TEST_F(QuicWtSessionTest, AwaitBidiStreamCredit) {
   // credit already available -> immediate future
-  auto fastFut = webTransport()->awaitBidiStreamCredit();
+  auto fastFut = session_->awaitBidiStreamCredit();
   EXPECT_TRUE(fastFut.isReady());
 
   // set max bidi streams to 0 to exhaust stream credit
   socketDriver_.setMaxBidiStreams(0);
 
   // try creating a bidi stream when no credit is available, should fail
-  auto res = webTransport()->createBidiStream();
+  auto res = session_->createBidiStream();
   EXPECT_FALSE(res.hasValue());
   EXPECT_EQ(res.error(), WebTransport::ErrorCode::STREAM_CREATION_ERROR);
-  auto fut = webTransport()->awaitBidiStreamCredit();
+  auto fut = session_->awaitBidiStreamCredit();
   EXPECT_FALSE(fut.isReady());
 
   // calling with 0 streams available should not fulfill the promise
@@ -174,7 +176,7 @@ TEST_F(QuicWtSessionTest, AwaitBidiStreamCredit) {
   std::move(fut).getTry();
 
   // now that we have credit, creating a bidi stream should succeed
-  auto res2 = webTransport()->createBidiStream();
+  auto res2 = session_->createBidiStream();
   EXPECT_TRUE(res2.hasValue());
   EXPECT_NE(res2->readHandle, nullptr);
   EXPECT_NE(res2->writeHandle, nullptr);
@@ -184,18 +186,17 @@ TEST_F(QuicWtSessionTest, WriteStreamData) {
   // id=2 is client-initiated uni, so it's not egress for the server
   constexpr uint64_t kClientInitiatedUniId = 2;
 
-  auto result = webTransport()->writeStreamData(
+  auto result = session_->writeStreamData(
       kClientInitiatedUniId, folly::IOBuf::copyBuffer("test"), true, nullptr);
   EXPECT_FALSE(result.hasValue());
   EXPECT_EQ(result.error(), WebTransport::ErrorCode::INVALID_STREAM_ID);
 
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   EXPECT_TRUE(handle.hasValue());
   auto id = handle.value()->getID();
 
   auto data = folly::IOBuf::copyBuffer("hello world");
-  auto res =
-      webTransport()->writeStreamData(id, std::move(data), true, nullptr);
+  auto res = session_->writeStreamData(id, std::move(data), true, nullptr);
   EXPECT_TRUE(res.hasValue());
 
   eventBase_.loop();
@@ -206,7 +207,7 @@ TEST_F(QuicWtSessionTest, ReadStreamData) {
   // id=3 is server-initiated uni, so it's not ingress for the server
   constexpr uint64_t kServerInitiatedUniId = 3;
 
-  auto res = webTransport()->readStreamData(kServerInitiatedUniId);
+  auto res = session_->readStreamData(kServerInitiatedUniId);
   EXPECT_FALSE(res.hasValue());
   EXPECT_EQ(res.error(), WebTransport::ErrorCode::INVALID_STREAM_ID);
 
@@ -221,7 +222,7 @@ TEST_F(QuicWtSessionTest, ReadStreamData) {
   ASSERT_NE(readHandle, nullptr);
 
   auto id = readHandle->getID();
-  auto readRes = webTransport()->readStreamData(id);
+  auto readRes = session_->readStreamData(id);
   EXPECT_TRUE(readRes.hasValue());
 
   auto data = folly::IOBuf::copyBuffer("test data");
@@ -237,8 +238,8 @@ TEST_F(QuicWtSessionTest, ReadStreamData) {
 
 TEST_F(QuicWtSessionTest, Datagram) {
   // send multiple datagrams
-  webTransport()->sendDatagram(folly::IOBuf::copyBuffer("out1"));
-  webTransport()->sendDatagram(folly::IOBuf::copyBuffer("out2"));
+  session_->sendDatagram(folly::IOBuf::copyBuffer("out1"));
+  session_->sendDatagram(folly::IOBuf::copyBuffer("out2"));
   EXPECT_EQ(socketDriver_.outDatagrams_.size(), 2);
 
   // receive multiple datagrams
@@ -262,7 +263,7 @@ TEST_F(QuicWtSessionTest, Datagram) {
   auto maxSize = socketDriver_.getSocket()->getDatagramSizeLimit();
   auto largeDatagram = folly::IOBuf::create(maxSize + 100);
   largeDatagram->append(maxSize + 100);
-  auto res = webTransport()->sendDatagram(std::move(largeDatagram));
+  auto res = session_->sendDatagram(std::move(largeDatagram));
   EXPECT_FALSE(res.hasValue());
   EXPECT_EQ(res.error(), WebTransport::ErrorCode::GENERIC_ERROR);
 
@@ -270,6 +271,7 @@ TEST_F(QuicWtSessionTest, Datagram) {
   // so readDatagramBufs() returns CONNECTION_CLOSED, while read state stays
   // OPEN to allow the datagram available event to fire.
   // closeSession(kInternalError) will be called, which closes the socket.
+  expectedWtHandlerErr_ = WebTransport::kInternalError;
   socketDriver_.streams_[quic::kConnectionStreamId].writeState =
       quic::MockQuicSocketDriver::StateEnum::CLOSED;
   socketDriver_.addDatagramsAvailableReadEvent();
@@ -281,7 +283,7 @@ TEST_F(QuicWtSessionTest, StopSending) {
   // id=3 is server-initiated uni, so it's not ingress for the server
   constexpr uint64_t kServerInitiatedUniId = 3;
 
-  auto res = webTransport()->stopSending(kServerInitiatedUniId, WT_ERROR_1);
+  auto res = session_->stopSending(kServerInitiatedUniId, WT_ERROR_1);
   EXPECT_FALSE(res.hasValue());
   EXPECT_EQ(res.error(), WebTransport::ErrorCode::INVALID_STREAM_ID);
 
@@ -298,12 +300,12 @@ TEST_F(QuicWtSessionTest, StopSending) {
 
   // we call stop sending
   auto id = readHandle->getID();
-  auto res2 = webTransport()->stopSending(id, WT_ERROR_1);
+  auto res2 = session_->stopSending(id, WT_ERROR_1);
   EXPECT_TRUE(res2.hasValue());
   EXPECT_EQ(socketDriver_.streams_[id].error, WT_ERROR_1);
 
   // receive stop sending
-  auto handle = webTransport()->createBidiStream();
+  auto handle = session_->createBidiStream();
   EXPECT_TRUE(handle.hasValue());
   auto id2 = handle->writeHandle->getID();
   auto* writeHandle = handle->writeHandle;
@@ -321,29 +323,29 @@ TEST_F(QuicWtSessionTest, ResetStream) {
   // id=2 is client-initiated uni, so it's not egress for the server
   constexpr uint64_t kClientInitiatedUniId = 2;
 
-  auto res = webTransport()->resetStream(kClientInitiatedUniId, WT_ERROR_1);
+  auto res = session_->resetStream(kClientInitiatedUniId, WT_ERROR_1);
   EXPECT_FALSE(res.hasValue());
   EXPECT_EQ(res.error(), WebTransport::ErrorCode::INVALID_STREAM_ID);
 
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   EXPECT_TRUE(handle.hasValue());
   auto id = handle.value()->getID();
 
-  auto res2 = webTransport()->resetStream(id, WT_ERROR_1);
+  auto res2 = session_->resetStream(id, WT_ERROR_1);
   EXPECT_TRUE(res2.hasValue());
   eventBase_.loop();
   EXPECT_EQ(socketDriver_.streams_[id].error, WT_ERROR_1);
 }
 
 TEST_F(QuicWtSessionTest, SetPriority) {
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   ASSERT_TRUE(handle.hasValue());
   auto id = handle.value()->getID();
 
   quic::HTTPPriorityQueue::Priority priority(/*u=*/3,
                                              /*i=*/true,
                                              /*o=*/100);
-  auto result = webTransport()->setPriority(id, priority);
+  auto result = session_->setPriority(id, priority);
   EXPECT_TRUE(result.hasValue());
 
   auto pri = socketDriver_.getSocket()->getStreamPriority(id);
@@ -363,15 +365,15 @@ TEST_F(QuicWtSessionTest, AwaitWritable) {
   // id=2 is client-initiated uni, so it's not egress for the server
   constexpr uint64_t kClientInitiatedUniId = 2;
 
-  auto res = webTransport()->awaitWritable(kClientInitiatedUniId);
+  auto res = session_->awaitWritable(kClientInitiatedUniId);
   EXPECT_FALSE(res.hasValue());
   EXPECT_EQ(res.error(), WebTransport::ErrorCode::INVALID_STREAM_ID);
 
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   EXPECT_TRUE(handle.hasValue());
   auto streamId = handle.value()->getID();
 
-  auto res2 = webTransport()->awaitWritable(streamId);
+  auto res2 = session_->awaitWritable(streamId);
   EXPECT_TRUE(res2.hasValue());
 
   // verify the future completes successfully with available bytes
@@ -382,27 +384,21 @@ TEST_F(QuicWtSessionTest, AwaitWritable) {
 }
 
 TEST_F(QuicWtSessionTest, ConnectionError) {
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   EXPECT_TRUE(handle.hasValue());
-  EXPECT_CALL(*handler_, onSessionEnd(_)).WillOnce([](const auto& err) {
-    EXPECT_EQ(*err, WT_ERROR_1);
-  });
+  expectedWtHandlerErr_ = WT_ERROR_1;
   socketDriver_.deliverConnectionError(
       quic::QuicError(quic::ApplicationErrorCode(WT_ERROR_1), "peer close"));
-  eventBase_.loop();
 }
 
 TEST_F(QuicWtSessionTest, ConnectionEnd) {
-  EXPECT_CALL(*handler_, onSessionEnd(_)).WillOnce([](const auto& err) {
-    EXPECT_FALSE(err.has_value());
-  });
   socketDriver_.deliverConnectionError(
       quic::QuicError(quic::LocalErrorCode::NO_ERROR, "clean close"));
   eventBase_.loop();
 }
 
 TEST_F(QuicWtSessionTest, DeliveryCallback) {
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   EXPECT_TRUE(handle.hasValue());
   auto mockCallback = std::make_unique<StrictMock<MockDeliveryCallback>>();
   folly::StringPiece data = "test data";
@@ -449,7 +445,7 @@ TEST_F(QuicWtSessionTest, CloseTransportCancelsReadTokens) {
   auto fut = readHandle1->readStreamData();
 
   // close the transport by delivering a connection error
-  EXPECT_CALL(*handler_, onSessionEnd(_));
+  expectedWtHandlerErr_ = WT_ERROR_1;
   socketDriver_.deliverConnectionError(quic::QuicError(
       quic::ApplicationErrorCode(WT_ERROR_1), "connection close"));
   eventBase_.loop();
@@ -492,7 +488,7 @@ TEST_F(QuicWtSessionTest, DestructorTerminatesOpenStreams) {
   ASSERT_NE(bidiWriteHandle, nullptr);
 
   // create an outgoing uni stream
-  auto uniStreamRes = webTransport()->createUniStream();
+  auto uniStreamRes = session_->createUniStream();
   ASSERT_TRUE(uniStreamRes.hasValue());
   uniWriteHandle = uniStreamRes.value();
 
@@ -564,12 +560,9 @@ TEST_F(QuicWtSessionTest, ReadError) {
 }
 
 TEST_F(QuicWtSessionTest, ConnectionEndWithError) {
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   EXPECT_TRUE(handle.hasValue());
-  EXPECT_CALL(*handler_, onSessionEnd(_)).WillOnce([](const auto& err) {
-    EXPECT_TRUE(err.has_value());
-    EXPECT_EQ(*err, WT_ERROR_1);
-  });
+  expectedWtHandlerErr_ = WT_ERROR_1;
   // directly invoke the onConnectionEnd(QuicError) overload via the
   // connection callback, rather than going through deliverConnectionError
   socketDriver_.getSocket()->connCb_->onConnectionEnd(
@@ -593,12 +586,12 @@ TEST_F(QuicWtSessionTest, ReadAvailableReadFails) {
   // trigger readAvailable: read() will fail, session should continue
   socketDriver_.addReadEvent(id, folly::IOBuf::copyBuffer("data"), false);
   eventBase_.loopOnce();
-  auto uniHandle = webTransport()->createUniStream();
+  auto uniHandle = session_->createUniStream();
   EXPECT_TRUE(uniHandle.hasValue());
 }
 
 TEST_F(QuicWtSessionTest, WriteFlowControlBlocked) {
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   ASSERT_TRUE(handle.hasValue());
   auto id = handle.value()->getID();
 
@@ -666,7 +659,7 @@ TEST_F(QuicWtSessionTest, WriteChainFails) {
 }
 
 TEST_F(QuicWtSessionTest, StreamWriteError) {
-  auto handle = webTransport()->createUniStream();
+  auto handle = session_->createUniStream();
   ASSERT_TRUE(handle.hasValue());
   auto id = handle.value()->getID();
 

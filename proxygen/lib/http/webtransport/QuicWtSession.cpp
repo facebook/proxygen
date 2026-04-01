@@ -59,6 +59,11 @@ struct QuicWtEventVisitor {
   }
 };
 
+uint64_t getQuicAppErrCode(const QuicError& err) noexcept {
+  auto* appEc = err.code.asApplicationErrorCode();
+  return appEc ? *appEc : 0;
+}
+
 } // namespace
 
 namespace proxygen {
@@ -81,9 +86,7 @@ QuicWtSessionBase::QuicWtSessionBase(
 }
 
 QuicWtSessionBase::~QuicWtSessionBase() {
-  closeSessionImpl(folly::none);
-  quicSocket_.reset();
-  wtHandler_.reset();
+  QuicWtSessionBase::closeSession(folly::none);
 }
 
 folly::Expected<WebTransport::StreamWriteHandle*, WebTransport::ErrorCode>
@@ -146,7 +149,11 @@ QuicWtSessionBase::sendDatagram(
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWtSessionBase::closeSession(folly::Optional<uint32_t> error) noexcept {
-  return closeSessionImpl(std::move(error));
+  sm_.shutdown({.err = error.value_or(0), .msg = "closeSession"});
+  if (auto wtHandler = std::exchange(wtHandler_, nullptr)) {
+    wtHandler->onSessionEnd(error);
+  }
+  return folly::unit;
 }
 
 // -- QuicReadCallback overrides --
@@ -259,29 +266,6 @@ void QuicWtSessionBase::onStreamWriteError(quic::StreamId streamId,
   }
 }
 
-folly::Expected<folly::Unit, WebTransport::ErrorCode>
-QuicWtSessionBase::closeSessionImpl(folly::Optional<uint32_t> error) {
-  XCHECK(quicSocket_);
-  sm_.shutdown({.err = error.value_or(0), .msg = "closeSession"});
-  quicSocket_->setConnectionCallback(nullptr);
-  quicSocket_->setDatagramCallback(nullptr);
-  return folly::unit;
-}
-
-void QuicWtSessionBase::onConnectionEndImpl(
-    const folly::Optional<QuicError>& error) {
-  XCHECK(quicSocket_);
-  XCHECK(wtHandler_);
-  folly::Optional<uint32_t> errCodeOpt;
-  if (error && error->code.asApplicationErrorCode()) {
-    errCodeOpt = *error->code.asApplicationErrorCode();
-  }
-  sm_.shutdown({.err = errCodeOpt.value_or(0), .msg = ""});
-  quicSocket_->setConnectionCallback(nullptr);
-  quicSocket_->setDatagramCallback(nullptr);
-  wtHandler_->onSessionEnd(errCodeOpt);
-}
-
 void QuicWtSessionBase::maybePauseIngress(
     detail::WtStreamManager::WtReadHandle& handle) noexcept {
   XCHECK(quicSocket_);
@@ -325,14 +309,15 @@ QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
 }
 
 QuicWtSession::~QuicWtSession() {
-  closeSession(folly::none);
+  QuicWtSession::closeSession(folly::none);
 }
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWtSession::closeSession(folly::Optional<uint32_t> error) noexcept {
-  quicSocket_->setConnectionCallback(nullptr);
-  quicSocket_->close(QuicError(quic::ApplicationErrorCode(error.value_or(0))));
   QuicWtSessionBase::closeSession(error);
+  quicSocket_->setConnectionCallback(nullptr);
+  quicSocket_->setDatagramCallback(nullptr);
+  quicSocket_->close(QuicError(quic::ApplicationErrorCode(error.value_or(0))));
   return folly::unit;
 }
 
@@ -362,17 +347,17 @@ void QuicWtSession::QuicConnectionCallback::onStopSending(
 }
 
 void QuicWtSession::QuicConnectionCallback::onConnectionEnd() noexcept {
-  sess.onConnectionEndImpl(folly::none);
+  sess.closeSession(folly::none);
 }
 
 void QuicWtSession::QuicConnectionCallback::onConnectionEnd(
     QuicError error) noexcept {
-  sess.onConnectionEndImpl(error);
+  sess.closeSession(getQuicAppErrCode(error));
 }
 
 void QuicWtSession::QuicConnectionCallback::onConnectionError(
     QuicError error) noexcept {
-  sess.onConnectionEndImpl(error);
+  sess.closeSession(getQuicAppErrCode(error));
 }
 
 void QuicWtSession::QuicConnectionCallback::onBidirectionalStreamsAvailable(
@@ -396,7 +381,7 @@ void QuicWtSession::QuicDgramCallback::onDatagramsAvailable() noexcept {
 
   auto result = quicSocket->readDatagramBufs();
   if (result.hasError()) {
-    XLOG(ERR) << __func__ << "err=" << toString(result.error());
+    XLOG(ERR) << __func__ << "; err=" << toString(result.error());
     sess.closeSession(WebTransport::kInternalError);
     return;
   }
