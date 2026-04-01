@@ -11,7 +11,6 @@
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/webtransport/QuicWtSession.h>
 #include <proxygen/lib/http/webtransport/test/Mocks.h>
-#include <quic/state/StateData.h>
 
 using namespace proxygen;
 using namespace proxygen::test;
@@ -22,13 +21,6 @@ namespace {
 constexpr uint32_t WT_ERROR_1 = 19;
 constexpr uint32_t WT_ERROR_2 = 77;
 constexpr uint64_t kMaxWtIngressBuf = 65'535;
-
-class MockConnectionState : public quic::QuicConnectionStateBase {
- public:
-  explicit MockConnectionState(quic::QuicNodeType type)
-      : quic::QuicConnectionStateBase(type) {
-  }
-};
 
 class MockDeliveryCallback : public WebTransport::ByteEventCallback {
  public:
@@ -44,9 +36,6 @@ class MockDeliveryCallback : public WebTransport::ByteEventCallback {
 class QuicWtSessionTest : public Test {
  protected:
   void SetUp() override {
-    EXPECT_CALL(*socketDriver_.getSocket(), getState())
-        .WillRepeatedly(Return(&mockState_));
-
     auto handler = std::make_unique<StrictMock<MockWebTransportHandler>>();
     handler_ = handler.get();
     session_ = std::make_unique<QuicWtSession>(socketDriver_.getSocket(),
@@ -65,7 +54,6 @@ class QuicWtSessionTest : public Test {
   }
 
   folly::EventBase eventBase_;
-  MockConnectionState mockState_{quic::QuicNodeType::Server};
   MockQuicSocketDriver socketDriver_{
       &eventBase_,
       nullptr,

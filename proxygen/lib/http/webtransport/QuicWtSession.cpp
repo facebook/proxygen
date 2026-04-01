@@ -71,7 +71,7 @@ QuicWtSessionBase::QuicWtSessionBase(
       quicSocket_(std::move(quicSocket)),
       wtHandler_(std::move(wtHandler)),
       priorityQueue_(std::make_unique<quic::HTTPPriorityQueue>()),
-      sm_{quicSocket_->getState()->nodeType == quic::QuicNodeType::Server
+      sm_{quicSocket_->getNodeType() == quic::QuicNodeType::Server
               ? detail::WtDir::Server
               : detail::WtDir::Client,
           wtConfig,
