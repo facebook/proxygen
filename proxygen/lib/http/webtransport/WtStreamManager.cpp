@@ -656,11 +656,11 @@ void WtStreamManager::shutdown(CloseSession cs) noexcept {
 }
 
 bool WtStreamManager::canCreateUni() const noexcept {
-  return !streamLimitExceeded(nextStreamIds_.uni);
+  return !shutdown_ && !streamLimitExceeded(nextStreamIds_.uni);
 }
 
 bool WtStreamManager::canCreateBidi() const noexcept {
-  return !streamLimitExceeded(nextStreamIds_.bidi);
+  return !shutdown_ && !streamLimitExceeded(nextStreamIds_.bidi);
 }
 
 bool WtStreamManager::hasEvent() const noexcept {

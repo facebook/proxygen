@@ -803,6 +803,8 @@ TEST(WtStreamManager, DrainWtSession) {
 
   // shutdown session
   streamManager.shutdown(CloseSession{});
+  // canCreate(Uni|Bidi) return false after ::shutdown
+  EXPECT_TRUE(!streamManager.canCreateBidi() && !streamManager.canCreateUni());
 
   // no streams can be opened after shutdown
   bidi = streamManager.createBidiHandle();
