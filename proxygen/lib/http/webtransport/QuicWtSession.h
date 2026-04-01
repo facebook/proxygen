@@ -54,7 +54,7 @@ class QuicWtSessionBase
   folly::SemiFuture<folly::Unit> awaitBidiStreamCredit() noexcept override;
 
   folly::Expected<folly::Unit, ErrorCode> sendDatagram(
-      std::unique_ptr<folly::IOBuf> datagram) noexcept override;
+      IoBufPtr datagram) noexcept override;
 
   [[nodiscard]] const folly::SocketAddress& getLocalAddress() const override {
     return quicSocket_->getLocalAddress();
@@ -72,6 +72,8 @@ class QuicWtSessionBase
                     std::unique_ptr<WebTransportHandler> wtHandler,
                     detail::WtStreamManager::WtConfig wtConfig);
   ~QuicWtSessionBase() override = 0;
+
+  void onDatagram(IoBufPtr dgram) noexcept;
 
   struct QuicReadCallback : public quic::QuicSocket::ReadCallback {
     QuicWtSessionBase& sess;
