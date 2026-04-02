@@ -46,9 +46,6 @@ parseWTResetStream(folly::io::Cursor& cursor, size_t length) {
   }
   length -= reliableSizeOpt->second;
   wtResetStreamCapsule.reliableSize = reliableSizeOpt->first;
-  if (length > 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return wtResetStreamCapsule;
 }
 
@@ -69,9 +66,6 @@ parseWTStopSending(folly::io::Cursor& cursor, size_t length) {
   length -= appProtocolErrorCodeOpt->second;
   wtStopSendingCapsule.appProtocolErrorCode =
       static_cast<uint32_t>(appProtocolErrorCodeOpt->first);
-  if (length > 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return wtStopSendingCapsule;
 }
 
@@ -101,9 +95,6 @@ folly::Expected<WTMaxDataCapsule, CapsuleCodec::ErrorCode> parseWTMaxData(
   }
   length -= maximumDataOpt->second;
   wtMaxDataCapsule.maximumData = maximumDataOpt->first;
-  if (length > 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return wtMaxDataCapsule;
 }
 
@@ -123,9 +114,6 @@ parseWTMaxStreamData(folly::io::Cursor& cursor, size_t length) {
   }
   length -= maximumStreamDataOpt->second;
   wtMaxStreamDataCapsule.maximumStreamData = maximumStreamDataOpt->first;
-  if (length > 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return wtMaxStreamDataCapsule;
 }
 
@@ -138,9 +126,6 @@ folly::Expected<WTMaxStreamsCapsule, CapsuleCodec::ErrorCode> parseWTMaxStreams(
   }
   length -= maximumStreamsOpt->second;
   wtMaxStreamsCapsule.maximumStreams = maximumStreamsOpt->first;
-  if (length > 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return wtMaxStreamsCapsule;
 }
 
@@ -153,9 +138,6 @@ parseWTDataBlocked(folly::io::Cursor& cursor, size_t length) {
   }
   length -= maximumDataOpt->second;
   wtDataBlockedCapsule.maximumData = maximumDataOpt->first;
-  if (length > 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return wtDataBlockedCapsule;
 }
 
@@ -175,9 +157,6 @@ parseWTStreamDataBlocked(folly::io::Cursor& cursor, size_t length) {
   }
   length -= maximumStreamDataOpt->second;
   wtStreamDataBlockedCapsule.maximumStreamData = maximumStreamDataOpt->first;
-  if (length > 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return wtStreamDataBlockedCapsule;
 }
 
@@ -190,9 +169,6 @@ parseWTStreamsBlocked(folly::io::Cursor& cursor, size_t length) {
   }
   length -= maximumStreamsOpt->second;
   wtStreamsBlockedCapsule.maximumStreams = maximumStreamsOpt->first;
-  if (length > 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return wtStreamsBlockedCapsule;
 }
 
@@ -231,9 +207,6 @@ parseCloseWebTransportSession(folly::io::Cursor& cursor, size_t length) {
 folly::Expected<DrainWebTransportSessionCapsule, CapsuleCodec::ErrorCode>
 parseDrainWebTransportSession(size_t length) {
   DrainWebTransportSessionCapsule drainWebTransportSessionCapsule{};
-  if (length != 0) {
-    return folly::makeUnexpected(CapsuleCodec::ErrorCode::PARSE_ERROR);
-  }
   return drainWebTransportSessionCapsule;
 }
 
