@@ -97,6 +97,22 @@ TEST(RequestHandlerAdaptorTest, onStreamAbortError) {
   txn.onError(ex);
 }
 
+TEST(RequestHandlerAdaptorTest, onIngressErrorPreservesSpecificError) {
+  NiceMock<MockRequestHandler> requestHandler_;
+  auto adaptor = new RequestHandlerAdaptor(&requestHandler_);
+  NiceMock<MockHTTPTransactionTransport> transport;
+  HTTP2PriorityQueue egressQueue;
+  HTTPTransaction txn(
+      TransportDirection::DOWNSTREAM, 1, 1, transport, egressQueue);
+  txn.setHandler(adaptor);
+  // ingress error with specific error type (e.g., chunk parse error)
+  HTTPException ex(HTTPException::Direction::INGRESS, "chunk parse error");
+  ex.setProxygenError(kErrorParseBody);
+  // expect the specific error type is preserved, not converted to kErrorRead
+  EXPECT_CALL(requestHandler_, onError(kErrorParseBody));
+  txn.onError(ex);
+}
+
 TEST(RequestHandlerAdaptorTest, onGoaway) {
   NiceMock<MockRequestHandler> requestHandler_;
   auto adaptor = std::make_shared<RequestHandlerAdaptor>(&requestHandler_);
