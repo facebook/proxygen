@@ -95,6 +95,12 @@ class QuicWtSessionBase
     void onNewPeerStream(uint64_t streamId) noexcept override;
   } smCb_{*this};
 
+  /**
+   * attempts to acquire an ingress stream id - returns false if it fails or
+   * true if successful.
+   */
+  bool acquireIngressStream(uint64_t id) noexcept;
+
   std::shared_ptr<quic::QuicSocket> quicSocket_{nullptr};
   std::unique_ptr<WebTransportHandler> wtHandler_;
   std::unique_ptr<quic::HTTPPriorityQueue> priorityQueue_;

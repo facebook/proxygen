@@ -292,6 +292,25 @@ void QuicWtSessionBase::maybeResumeIngress(
   }
 }
 
+bool QuicWtSessionBase::acquireIngressStream(uint64_t id) noexcept {
+  XCHECK(quicSocket_ && quic::isRemoteStream(quicSocket_->getNodeType(), id));
+  XCHECK(wtHandler_);
+  // WtStreamManager deduces type from id (i.e. works whether uni or bidi)
+  auto handle = sm_.getOrCreateBidiHandle(id);
+  const bool success = handle.readHandle;
+  const bool bidi = success && handle.writeHandle;
+  if (success) {
+    sm_.setReadCb(*handle.readHandle, &smCb_);
+    quicSocket_->setReadCallback(id, &readCb_);
+    if (bidi) {
+      wtHandler_->onNewBidiStream(handle);
+    } else {
+      wtHandler_->onNewUniStream(handle.readHandle);
+    }
+  }
+  return success;
+}
+
 /**
  * QuicWtSession implementation below. Most of the functionality is shared with
  * QuicWtSessionBase - however this derived class assumes ownership of all of
@@ -323,21 +342,14 @@ QuicWtSession::closeSession(folly::Optional<uint32_t> error) noexcept {
 // -- QuicConnectionCallback overrides --
 void QuicWtSession::QuicConnectionCallback::onNewBidirectionalStream(
     StreamId id) noexcept {
-  XCHECK(sess.wtHandler_);
-  auto bidiHandle = sess.sm_.getOrCreateBidiHandle(id);
-  XCHECK(bidiHandle.readHandle && bidiHandle.writeHandle);
-  sess.sm_.setReadCb(*bidiHandle.readHandle, &sess.smCb_);
-  sess.quicSocket_->setReadCallback(id, &sess.readCb_);
-  sess.wtHandler_->onNewBidiStream(bidiHandle);
+  // always expected to succeed as config.peerMaxStreamsBidi = inf
+  XCHECK(sess.acquireIngressStream(id));
 }
 
 void QuicWtSession::QuicConnectionCallback::onNewUnidirectionalStream(
     StreamId id) noexcept {
-  XCHECK(sess.wtHandler_);
-  auto* rh = CHECK_NOTNULL(sess.sm_.getOrCreateIngressHandle(id));
-  sess.sm_.setReadCb(*rh, &sess.smCb_);
-  sess.quicSocket_->setReadCallback(id, &sess.readCb_);
-  sess.wtHandler_->onNewUniStream(rh);
+  // always expected to succeed as config.peerMaxStreamsUni = inf
+  XCHECK(sess.acquireIngressStream(id));
 }
 
 void QuicWtSession::QuicConnectionCallback::onStopSending(
