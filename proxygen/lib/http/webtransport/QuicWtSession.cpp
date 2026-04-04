@@ -89,34 +89,59 @@ QuicWtSessionBase::~QuicWtSessionBase() {
   QuicWtSessionBase::closeSession(folly::none);
 }
 
+auto QuicWtSessionBase::createWtEgressHandle(StreamId id) noexcept
+    -> BidiStreamHandle {
+  // bidi or uni type deduced by WtStreamManager from id
+  auto res = sm_.getOrCreateBidiHandle(id);
+  const bool success = res.writeHandle;
+  const bool bidi = success && res.readHandle;
+  // canCreate(Uni|Bidi) checked in ::create(Uni|Bidi)Stream
+  XCHECK(success);
+  quicSocket_->setStopSendingCallback(id, &stopSendingCb_);
+  if (bidi) {
+    sm_.setReadCb(*res.readHandle, &smCb_);
+    quicSocket_->setReadCallback(id, &readCb_);
+  }
+  return res;
+}
+
+bool QuicWtSessionBase::hasEgressUniCredit() const noexcept {
+  return quicSocket_->getNumOpenableUnidirectionalStreams() &&
+         sm_.canCreateUni();
+}
+bool QuicWtSessionBase::hasEgressBidiCredit() const noexcept {
+  return quicSocket_->getNumOpenableBidirectionalStreams() &&
+         sm_.canCreateBidi();
+}
+
 folly::Expected<WebTransport::StreamWriteHandle*, WebTransport::ErrorCode>
 QuicWtSessionBase::createUniStream() noexcept {
   XCHECK(quicSocket_);
-  auto id = quicSocket_->createUnidirectionalStream();
-  if (id.hasError()) {
+  if (!hasEgressUniCredit()) {
     return folly::makeUnexpected(ErrorCode::STREAM_CREATION_ERROR);
   }
-  return CHECK_NOTNULL(sm_.getOrCreateEgressHandle(*id));
+  auto id = quicSocket_->createUnidirectionalStream();
+  XCHECK(id);
+  return CHECK_NOTNULL(createWtEgressHandle(*id).writeHandle);
 }
 
 folly::Expected<WebTransport::BidiStreamHandle, WebTransport::ErrorCode>
 QuicWtSessionBase::createBidiStream() noexcept {
   XCHECK(quicSocket_);
-  auto id = quicSocket_->createBidirectionalStream();
-  if (id.hasError()) {
+  if (!hasEgressBidiCredit()) {
     return folly::makeUnexpected(ErrorCode::STREAM_CREATION_ERROR);
   }
-  auto bidiHandle = sm_.getOrCreateBidiHandle(*id);
-  XCHECK(bidiHandle.readHandle && bidiHandle.writeHandle);
-  sm_.setReadCb(*bidiHandle.readHandle, &smCb_);
-  quicSocket_->setReadCallback(*id, &readCb_);
-  return bidiHandle;
+  auto id = quicSocket_->createBidirectionalStream();
+  XCHECK(id);
+  auto res = createWtEgressHandle(*id);
+  XCHECK(res.readHandle && res.writeHandle);
+  return res;
 }
 
 folly::SemiFuture<folly::Unit>
 QuicWtSessionBase::awaitUniStreamCredit() noexcept {
   XCHECK(quicSocket_);
-  if (quicSocket_->getNumOpenableUnidirectionalStreams() > 0) {
+  if (hasEgressUniCredit()) {
     return folly::makeFuture(folly::unit);
   }
   auto [promise, future] = folly::makePromiseContract<folly::Unit>();
@@ -127,7 +152,7 @@ QuicWtSessionBase::awaitUniStreamCredit() noexcept {
 folly::SemiFuture<folly::Unit>
 QuicWtSessionBase::awaitBidiStreamCredit() noexcept {
   XCHECK(quicSocket_);
-  if (quicSocket_->getNumOpenableBidirectionalStreams() > 0) {
+  if (hasEgressBidiCredit()) {
     return folly::makeFuture(folly::unit);
   }
   auto [promise, future] = folly::makePromiseContract<folly::Unit>();
@@ -197,6 +222,11 @@ void QuicWtSessionBase::QuicReadCallback::readError(StreamId id,
   XLOG(ERR) << __func__ << "; id=" << id << "; err=" << error;
   sess.sm_.onResetStream(detail::WtStreamManager::ResetStream{
       id, *error.code.asApplicationErrorCode()});
+}
+
+void QuicWtSessionBase::QuicStopSendingCallback::onStopSending(
+    StreamId id, quic::ApplicationErrorCode ec) noexcept {
+  sess.sm_.onStopSending(detail::WtStreamManager::StopSending{id, ec});
 }
 
 // -- StreamManagerCallback overrides --
@@ -303,6 +333,7 @@ bool QuicWtSessionBase::acquireIngressStream(uint64_t id) noexcept {
     sm_.setReadCb(*handle.readHandle, &smCb_);
     quicSocket_->setReadCallback(id, &readCb_);
     if (bidi) {
+      quicSocket_->setStopSendingCallback(id, &stopSendingCb_);
       wtHandler_->onNewBidiStream(handle);
     } else {
       wtHandler_->onNewUniStream(handle.readHandle);
@@ -350,11 +381,6 @@ void QuicWtSession::QuicConnectionCallback::onNewUnidirectionalStream(
     StreamId id) noexcept {
   // always expected to succeed as config.peerMaxStreamsUni = inf
   XCHECK(sess.acquireIngressStream(id));
-}
-
-void QuicWtSession::QuicConnectionCallback::onStopSending(
-    StreamId id, quic::ApplicationErrorCode errorCode) noexcept {
-  sess.sm_.onStopSending({.streamId = id, .err = errorCode});
 }
 
 void QuicWtSession::QuicConnectionCallback::onConnectionEnd() noexcept {

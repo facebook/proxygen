@@ -83,6 +83,15 @@ class QuicWtSessionBase
     void readError(StreamId streamId, QuicError error) noexcept override;
   } readCb_{*this};
 
+  struct QuicStopSendingCallback : public quic::StopSendingCallback {
+    QuicWtSessionBase& sess;
+    explicit QuicStopSendingCallback(QuicWtSessionBase& session)
+        : sess(session) {
+    }
+    void onStopSending(StreamId id,
+                       quic::ApplicationErrorCode ec) noexcept override;
+  } stopSendingCb_{*this};
+
   struct StreamManagerCallback
       : public detail::WtStreamManager::ReadCallback
       , public detail::WtStreamManager::EgressCallback
@@ -107,6 +116,16 @@ class QuicWtSessionBase
   detail::WtStreamManager sm_;
 
  private:
+  /**
+   * Returns true iff there is bidi/uni credit w.r.t both QuicSocket &
+   * WtStreamManager. If this returns true, we can safely proceed to create
+   * egress streams via ::create(Uni|Bidi)Stream
+   */
+  bool hasEgressUniCredit() const noexcept;
+  bool hasEgressBidiCredit() const noexcept;
+
+  BidiStreamHandle createWtEgressHandle(StreamId id) noexcept;
+
   // -- StreamWriteCallback overrides --
   void onStreamWriteReady(StreamId id, uint64_t maxToSend) noexcept override;
   void onStreamWriteError(StreamId id, QuicError error) noexcept override;
@@ -133,8 +152,6 @@ class QuicWtSession final : public QuicWtSessionBase {
     }
     void onNewBidirectionalStream(StreamId id) noexcept override;
     void onNewUnidirectionalStream(StreamId id) noexcept override;
-    void onStopSending(StreamId id,
-                       quic::ApplicationErrorCode error) noexcept override;
     void onConnectionEnd() noexcept override;
     void onConnectionEnd(QuicError error) noexcept override;
     void onConnectionError(QuicError code) noexcept override;
@@ -142,6 +159,9 @@ class QuicWtSession final : public QuicWtSessionBase {
         uint64_t numStreamsAvailable) noexcept override;
     void onUnidirectionalStreamsAvailable(
         uint64_t numStreamsAvailable) noexcept override;
+    void onStopSending(StreamId, quic::ApplicationErrorCode) noexcept override {
+      // handled by per-stream QuicSocket::addStopSending
+    }
   } connCb_{*this};
 
   struct QuicDgramCallback : public QuicSocket::DatagramCallback {
