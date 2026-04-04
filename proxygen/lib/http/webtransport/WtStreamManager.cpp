@@ -518,9 +518,11 @@ void WtStreamManager::setReadCb(WtReadHandle& rh, ReadCallback* rcb) noexcept {
   readhandle_ref_cast(rh).rcb_ = rcb;
 }
 
-uint64_t WtStreamManager::bufferedBytes(const WtReadHandle& rh) const noexcept {
-  return static_cast<const ReadHandle&>(rh)
-      .ingress_.chain.computeChainDataLength();
+uint64_t WtStreamManager::recvBytesAvail(
+    const WtReadHandle& rh) const noexcept {
+  return std::min(
+      connRecvFc_.getAvailable(),
+      static_cast<const ReadHandle&>(rh).streamRecvFc_.getAvailable());
 }
 
 WtStreamManager::Result WtStreamManager::onMaxData(MaxConnData data) noexcept {

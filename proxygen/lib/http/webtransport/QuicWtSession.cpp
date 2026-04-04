@@ -20,8 +20,8 @@ WtStreamManager::WtConfig createQuicConfig() {
   config.selfMaxStreamsBidi = kMaxVarint;
   config.selfMaxStreamsUni = kMaxVarint;
   config.selfMaxConnData = kMaxVarint;
-  config.selfMaxStreamDataBidi = kMaxVarint;
-  config.selfMaxStreamDataUni = kMaxVarint;
+  config.selfMaxStreamDataBidi = kMaxWtIngressBuf;
+  config.selfMaxStreamDataUni = kMaxWtIngressBuf;
   config.peerMaxStreamsBidi = kMaxVarint;
   config.peerMaxStreamsUni = kMaxVarint;
   config.peerMaxConnData = kMaxVarint;
@@ -197,8 +197,7 @@ void QuicWtSessionBase::QuicReadCallback::readAvailable(StreamId id) noexcept {
     XLOG(ERR) << "nullptr rh id=" << id;
     return;
   }
-  auto canRead =
-      kMaxWtIngressBuf - std::min(sm.bufferedBytes(*rh), kMaxWtIngressBuf);
+  const auto canRead = sm.recvBytesAvail(*rh);
   if (canRead == 0) {
     sess.maybePauseIngress(*rh);
     return;
@@ -304,7 +303,7 @@ void QuicWtSessionBase::maybePauseIngress(
     detail::WtStreamManager::WtReadHandle& handle) noexcept {
   XCHECK(quicSocket_);
   const auto id = handle.getID();
-  if (sm_.bufferedBytes(handle) >= kMaxWtIngressBuf) {
+  if (sm_.recvBytesAvail(handle) == 0) {
     XLOG(DBG4) << __func__ << "; id=" << id;
     auto res = quicSocket_->pauseRead(id);
     XLOG_IF(ERR, res.hasError()) << __func__ << "; err id=" << id;
@@ -315,7 +314,7 @@ void QuicWtSessionBase::maybeResumeIngress(
     detail::WtStreamManager::WtReadHandle& handle) noexcept {
   XCHECK(quicSocket_);
   const auto id = handle.getID();
-  if (sm_.bufferedBytes(handle) < kMaxWtIngressBuf) {
+  if (sm_.recvBytesAvail(handle) > 0) {
     XLOG(DBG4) << __func__ << "; id=" << id;
     auto res = quicSocket_->resumeRead(id);
     XLOG_IF(ERR, res.hasError()) << __func__ << "; err id=" << id;

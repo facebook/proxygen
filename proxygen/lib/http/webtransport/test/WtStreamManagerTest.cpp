@@ -274,11 +274,11 @@ TEST(WtStreamManager, EnqueueIngressDataRwnd) {
 
   constexpr auto kBufLen = 65'535;
 
-  EXPECT_EQ(streamManager.bufferedBytes(*one.readHandle), 0);
+  EXPECT_EQ(streamManager.recvBytesAvail(*one.readHandle), kBufLen);
   // both conn & stream recv window exactly full, expect success
   EXPECT_TRUE(
       streamManager.enqueue(*one.readHandle, {makeBuf(kBufLen), false}));
-  EXPECT_EQ(streamManager.bufferedBytes(*one.readHandle), kBufLen);
+  EXPECT_EQ(streamManager.recvBytesAvail(*one.readHandle), 0);
   // enqueuing a additional byte in one will fail (stream recv window full)
   EXPECT_FALSE(
       streamManager.enqueue(*one.readHandle, {makeBuf(kBufLen), false}));
@@ -293,7 +293,7 @@ TEST(WtStreamManager, EnqueueIngressDataRwnd) {
   EXPECT_TRUE(oneFut.isReady()); // enqueue should fulfill promise
   EXPECT_EQ(oneFut.value().data->computeChainDataLength(), kBufLen);
   EXPECT_FALSE(oneFut.value().fin);
-  EXPECT_EQ(streamManager.bufferedBytes(*one.readHandle), 0);
+  EXPECT_EQ(streamManager.recvBytesAvail(*one.readHandle), kBufLen);
 }
 
 TEST(WtStreamManager, WriteEgressHandle) {
