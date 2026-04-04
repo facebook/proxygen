@@ -665,6 +665,15 @@ bool WtStreamManager::canCreateBidi() const noexcept {
   return !shutdown_ && !streamLimitExceeded(nextStreamIds_.bidi);
 }
 
+std::vector<uint64_t> WtStreamManager::streamIds() const noexcept {
+  std::vector<uint64_t> result;
+  result.reserve(streams_.size());
+  for (const auto& [id, _] : streams_) {
+    result.push_back(id);
+  }
+  return result;
+}
+
 bool WtStreamManager::hasEvent() const noexcept {
   return writableStreams_.hasStreams() || !ctrlEvents_.empty();
 }

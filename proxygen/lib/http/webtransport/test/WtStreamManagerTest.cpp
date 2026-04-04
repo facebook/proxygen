@@ -63,6 +63,9 @@ TEST(WtStreamManager, BasicSelfBidi) {
   WtStreamManager streamManager{
       detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
 
+  auto ids = streamManager.streamIds();
+  EXPECT_TRUE(ids.empty()); // no streams
+
   // 0x00 is the next expected bidi stream id for client
   EXPECT_TRUE(streamManager.canCreateBidi());
   auto bidiRes = streamManager.getOrCreateBidiHandle(0x00);
@@ -81,6 +84,9 @@ TEST(WtStreamManager, BasicSelfBidi) {
   bidiRes = streamManager.getOrCreateBidiHandle(0x04);
   EXPECT_EQ(bidiRes.readHandle, nullptr);
   EXPECT_EQ(bidiRes.writeHandle, nullptr);
+
+  ids = streamManager.streamIds();
+  EXPECT_EQ(ids.size(), 2); // two streams
 }
 
 TEST(WtStreamManager, BasicSelfUni) {

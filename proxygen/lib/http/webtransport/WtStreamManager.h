@@ -323,6 +323,9 @@ struct WtStreamManager {
   [[nodiscard]] bool canCreateUni() const noexcept;
   [[nodiscard]] bool canCreateBidi() const noexcept;
 
+  // returns the ids of open streams
+  std::vector<uint64_t> streamIds() const noexcept;
+
  private:
   [[nodiscard]] bool isSelf(uint64_t streamId) const noexcept;
   [[nodiscard]] bool isPeer(uint64_t streamId) const noexcept;
