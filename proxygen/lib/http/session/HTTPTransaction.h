@@ -1989,6 +1989,9 @@ class HTTPTransaction
     if (!isEgressEOMSeen()) {
       sendEOM();
     }
+    if (!isIngressEOMSeen()) {
+      sendAbort(ErrorCode::NO_ERROR);
+    }
 
     return folly::unit;
   }
