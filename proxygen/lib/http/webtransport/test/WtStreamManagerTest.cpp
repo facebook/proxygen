@@ -426,9 +426,15 @@ TEST(WtStreamManager, BidiHandleCancellation) {
 
   // StreamManager::onStopSending should request cancellation of egress handle
   auto ct = one.writeHandle->getCancelToken();
-  streamManager.onStopSending({one.writeHandle->getID(), 0x00});
+  // reset stream on cancellation
+  folly::CancellationCallback cancelCb{
+      ct, [eh = one.writeHandle]() {
+        CHECK(eh->exception() && eh->exception()->error == 0xface);
+        eh->resetStream(0); // reset stream
+      }};
+  streamManager.onStopSending({one.writeHandle->getID(), 0xface});
   EXPECT_TRUE(ct.isCancellationRequested());
-  // stream should be removed from queue after cancellation
+  // stream write handle is closed when reset by application
   EXPECT_EQ(streamManager.nextWritable(), nullptr);
   EXPECT_TRUE(priorityQueue->empty());
 

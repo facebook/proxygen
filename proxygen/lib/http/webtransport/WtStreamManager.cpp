@@ -43,10 +43,9 @@
  *
  * A note about stream states:
  * – An egress handle transitions from [HandleState::Open] ->
- *   [HandleState::Closed] in three cases: fin is dequeued from WriteHandle via
- *   ::dequeue, the application resets the stream (i.e.
- *   WebTransport::WriteHandle::resetStream), or the transport receives a
- *   stop_sending and WtStreamManager::onStopSending is invoked.
+ *   [HandleState::Closed] in two cases: fin is dequeued from WriteHandle via
+ *   ::dequeue or the application resets the stream (i.e.
+ *   WebTransport::WriteHandle::resetStream).
  *
  * – An ingress handle transitions from [HandleState::Open] ->
  *   [HandleState::Closed] in three cases: fin is read via ::readStreamData(),
@@ -191,6 +190,7 @@ struct WriteHandle : public WebTransport::StreamWriteHandle {
   Result onMaxData(uint64_t offset);
   WritePromise resetPromise() noexcept;
   void cancel(folly::exception_wrapper ex) noexcept;
+  void onStopSending(uint32_t errCode) noexcept;
   void finish(bool done) noexcept;
 
   Accessor smAccessor_;
@@ -563,9 +563,7 @@ WtStreamManager::Result WtStreamManager::onStopSending(
     StopSending data) noexcept {
   XLOG(DBG9) << __func__ << "; id=" << data.streamId << "; err=" << data.err;
   if (auto* eh = writehandle_ptr_cast(getEgressHandle(data.streamId))) {
-    auto ex = folly::make_exception_wrapper<WtException>(uint32_t(data.err),
-                                                         "rx stop_sending");
-    eh->cancel(std::move(ex));
+    eh->onStopSending(data.err);
     return Ok;
   }
   return Fail;
@@ -1047,6 +1045,11 @@ void WriteHandle::cancel(folly::exception_wrapper ex) noexcept {
   cs_.requestCancellation();
   // **beware finish must be last** (`this` can be deleted immediately after)
   finish(/*done=*/true);
+}
+
+void WriteHandle::onStopSending(uint32_t errCode) noexcept {
+  ex_ = folly::make_exception_wrapper<WtException>(errCode, "rx stop_sending");
+  cs_.requestCancellation(); // notify applicaiton of stop sending
 }
 
 void WriteHandle::finish(bool done) noexcept {
