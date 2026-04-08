@@ -37,14 +37,13 @@ class MockDeliveryCallback : public WebTransport::ByteEventCallback {
 class QuicWtSessionTest : public Test {
  protected:
   void SetUp() override {
-    auto handler = std::make_unique<StrictMock<MockWebTransportHandler>>();
-    EXPECT_CALL(*handler, onSessionEnd(_)).WillOnce([this](auto err) {
+    handler_ = std::make_unique<StrictMock<MockWebTransportHandler>>();
+    EXPECT_CALL(*handler_, onSessionEnd(_)).WillOnce([this](auto err) {
       EXPECT_EQ(err, expectedWtHandlerErr_);
     });
 
-    handler_ = handler.get();
     session_ = std::make_unique<QuicWtSession>(socketDriver_.getSocket(),
-                                               std::move(handler));
+                                               handler_.get());
     socketDriver_.setMaxUniStreams(100);
   }
 
@@ -61,7 +60,7 @@ class QuicWtSessionTest : public Test {
       nullptr,
       MockQuicSocketDriver::TransportEnum::SERVER,
       "alpn1"};
-  StrictMock<MockWebTransportHandler>* handler_{nullptr};
+  std::unique_ptr<StrictMock<MockWebTransportHandler>> handler_;
   std::unique_ptr<QuicWtSession> session_;
   folly::Optional<uint32_t> expectedWtHandlerErr_{folly::none};
 };
@@ -557,6 +556,36 @@ TEST_F(QuicWtSessionTest, ReadError) {
   auto* ex = result.tryGetExceptionObject<WebTransport::Exception>();
   ASSERT_NE(ex, nullptr);
   EXPECT_EQ(ex->error, WT_ERROR_2);
+}
+
+TEST_F(QuicWtSessionTest, SetHandlerNullClosesSession) {
+  // create an incoming uni stream and start a pending read
+  WebTransport::StreamReadHandle* readHandle = nullptr;
+  EXPECT_CALL(*handler_, onNewUniStream(_))
+      .WillOnce(
+          [&](WebTransport::StreamReadHandle* handle) { readHandle = handle; });
+  socketDriver_.addReadEvent(2, nullptr, false);
+  eventBase_.loopOnce();
+  ASSERT_NE(readHandle, nullptr);
+
+  auto token = readHandle->getCancelToken();
+  auto readFut = readHandle->readStreamData();
+  EXPECT_FALSE(token.isCancellationRequested());
+
+  // setHandler(nullptr) should trigger closeSession(folly::none), which:
+  //   1. calls onSessionEnd(folly::none) on the handler (verified by SetUp)
+  //   2. cancels all open streams
+  session_->setHandler(nullptr);
+  eventBase_.loop();
+
+  EXPECT_TRUE(token.isCancellationRequested());
+  EXPECT_TRUE(readFut.isReady());
+  auto result = std::move(readFut).getTry();
+  EXPECT_TRUE(result.hasException());
+  auto* ex = result.tryGetExceptionObject<WebTransport::Exception>();
+  ASSERT_NE(ex, nullptr);
+  EXPECT_EQ(ex->error, 0);
+  session_.reset();
 }
 
 TEST_F(QuicWtSessionTest, ConnectionEndWithError) {

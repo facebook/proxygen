@@ -68,8 +68,20 @@ class QuicWtSessionBase
       folly::Optional<uint32_t> error) noexcept override;
 
  protected:
+  // TODO(@joannajo): Remove WtHandlerDeleter + setHandler() once MoQSession is
+  // fully migrated to QuicWtSession.
+  struct WtHandlerDeleter {
+    bool owning{true};
+    void operator()(WebTransportHandler* p) const noexcept {
+      if (owning) {
+        std::default_delete<WebTransportHandler>{}(p);
+      }
+    }
+  };
+  using WtHandlerPtr = std::unique_ptr<WebTransportHandler, WtHandlerDeleter>;
+
   QuicWtSessionBase(std::shared_ptr<QuicSocket> quicSocket,
-                    std::unique_ptr<WebTransportHandler> wtHandler,
+                    WtHandlerPtr wtHandler,
                     detail::WtStreamManager::WtConfig wtConfig);
   ~QuicWtSessionBase() override = 0;
 
@@ -111,7 +123,7 @@ class QuicWtSessionBase
   bool acquireIngressStream(uint64_t id) noexcept;
 
   std::shared_ptr<quic::QuicSocket> quicSocket_{nullptr};
-  std::unique_ptr<WebTransportHandler> wtHandler_;
+  WtHandlerPtr wtHandler_;
   std::unique_ptr<quic::HTTPPriorityQueue> priorityQueue_;
   detail::WtStreamManager sm_;
 
@@ -140,12 +152,23 @@ class QuicWtSession final : public QuicWtSessionBase {
  public:
   QuicWtSession(std::shared_ptr<QuicSocket> quicSocket,
                 std::unique_ptr<WebTransportHandler> wtHandler);
+  QuicWtSession(std::shared_ptr<QuicSocket> quicSocket,
+                WebTransportHandler* wtHandler);
   ~QuicWtSession() override;
 
   folly::Expected<folly::Unit, ErrorCode> closeSession(
       folly::Optional<uint32_t> error) noexcept override;
 
+  void setHandler(WebTransportHandler* handler) noexcept {
+    if (!handler) {
+      closeSession(folly::none);
+    }
+    wtHandler_ = WtHandlerPtr(handler, WtHandlerDeleter{.owning = false});
+  }
+
  private:
+  QuicWtSession(std::shared_ptr<QuicSocket> quicSocket, WtHandlerPtr wtHandler);
+
   struct QuicConnectionCallback : public QuicSocket::ConnectionCallback {
     QuicWtSession& sess;
     explicit QuicConnectionCallback(QuicWtSession& session) : sess(session) {

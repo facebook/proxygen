@@ -70,7 +70,7 @@ namespace proxygen {
 
 QuicWtSessionBase::QuicWtSessionBase(
     std::shared_ptr<quic::QuicSocket> quicSocket,
-    std::unique_ptr<WebTransportHandler> wtHandler,
+    WtHandlerPtr wtHandler,
     WtStreamManager::WtConfig wtConfig)
     : WtSessionBase(nullptr, sm_),
       quicSocket_(std::move(quicSocket)),
@@ -350,6 +350,20 @@ bool QuicWtSessionBase::acquireIngressStream(uint64_t id) noexcept {
  */
 QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
                              std::unique_ptr<WebTransportHandler> wtHandler)
+    : QuicWtSession(
+          std::move(quicSocket),
+          WtHandlerPtr{wtHandler.release(), WtHandlerDeleter{.owning = true}}) {
+}
+
+QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
+                             WebTransportHandler* wtHandler)
+    : QuicWtSession(
+          std::move(quicSocket),
+          WtHandlerPtr{wtHandler, WtHandlerDeleter{.owning = false}}) {
+}
+
+QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
+                             WtHandlerPtr wtHandler)
     : QuicWtSessionBase(
           std::move(quicSocket), std::move(wtHandler), createQuicConfig()) {
   quicSocket_->setConnectionCallback(&connCb_);
