@@ -260,9 +260,15 @@ TEST(WtStreamManager, EnqueueIngressData) {
     EXPECT_TRUE(streamManager.enqueue(
         *one.readHandle, {folly::IOBuf::fromString(std::string{c}), false}));
   }
+  EXPECT_TRUE(streamManager.enqueue(*one.readHandle, {nullptr, true}));
+
   auto oneFut = one.readHandle->readStreamData();
-  EXPECT_TRUE(oneFut.isReady() && oneFut.value().data);
+  EXPECT_TRUE(oneFut.isReady() && oneFut.value().data && oneFut.value().fin);
   EXPECT_EQ(oneFut.value().data->toString(), kData);
+
+  // enqueue data after fin => err
+  EXPECT_EQ(streamManager.enqueue(*one.readHandle, {nullptr, true}),
+            WtStreamManager::Result::Fail);
 }
 
 TEST(WtStreamManager, EnqueueIngressDataRwnd) {

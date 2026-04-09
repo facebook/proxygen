@@ -868,10 +868,9 @@ folly::Expected<folly::Unit, ReadHandle::ErrCode> ReadHandle::stopSending(
 }
 
 Result ReadHandle::enqueue(StreamData&& data) noexcept {
-  XCHECK(!ingress_.fin) << "already rx'd eof";
   auto len = computeChainLength(data.data);
-  if (!streamRecvFc_.reserve(len)) {
-    return Result::Fail; // error
+  if (!streamRecvFc_.reserve(len) || ingress_.fin) { // error
+    return Result::Fail;
   }
   if (len > 0) {
     ingress_.chain.appendToChain(std::move(data.data));
