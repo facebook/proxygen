@@ -8,6 +8,8 @@
 
 #include <proxygen/lib/http/webtransport/QuicWtSession.h>
 
+#include <proxygen/lib/http/codec/HQFramer.h>
+
 using namespace proxygen;
 using namespace proxygen::detail;
 using FCState = WebTransport::FCState;
@@ -32,30 +34,48 @@ WtStreamManager::WtConfig createQuicConfig() {
 
 struct QuicWtEventVisitor {
   quic::QuicSocket& quicSocket;
+  H3ConnectStreamCallback* observer{nullptr};
 
-  void operator()(const WtStreamManager::ResetStream& ev) const {
+  // operations map to QuicSocket invocations
+  void operator()(WtStreamManager::ResetStream ev) const {
     quicSocket.resetStream(ev.streamId, ev.err);
   }
 
-  void operator()(const WtStreamManager::StopSending& ev) const {
+  void operator()(WtStreamManager::StopSending ev) const {
     quicSocket.setReadCallback(ev.streamId, nullptr, ev.err);
   }
 
-  void operator()(const WtStreamManager::CloseSession& /*ev*/) const {
-    // Don't call wtHandler_->onSessionEnd here, it's handled in
-    // onConnectionEndImpl. WtStreamManager generates CloseSession when
-    // we call shutdown(), which already means we're closing the session.
+  // operations need to be serialized on the backing http/3 connect stream (if
+  // exists).
+  void operator()(WtStreamManager::CloseSession ev) const {
+    if (observer) {
+      observer->onEvent(std::move(ev));
+    }
   }
 
-  void operator()(const WtStreamManager::MaxConnData& /*ev*/) const {
+  void operator()(WtStreamManager::MaxConnData ev) const {
+    if (observer) {
+      observer->onEvent(std::move(ev));
+    }
   }
-  void operator()(const WtStreamManager::MaxStreamData& /*ev*/) const {
+  void operator()(WtStreamManager::MaxStreamsBidi ev) const {
+    if (observer) {
+      observer->onEvent(std::move(ev));
+    }
   }
-  void operator()(const WtStreamManager::MaxStreamsBidi& /*ev*/) const {
+  void operator()(WtStreamManager::MaxStreamsUni ev) const {
+    if (observer) {
+      observer->onEvent(std::move(ev));
+    }
   }
-  void operator()(const WtStreamManager::MaxStreamsUni& /*ev*/) const {
+  void operator()(WtStreamManager::DrainSession ev) const {
+    if (observer) {
+      observer->onEvent(std::move(ev));
+    }
   }
-  void operator()(const WtStreamManager::DrainSession& /*ev*/) const {
+
+  // not applicable to http/3-wt or quic-wt
+  void operator()(WtStreamManager::MaxStreamData /*ev*/) const {
   }
 };
 
@@ -71,7 +91,8 @@ namespace proxygen {
 QuicWtSessionBase::QuicWtSessionBase(
     std::shared_ptr<quic::QuicSocket> quicSocket,
     WtHandlerPtr wtHandler,
-    WtStreamManager::WtConfig wtConfig)
+    WtStreamManager::WtConfig wtConfig,
+    H3ConnectStreamCallback* observer)
     : WtSessionBase(nullptr, sm_),
       quicSocket_(std::move(quicSocket)),
       wtHandler_(std::move(wtHandler)),
@@ -82,7 +103,8 @@ QuicWtSessionBase::QuicWtSessionBase(
           wtConfig,
           smCb_,
           smCb_,
-          *priorityQueue_} {
+          *priorityQueue_},
+      observer_(observer) {
 }
 
 QuicWtSessionBase::~QuicWtSessionBase() {
@@ -237,9 +259,10 @@ void QuicWtSessionBase::StreamManagerCallback::readReady(
 void QuicWtSessionBase::StreamManagerCallback::eventsAvailable() noexcept {
   XCHECK(sess.quicSocket_);
   // process control events first
+  QuicWtEventVisitor visitor{*sess.quicSocket_, sess.observer_};
   auto events = sess.sm_.moveEvents();
   for (auto& event : events) {
-    std::visit(QuicWtEventVisitor{*sess.quicSocket_}, event);
+    std::visit(visitor, event);
   }
   // then process writable streams
   while (!sess.priorityQueue_->empty()) {
@@ -439,6 +462,65 @@ void QuicWtSession::QuicDgramCallback::onDatagramsAvailable() noexcept {
   for (auto& dgram : result.value()) {
     sess.onDatagram(std::move(dgram));
   }
+}
+
+H3WtSession::H3WtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
+                         std::unique_ptr<WebTransportHandler> wtHandler,
+                         WtStreamManager::WtConfig wtConfig,
+                         uint64_t connectStreamId,
+                         H3ConnectStreamCallback& observer) noexcept
+    : QuicWtSessionBase(
+          std::move(quicSocket),
+          WtHandlerPtr{wtHandler.release(), WtHandlerDeleter{.owning = true}},
+          std::move(wtConfig),
+          &observer),
+      connectStreamId_(connectStreamId) {
+  XCHECK_LE(connectStreamId, detail::kMaxVarint);
+}
+
+H3WtSession::~H3WtSession() noexcept {
+  H3WtSession::closeSession(folly::none);
+}
+
+folly::Expected<folly::Unit, WebTransport::ErrorCode> H3WtSession::closeSession(
+    folly::Optional<uint32_t> error) noexcept {
+  // we need to bidi reset all assoc quic streams (ss+rst_stream)
+  auto streamIds = sm_.streamIds();
+  auto ec = error.value_or(0);
+  // bidirectionally reset all assoc quic streams
+  for (uint64_t id : streamIds) {
+    quicSocket_->setReadCallback(id, nullptr, ec);
+    quicSocket_->resetStream(id, ec);
+  }
+  QuicWtSessionBase::closeSession(error);
+  return folly::unit;
+}
+
+folly::Expected<WebTransport::StreamWriteHandle*, WebTransport::ErrorCode>
+H3WtSession::createUniStream() noexcept {
+  auto result = QuicWtSessionBase::createUniStream();
+  if (result) {
+    writeWtFramePrefix(result.value()->getID());
+  }
+  return result;
+}
+
+folly::Expected<WebTransport::BidiStreamHandle, WebTransport::ErrorCode>
+H3WtSession::createBidiStream() noexcept {
+  auto result = QuicWtSessionBase::createBidiStream();
+  if (result) {
+    writeWtFramePrefix(result->writeHandle->getID());
+  }
+  return result;
+}
+
+void H3WtSession::writeWtFramePrefix(uint64_t id) noexcept {
+  auto streamType = quic::isBidirectionalStream(id)
+                        ? hq::WebTransportStreamType::BIDI
+                        : hq::WebTransportStreamType::UNI;
+  folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+  XCHECK(hq::writeWTStreamPreface(writeBuf, streamType, connectStreamId_));
+  XCHECK(quicSocket_->writeChain(id, writeBuf.move(), false));
 }
 
 } // namespace proxygen

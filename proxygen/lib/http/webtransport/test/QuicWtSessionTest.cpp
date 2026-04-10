@@ -771,3 +771,156 @@ TEST_F(QuicWtSessionTest, IngressBackpressure) {
   EXPECT_EQ(socketDriver_.streams_[streamId2].readState,
             MockQuicSocketDriver::PAUSED);
 }
+
+/*
+ * H3WtSession shares most code w/ QuicWtSessionBase, so we test just the
+ * overridden methods and validate the expected side-effects (e.g.
+ * create(Uni|Bidi)Stream, ::closeSession, etc.)
+ */
+class H3WtSessionTest : public Test {
+ protected:
+  void SetUp() override {
+    auto handler = std::make_unique<StrictMock<MockWebTransportHandler>>();
+    EXPECT_CALL(*handler, onSessionEnd(_)).WillOnce([this](auto err) {
+      EXPECT_EQ(err, expectedWtHandlerErr_);
+    });
+
+    handler_ = handler.get();
+    session_ =
+        std::make_shared<H3WtSession>(socketDriver_.getSocket(),
+                                      std::move(handler),
+                                      detail::WtStreamManager::WtConfig{},
+                                      /*connectStreamId=*/0,
+                                      connectStreamCb_);
+  }
+
+  void TearDown() override {
+    session_->closeSession(folly::none);
+    // hmm... MockQuicSocketDriver expects QuicSocket::close before destruction
+    socketDriver_.closeImpl({});
+  }
+
+  folly::EventBase eventBase_;
+  MockQuicSocketDriver socketDriver_{
+      &eventBase_,
+      nullptr,
+      nullptr,
+      MockQuicSocketDriver::TransportEnum::SERVER,
+      "alpn1"};
+  StrictMock<MockWebTransportHandler>* handler_{nullptr};
+  std::shared_ptr<H3WtSession> session_;
+  folly::Optional<uint32_t> expectedWtHandlerErr_{folly::none};
+
+  class H3ConnectCb : public proxygen::H3ConnectStreamCallback {
+    void onEvent(detail::WtStreamManager::Event&& ev) noexcept override {
+      events.push_back(std::move(ev));
+    }
+    std::vector<detail::WtStreamManager::Event> events;
+  } connectStreamCb_;
+};
+
+TEST_F(H3WtSessionTest, CreateUniBidiStream) {
+  // creating a bidi and uni stream should fail
+  socketDriver_.setMaxBidiStreams(0);
+  socketDriver_.setMaxUniStreams(0);
+
+  { // fails to create due to lack of quic stream credit
+    auto uniRes = session_->createUniStream();
+    auto bidiRes = session_->createBidiStream();
+    EXPECT_FALSE(uniRes && bidiRes);
+    EXPECT_EQ(uniRes.error(), WebTransport::ErrorCode::STREAM_CREATION_ERROR);
+    EXPECT_EQ(bidiRes.error(), WebTransport::ErrorCode::STREAM_CREATION_ERROR);
+  }
+
+  socketDriver_.setMaxBidiStreams(2);
+  socketDriver_.setMaxUniStreams(2);
+
+  { // uni&bidi stream credit now available
+    auto uni = session_->createUniStream();
+    auto bidi = session_->createBidiStream();
+    CHECK(uni && bidi);
+
+    // validate the wt stream prefix was written to the quic stream
+    auto uniId = (*uni)->getID();
+    auto bidiId = bidi->writeHandle->getID();
+
+    /**
+     * bidi & uni prefix
+     *
+     * Unidirectional Stream {
+     *   Stream Type (i) = 0x54,
+     *   Session ID (i),
+     *   User-Specified Stream Data (..)
+     * }
+     *
+     * Bidirectional Stream {
+     *   Signal Value (i) = 0x41,
+     *   Session ID (i),
+     *   Stream Body (..)
+     * }
+     */
+    auto& streams = socketDriver_.streams_;
+    const auto* buf = streams[uniId].pendingWriteBuf.front();
+    EXPECT_TRUE(buf && buf->computeChainDataLength() == 3);
+    EXPECT_EQ(buf->data()[0], 0x40); // varint encoding prefix
+    EXPECT_EQ(buf->data()[1], 0x54);
+    EXPECT_EQ(buf->data()[2], 0x00); // connectStreamId = 0
+
+    buf = streams[bidiId].pendingWriteBuf.front();
+    EXPECT_TRUE(buf && buf->computeChainDataLength() == 3);
+    EXPECT_EQ(buf->data()[0], 0x40); // varint encoding prefix
+    EXPECT_EQ(buf->data()[1], 0x41);
+    EXPECT_EQ(buf->data()[2], 0x00); // connectStreamId = 0
+
+    // validate ::closeSession issues a rst_stream for each id
+    session_->closeSession(folly::none);
+    EXPECT_TRUE(streams[uniId].writeState ==
+                MockQuicSocketDriver::StateEnum::ERROR);
+    EXPECT_TRUE(streams[bidiId].writeState ==
+                MockQuicSocketDriver::StateEnum::ERROR);
+  }
+
+  { // can no longer create bidi/uni streams after ::shutdown
+    auto uni = session_->createUniStream();
+    auto bidi = session_->createBidiStream();
+    CHECK(!uni && !bidi);
+  }
+}
+
+TEST_F(H3WtSessionTest, AcquireIngressStream) {
+  // client-initiated stream ids (server is the local endpoint)
+  constexpr uint64_t kClientBidiId = 0;
+  constexpr uint64_t kClientUniId = 2;
+
+  WebTransport::StreamReadHandle* uni = nullptr;
+  EXPECT_CALL(*handler_, onNewUniStream(_)).WillOnce(SaveArg<0>(&uni));
+
+  WebTransport::BidiStreamHandle bidi{nullptr, nullptr};
+  EXPECT_CALL(*handler_, onNewBidiStream(_)).WillOnce(SaveArg<0>(&bidi));
+
+  // acquire uni stream and verify handler notification
+  EXPECT_TRUE(session_->acquireIngressStream(kClientUniId));
+  XCHECK(uni && uni->getID() == kClientUniId);
+
+  // acquire bidi stream and verify handler notification
+  EXPECT_TRUE(session_->acquireIngressStream(kClientBidiId));
+  XCHECK(bidi.readHandle && bidi.writeHandle &&
+         bidi.readHandle->getID() == kClientBidiId);
+
+  // enqueue data on uni&bidi stream and verify read handle receives it
+  constexpr std::string_view body = "abcdefghijklmnopqrstuvwxyz";
+  socketDriver_.addReadEvent(
+      kClientUniId, folly::IOBuf::copyBuffer(body), true);
+  socketDriver_.addReadEvent(
+      kClientBidiId, folly::IOBuf::copyBuffer(body), true);
+  eventBase_.loop();
+
+  // expectations for ::readStreamData for both uni&bidi
+  auto uniRead = uni->readStreamData();
+  auto bidiRead = bidi.readHandle->readStreamData();
+  for (auto& read : {&uniRead, &bidiRead}) {
+    CHECK(read->isReady()); // fut should be ready;
+    EXPECT_EQ(read->value().data->toString(), body);
+    EXPECT_TRUE(read->value().fin);
+  }
+}

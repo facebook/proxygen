@@ -21,22 +21,23 @@ using QuicSocket = quic::QuicSocket;
 using StreamId = quic::StreamId;
 using QuicError = quic::QuicError;
 
+// fwd-decl; defined below
+class H3ConnectStreamCallback;
+
 /**
  * This class is effectively an adaptor, it exposes a WebTransport interace over
  * a quic::QuicSocket. It's a pure virtual interface because we have two main
  * expected use cases / derived classes:
  *
  *   - exposing a direct mapping of WebTransport to quic, this implementation
- *     has a unique ownership of the QuicSocket and all of QuicSocket's stream
- *     data is directly piped into WtStreamManager.
+ *     assumes a unique ownership of the QuicSocket and all of QuicSocket's
+ *     stream data is directly piped to/from WtStreamManager.
  *
  *   - exposing a mapping of WebTransport to http/3 over quic, this
- *     implementation has a shared ownership of the QuicSocket and the backing
- *     http/3 session (HTTPQuicCoroSession/HQSession) will manage a subset (only
- *     those belonging to the original CONNECT stream) of QuicSocket's streams
- *     via QuicWtSessionBase.
+ *     implementation assumes a shared ownership of the QuicSocket and
+ *     H3WtSession will manage a subset (only those belonging to the original
+ *     CONNECT stream) of QuicSocket's streams via QuicWtSessionBase.
  */
-
 class QuicWtSessionBase
     : public detail::WtSessionBase
     , private quic::StreamWriteCallback {
@@ -82,7 +83,8 @@ class QuicWtSessionBase
 
   QuicWtSessionBase(std::shared_ptr<QuicSocket> quicSocket,
                     WtHandlerPtr wtHandler,
-                    detail::WtStreamManager::WtConfig wtConfig);
+                    detail::WtStreamManager::WtConfig wtConfig,
+                    H3ConnectStreamCallback* observer = nullptr);
   ~QuicWtSessionBase() override = 0;
 
   void onDatagram(IoBufPtr dgram) noexcept;
@@ -126,6 +128,7 @@ class QuicWtSessionBase
   WtHandlerPtr wtHandler_;
   std::unique_ptr<quic::HTTPPriorityQueue> priorityQueue_;
   detail::WtStreamManager sm_;
+  H3ConnectStreamCallback* observer_{nullptr};
 
  private:
   /**
@@ -193,6 +196,65 @@ class QuicWtSession final : public QuicWtSessionBase {
     }
     void onDatagramsAvailable() noexcept override;
   } dgramCb_{*this};
+};
+
+/**
+ * H3ConnectStreamCallback is a mechanism to signal egress connect stream events
+ * (e.g. CloseSession, MaxData, etc.) to the backing http/3 transport (as it
+ * owns the connect stream state).
+ *
+ * NOTE: Only a subset of the std::variant<...> will be invoked (namely
+ * MaxConnData, MaxStreams(Uni|Bidi), CloseSession, DrainSession), maybe
+ * should we instead create a virtual fn for each of the subset?
+ */
+class H3ConnectStreamCallback {
+ public:
+  virtual ~H3ConnectStreamCallback() noexcept = default;
+  virtual void onEvent(detail::WtStreamManager::Event&& ev) noexcept = 0;
+};
+
+class H3WtSession final : public QuicWtSessionBase {
+ public:
+  H3WtSession(std::shared_ptr<QuicSocket> quicSocket,
+              std::unique_ptr<WebTransportHandler> wtHandler,
+              detail::WtStreamManager::WtConfig wtConfig,
+              uint64_t connectStreamId,
+              H3ConnectStreamCallback& observer) noexcept;
+
+  ~H3WtSession() noexcept override;
+
+  folly::Expected<folly::Unit, ErrorCode> closeSession(
+      folly::Optional<uint32_t> error) noexcept override;
+
+  /**
+   * H3WtSession::acquireIngressStream should be invoked by the backing http/3
+   * when an ingress wt stream (for the given connect stream) has been received.
+   * After this function is invoked, the peer's stream will be fully managed by
+   * H3WtSession.
+   *
+   * NOTE: the wt stream prefix is expected to already have been consumed by the
+   * backing http/3 session.
+   */
+  using QuicWtSessionBase::acquireIngressStream;
+
+  /**
+   * An egress stream is created by either of the two below functions. Currently
+   * the way this designed, the backing http/3 session is completely oblivious
+   * of any outgoing streams (as they're fully managed by H3WtSession).
+   * Consequently, H3WtSession serializes the wt frame prefix on behalf of the
+   * http/3 session on stream creation.
+   */
+  folly::Expected<StreamWriteHandle*, ErrorCode> createUniStream() noexcept
+      override;
+  folly::Expected<BidiStreamHandle, ErrorCode> createBidiStream() noexcept
+      override;
+
+ private:
+  // sends the http/3 wt frame prefix via QuicSocket::writeChain -- invoked by
+  // both ::create(Uni|Bidi)Stream on success
+  void writeWtFramePrefix(uint64_t id) noexcept;
+
+  uint64_t connectStreamId_;
 };
 
 } // namespace proxygen
