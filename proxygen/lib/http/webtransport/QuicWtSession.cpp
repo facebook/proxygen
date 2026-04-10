@@ -523,4 +523,23 @@ void H3WtSession::writeWtFramePrefix(uint64_t id) noexcept {
   XCHECK(quicSocket_->writeChain(id, writeBuf.move(), false));
 }
 
+auto H3WtSession::onConnMaxData(WtStreamManager::MaxConnData mcd) noexcept
+    -> WtSmResult {
+  return sm_.onMaxData(mcd);
+}
+auto H3WtSession::onMaxStreams(WtStreamManager::MaxStreamsUni ms) noexcept
+    -> WtSmResult {
+  return sm_.onMaxStreams(ms);
+}
+auto H3WtSession::onMaxStreams(WtStreamManager::MaxStreamsBidi ms) noexcept
+    -> WtSmResult {
+  return sm_.onMaxStreams(ms);
+}
+void H3WtSession::onDrainSession(WtStreamManager::DrainSession ds) noexcept {
+  return sm_.onDrainSession(ds);
+}
+void H3WtSession::onCloseSession(WtStreamManager::CloseSession&& cs) noexcept {
+  return sm_.onCloseSession(std::move(cs));
+}
+
 } // namespace proxygen

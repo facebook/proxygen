@@ -249,9 +249,20 @@ class H3WtSession final : public QuicWtSessionBase {
   folly::Expected<BidiStreamHandle, ErrorCode> createBidiStream() noexcept
       override;
 
+  /**
+   * The backing http/3 session should invoke these functions when the
+   * corresponding capsules have been received & parsed on the CONNECT stream.
+   */
+  using WtSmResult = detail::WtStreamManager::Result;
+  WtSmResult onConnMaxData(detail::WtStreamManager::MaxConnData mcd) noexcept;
+  WtSmResult onMaxStreams(detail::WtStreamManager::MaxStreamsUni ms) noexcept;
+  WtSmResult onMaxStreams(detail::WtStreamManager::MaxStreamsBidi ms) noexcept;
+  void onDrainSession(detail::WtStreamManager::DrainSession ds) noexcept;
+  void onCloseSession(detail::WtStreamManager::CloseSession&& cs) noexcept;
+
  private:
-  // sends the http/3 wt frame prefix via QuicSocket::writeChain -- invoked by
-  // both ::create(Uni|Bidi)Stream on success
+  // sends the http/3 wt frame prefix via QuicSocket::writeChain -- invoked
+  // by both ::create(Uni|Bidi)Stream on success
   void writeWtFramePrefix(uint64_t id) noexcept;
 
   uint64_t connectStreamId_;
