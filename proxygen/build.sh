@@ -220,7 +220,6 @@ function setup_fmt() {
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON          \
     "$MAYBE_OVERRIDE_CXX_FLAGS"                   \
     -DFMT_DOC=OFF                                 \
     -DFMT_TEST=OFF                                \
@@ -247,7 +246,6 @@ function setup_googletest() {
   cd "$GTEST_BUILD_DIR" || exit
 
   cmake                                           \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON          \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
@@ -274,7 +272,6 @@ function setup_zstd() {
   mkdir -p "$ZSTD_BUILD_DIR"
   cd "$ZSTD_BUILD_DIR" || exit
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo           \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON            \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.10             \
     -DBUILD_TESTS=OFF                               \
     -DCMAKE_PREFIX_PATH="$ZSTD_INSTALL_DIR"         \
@@ -324,7 +321,6 @@ function setup_folly() {
   fi
 
   cmake                                           \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON          \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
@@ -363,7 +359,6 @@ function setup_fizz() {
   fi
 
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON        \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
     -DBUILD_TESTS=OFF                           \
@@ -399,7 +394,6 @@ function setup_wangle() {
   fi
 
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON        \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
     -DBUILD_TESTS=OFF                           \
@@ -434,7 +428,6 @@ function setup_mvfst() {
 
 
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON        \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
     -DBUILD_TESTS=OFF                           \
@@ -558,7 +551,6 @@ fi
 # Build proxygen with cmake
 cd "$BWD" || exit
 cmake                                     \
-  -DCMAKE_POSITION_INDEPENDENT_CODE=ON    \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
   -DCMAKE_PREFIX_PATH="$DEPS_DIR"         \
   -DCMAKE_INSTALL_PREFIX="$PREFIX"        \
