@@ -124,7 +124,7 @@ jobs:
     - name: Restore ninja from cache
       id: restore_ninja
       if: ${{ steps.paths.outputs.ninja_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.ninja_INSTALL }}
        key: ${{ steps.paths.outputs.ninja_CACHE_KEY }}-install
@@ -132,7 +132,7 @@ jobs:
       if: ${{ steps.paths.outputs.ninja_SOURCE && ! steps.restore_ninja.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests ninja --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save ninja to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.ninja_SOURCE && ! steps.restore_ninja.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.ninja_INSTALL }}
@@ -140,7 +140,7 @@ jobs:
     - name: Restore cmake from cache
       id: restore_cmake
       if: ${{ steps.paths.outputs.cmake_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.cmake_INSTALL }}
        key: ${{ steps.paths.outputs.cmake_CACHE_KEY }}-install
@@ -148,7 +148,7 @@ jobs:
       if: ${{ steps.paths.outputs.cmake_SOURCE && ! steps.restore_cmake.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests cmake --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save cmake to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.cmake_SOURCE && ! steps.restore_cmake.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.cmake_INSTALL }}
@@ -156,7 +156,7 @@ jobs:
     - name: Restore c-ares from cache
       id: restore_c-ares
       if: ${{ steps.paths.outputs.c-ares_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.c-ares_INSTALL }}
        key: ${{ steps.paths.outputs.c-ares_CACHE_KEY }}-install
@@ -164,7 +164,7 @@ jobs:
       if: ${{ steps.paths.outputs.c-ares_SOURCE && ! steps.restore_c-ares.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests c-ares --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save c-ares to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.c-ares_SOURCE && ! steps.restore_c-ares.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.c-ares_INSTALL }}
@@ -172,7 +172,7 @@ jobs:
     - name: Restore zlib from cache
       id: restore_zlib
       if: ${{ steps.paths.outputs.zlib_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.zlib_INSTALL }}
        key: ${{ steps.paths.outputs.zlib_CACHE_KEY }}-install
@@ -180,7 +180,7 @@ jobs:
       if: ${{ steps.paths.outputs.zlib_SOURCE && ! steps.restore_zlib.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests zlib --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save zlib to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.zlib_SOURCE && ! steps.restore_zlib.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.zlib_INSTALL }}
@@ -188,7 +188,7 @@ jobs:
     - name: Restore zstd from cache
       id: restore_zstd
       if: ${{ steps.paths.outputs.zstd_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.zstd_INSTALL }}
        key: ${{ steps.paths.outputs.zstd_CACHE_KEY }}-install
@@ -196,7 +196,7 @@ jobs:
       if: ${{ steps.paths.outputs.zstd_SOURCE && ! steps.restore_zstd.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests zstd --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save zstd to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.zstd_SOURCE && ! steps.restore_zstd.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.zstd_INSTALL }}
@@ -204,7 +204,7 @@ jobs:
     - name: Restore boost from cache
       id: restore_boost
       if: ${{ steps.paths.outputs.boost_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.boost_INSTALL }}
        key: ${{ steps.paths.outputs.boost_CACHE_KEY }}-install
@@ -212,7 +212,7 @@ jobs:
       if: ${{ steps.paths.outputs.boost_SOURCE && ! steps.restore_boost.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests boost --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save boost to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.boost_SOURCE && ! steps.restore_boost.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.boost_INSTALL }}
@@ -220,7 +220,7 @@ jobs:
     - name: Restore double-conversion from cache
       id: restore_double-conversion
       if: ${{ steps.paths.outputs.double-conversion_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.double-conversion_INSTALL }}
        key: ${{ steps.paths.outputs.double-conversion_CACHE_KEY }}-install
@@ -228,7 +228,7 @@ jobs:
       if: ${{ steps.paths.outputs.double-conversion_SOURCE && ! steps.restore_double-conversion.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests double-conversion --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save double-conversion to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.double-conversion_SOURCE && ! steps.restore_double-conversion.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.double-conversion_INSTALL }}
@@ -236,7 +236,7 @@ jobs:
     - name: Restore fast_float from cache
       id: restore_fast_float
       if: ${{ steps.paths.outputs.fast_float_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.fast_float_INSTALL }}
        key: ${{ steps.paths.outputs.fast_float_CACHE_KEY }}-install
@@ -244,7 +244,7 @@ jobs:
       if: ${{ steps.paths.outputs.fast_float_SOURCE && ! steps.restore_fast_float.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests fast_float --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save fast_float to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.fast_float_SOURCE && ! steps.restore_fast_float.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.fast_float_INSTALL }}
@@ -252,7 +252,7 @@ jobs:
     - name: Restore fmt from cache
       id: restore_fmt
       if: ${{ steps.paths.outputs.fmt_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.fmt_INSTALL }}
        key: ${{ steps.paths.outputs.fmt_CACHE_KEY }}-install
@@ -260,7 +260,7 @@ jobs:
       if: ${{ steps.paths.outputs.fmt_SOURCE && ! steps.restore_fmt.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests fmt --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save fmt to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.fmt_SOURCE && ! steps.restore_fmt.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.fmt_INSTALL }}
@@ -268,7 +268,7 @@ jobs:
     - name: Restore gflags from cache
       id: restore_gflags
       if: ${{ steps.paths.outputs.gflags_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.gflags_INSTALL }}
        key: ${{ steps.paths.outputs.gflags_CACHE_KEY }}-install
@@ -276,7 +276,7 @@ jobs:
       if: ${{ steps.paths.outputs.gflags_SOURCE && ! steps.restore_gflags.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests gflags --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save gflags to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.gflags_SOURCE && ! steps.restore_gflags.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.gflags_INSTALL }}
@@ -284,7 +284,7 @@ jobs:
     - name: Restore glog from cache
       id: restore_glog
       if: ${{ steps.paths.outputs.glog_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.glog_INSTALL }}
        key: ${{ steps.paths.outputs.glog_CACHE_KEY }}-install
@@ -292,7 +292,7 @@ jobs:
       if: ${{ steps.paths.outputs.glog_SOURCE && ! steps.restore_glog.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests glog --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save glog to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.glog_SOURCE && ! steps.restore_glog.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.glog_INSTALL }}
@@ -300,7 +300,7 @@ jobs:
     - name: Restore googletest from cache
       id: restore_googletest
       if: ${{ steps.paths.outputs.googletest_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.googletest_INSTALL }}
        key: ${{ steps.paths.outputs.googletest_CACHE_KEY }}-install
@@ -308,7 +308,7 @@ jobs:
       if: ${{ steps.paths.outputs.googletest_SOURCE && ! steps.restore_googletest.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests googletest --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save googletest to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.googletest_SOURCE && ! steps.restore_googletest.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.googletest_INSTALL }}
@@ -316,7 +316,7 @@ jobs:
     - name: Restore libdwarf from cache
       id: restore_libdwarf
       if: ${{ steps.paths.outputs.libdwarf_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.libdwarf_INSTALL }}
        key: ${{ steps.paths.outputs.libdwarf_CACHE_KEY }}-install
@@ -324,7 +324,7 @@ jobs:
       if: ${{ steps.paths.outputs.libdwarf_SOURCE && ! steps.restore_libdwarf.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests libdwarf --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save libdwarf to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.libdwarf_SOURCE && ! steps.restore_libdwarf.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.libdwarf_INSTALL }}
@@ -332,7 +332,7 @@ jobs:
     - name: Restore lz4 from cache
       id: restore_lz4
       if: ${{ steps.paths.outputs.lz4_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.lz4_INSTALL }}
        key: ${{ steps.paths.outputs.lz4_CACHE_KEY }}-install
@@ -340,7 +340,7 @@ jobs:
       if: ${{ steps.paths.outputs.lz4_SOURCE && ! steps.restore_lz4.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests lz4 --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save lz4 to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.lz4_SOURCE && ! steps.restore_lz4.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.lz4_INSTALL }}
@@ -348,7 +348,7 @@ jobs:
     - name: Restore openssl from cache
       id: restore_openssl
       if: ${{ steps.paths.outputs.openssl_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.openssl_INSTALL }}
        key: ${{ steps.paths.outputs.openssl_CACHE_KEY }}-install
@@ -356,7 +356,7 @@ jobs:
       if: ${{ steps.paths.outputs.openssl_SOURCE && ! steps.restore_openssl.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests openssl --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save openssl to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.openssl_SOURCE && ! steps.restore_openssl.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.openssl_INSTALL }}
@@ -364,7 +364,7 @@ jobs:
     - name: Restore snappy from cache
       id: restore_snappy
       if: ${{ steps.paths.outputs.snappy_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.snappy_INSTALL }}
        key: ${{ steps.paths.outputs.snappy_CACHE_KEY }}-install
@@ -372,7 +372,7 @@ jobs:
       if: ${{ steps.paths.outputs.snappy_SOURCE && ! steps.restore_snappy.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests snappy --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save snappy to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.snappy_SOURCE && ! steps.restore_snappy.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.snappy_INSTALL }}
@@ -380,7 +380,7 @@ jobs:
     - name: Restore libevent from cache
       id: restore_libevent
       if: ${{ steps.paths.outputs.libevent_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.libevent_INSTALL }}
        key: ${{ steps.paths.outputs.libevent_CACHE_KEY }}-install
@@ -388,7 +388,7 @@ jobs:
       if: ${{ steps.paths.outputs.libevent_SOURCE && ! steps.restore_libevent.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests libevent --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save libevent to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.libevent_SOURCE && ! steps.restore_libevent.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.libevent_INSTALL }}
@@ -396,7 +396,7 @@ jobs:
     - name: Restore liboqs from cache
       id: restore_liboqs
       if: ${{ steps.paths.outputs.liboqs_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.liboqs_INSTALL }}
        key: ${{ steps.paths.outputs.liboqs_CACHE_KEY }}-install
@@ -404,7 +404,7 @@ jobs:
       if: ${{ steps.paths.outputs.liboqs_SOURCE && ! steps.restore_liboqs.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests liboqs --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save liboqs to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.liboqs_SOURCE && ! steps.restore_liboqs.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.liboqs_INSTALL }}
@@ -412,7 +412,7 @@ jobs:
     - name: Restore autoconf from cache
       id: restore_autoconf
       if: ${{ steps.paths.outputs.autoconf_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.autoconf_INSTALL }}
        key: ${{ steps.paths.outputs.autoconf_CACHE_KEY }}-install
@@ -420,7 +420,7 @@ jobs:
       if: ${{ steps.paths.outputs.autoconf_SOURCE && ! steps.restore_autoconf.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests autoconf --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save autoconf to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.autoconf_SOURCE && ! steps.restore_autoconf.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.autoconf_INSTALL }}
@@ -428,7 +428,7 @@ jobs:
     - name: Restore automake from cache
       id: restore_automake
       if: ${{ steps.paths.outputs.automake_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.automake_INSTALL }}
        key: ${{ steps.paths.outputs.automake_CACHE_KEY }}-install
@@ -436,7 +436,7 @@ jobs:
       if: ${{ steps.paths.outputs.automake_SOURCE && ! steps.restore_automake.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests automake --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save automake to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.automake_SOURCE && ! steps.restore_automake.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.automake_INSTALL }}
@@ -444,7 +444,7 @@ jobs:
     - name: Restore libtool from cache
       id: restore_libtool
       if: ${{ steps.paths.outputs.libtool_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.libtool_INSTALL }}
        key: ${{ steps.paths.outputs.libtool_CACHE_KEY }}-install
@@ -452,7 +452,7 @@ jobs:
       if: ${{ steps.paths.outputs.libtool_SOURCE && ! steps.restore_libtool.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests libtool --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save libtool to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.libtool_SOURCE && ! steps.restore_libtool.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.libtool_INSTALL }}
@@ -460,7 +460,7 @@ jobs:
     - name: Restore gperf from cache
       id: restore_gperf
       if: ${{ steps.paths.outputs.gperf_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.gperf_INSTALL }}
        key: ${{ steps.paths.outputs.gperf_CACHE_KEY }}-install
@@ -468,7 +468,7 @@ jobs:
       if: ${{ steps.paths.outputs.gperf_SOURCE && ! steps.restore_gperf.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests gperf --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save gperf to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.gperf_SOURCE && ! steps.restore_gperf.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.gperf_INSTALL }}
@@ -476,7 +476,7 @@ jobs:
     - name: Restore libsodium from cache
       id: restore_libsodium
       if: ${{ steps.paths.outputs.libsodium_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.libsodium_INSTALL }}
        key: ${{ steps.paths.outputs.libsodium_CACHE_KEY }}-install
@@ -484,7 +484,7 @@ jobs:
       if: ${{ steps.paths.outputs.libsodium_SOURCE && ! steps.restore_libsodium.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests libsodium --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save libsodium to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.libsodium_SOURCE && ! steps.restore_libsodium.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.libsodium_INSTALL }}
@@ -492,7 +492,7 @@ jobs:
     - name: Restore xz from cache
       id: restore_xz
       if: ${{ steps.paths.outputs.xz_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.xz_INSTALL }}
        key: ${{ steps.paths.outputs.xz_CACHE_KEY }}-install
@@ -500,7 +500,7 @@ jobs:
       if: ${{ steps.paths.outputs.xz_SOURCE && ! steps.restore_xz.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests xz --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save xz to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.xz_SOURCE && ! steps.restore_xz.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.xz_INSTALL }}
@@ -508,7 +508,7 @@ jobs:
     - name: Restore folly from cache
       id: restore_folly
       if: ${{ steps.paths.outputs.folly_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.folly_INSTALL }}
        key: ${{ steps.paths.outputs.folly_CACHE_KEY }}-install
@@ -516,7 +516,7 @@ jobs:
       if: ${{ steps.paths.outputs.folly_SOURCE && ! steps.restore_folly.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests folly --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save folly to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.folly_SOURCE && ! steps.restore_folly.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.folly_INSTALL }}
@@ -524,7 +524,7 @@ jobs:
     - name: Restore fizz from cache
       id: restore_fizz
       if: ${{ steps.paths.outputs.fizz_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.fizz_INSTALL }}
        key: ${{ steps.paths.outputs.fizz_CACHE_KEY }}-install
@@ -532,7 +532,7 @@ jobs:
       if: ${{ steps.paths.outputs.fizz_SOURCE && ! steps.restore_fizz.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests fizz --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save fizz to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.fizz_SOURCE && ! steps.restore_fizz.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.fizz_INSTALL }}
@@ -540,7 +540,7 @@ jobs:
     - name: Restore mvfst from cache
       id: restore_mvfst
       if: ${{ steps.paths.outputs.mvfst_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.mvfst_INSTALL }}
        key: ${{ steps.paths.outputs.mvfst_CACHE_KEY }}-install
@@ -548,7 +548,7 @@ jobs:
       if: ${{ steps.paths.outputs.mvfst_SOURCE && ! steps.restore_mvfst.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests mvfst --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save mvfst to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.mvfst_SOURCE && ! steps.restore_mvfst.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.mvfst_INSTALL }}
@@ -556,7 +556,7 @@ jobs:
     - name: Restore wangle from cache
       id: restore_wangle
       if: ${{ steps.paths.outputs.wangle_SOURCE }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
        path: ${{ steps.paths.outputs.wangle_INSTALL }}
        key: ${{ steps.paths.outputs.wangle_CACHE_KEY }}-install
@@ -564,7 +564,7 @@ jobs:
       if: ${{ steps.paths.outputs.wangle_SOURCE && ! steps.restore_wangle.outputs.cache-hit }}
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --build-type RelWithDebInfo --no-tests wangle --extra-cmake-defines '{"CMAKE_CXX_COMPILER_LAUNCHER":"sccache"}'
     - name: Save wangle to cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       if: ${{ steps.paths.outputs.wangle_SOURCE && ! steps.restore_wangle.outputs.cache-hit }}
       with:
        path: ${{ steps.paths.outputs.wangle_INSTALL }}
