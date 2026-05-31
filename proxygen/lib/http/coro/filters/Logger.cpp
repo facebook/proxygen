@@ -50,7 +50,7 @@ void Logger::Filter::describe(std::ostream& os) const {
 }
 
 void Logger::logWithVlog(int level) const {
-  PRX_VLOG(level)
+  PRX_VLOG_LEVEL(level)
     << "HTTP request logger: \n\t"
     << "Local Addr:\t" << localAddr << "\n\t"
     << "Peer Addr:\t" << peerAddr << "\n\t"

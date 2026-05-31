@@ -752,7 +752,7 @@ std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg) {
 }
 
 void HTTPMessage::dumpMessage(int vlogLevel) const {
-  PRX_DVLOG(vlogLevel) << *this;
+  PRX_DVLOG_LEVEL(vlogLevel) << *this;
 }
 
 void HTTPMessage::describe(std::ostream& os) const {

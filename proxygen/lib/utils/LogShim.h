@@ -17,8 +17,10 @@
  * The backend is selected by exactly one of PRX_LOGGING_GLOG,
  * PRX_LOGGING_XLOG, or PRX_LOGGING_DISABLED being defined to 1
  * in <proxygen/proxygen-config.h>. CMake derives that from
- * -DPROXYGEN_LOGGING_BACKEND ({GLOG,XLOG,DISABLED}); Buck consumers pick a
- * hand-written variant via the //proxygen:config target.
+ * -DPROXYGEN_LOGGING_BACKEND ({GLOG,XLOG,DISABLED}); Buck consumers select
+ * the variant via `-c proxygen.logging_backend={glog,xlog,disabled}` (default
+ * glog), which the //proxygen/lib/utils:config rule reads to pick the
+ * appropriate hand-written header.
  *
  * Macro authoring constraints:
  *   - PRX_LOG(level): `level` must be one of the unqualified glog tokens
@@ -34,10 +36,12 @@
 
 #include <folly/GLog.h>
 #define PRX_VLOG VLOG
+#define PRX_VLOG_LEVEL VLOG
 #define PRX_VLOG_IF VLOG_IF
 #define PRX_VLOG_IS_ON VLOG_IS_ON
 #define PRX_DLOG DLOG
 #define PRX_DVLOG DVLOG
+#define PRX_DVLOG_LEVEL DVLOG
 #define PRX_LOG LOG
 #define PRX_LOG_IF LOG_IF
 #define PRX_LOG_EVERY_MS FB_LOG_EVERY_MS
@@ -61,6 +65,8 @@
 
 #elif PRX_LOGGING_XLOG
 
+#include <folly/logging/LogLevel.h>
+#include <folly/logging/Logger.h>
 #include <folly/logging/xlog.h>
 
 // Mapping from glog level tokens to the corresponding folly::xlog values.
@@ -96,6 +102,32 @@
 #define PRX_VLOG_IS_ON(n) XLOG_IS_ON(PRX_LOGGING_DBG_##n)
 #define PRX_DLOG(level) XLOG(PRX_LOGLEVEL_##level)
 #define PRX_DVLOG(n) XLOG(PRX_LOGGING_DBG_##n)
+
+namespace proxygen::logging::detail {
+// PRX_VLOG_LEVEL(n) runtime path: convert int -> folly::LogLevel. n in 0..9
+// maps to DBG0..DBG9 (more verbose as n grows). Values >9 saturate at DBG9.
+inline constexpr ::folly::LogLevel prxVLogLevel(int n) {
+  return static_cast<::folly::LogLevel>(
+      static_cast<::std::uint32_t>(::folly::LogLevel::DBG0) -
+      static_cast<::std::uint32_t>(n < 0 ? 0 : (n > 9 ? 9 : n)));
+}
+} // namespace proxygen::logging::detail
+
+// Runtime-level variants for callers that need to pass a non-literal n.
+// Uses FB_LOG_RAW with a per-call-site cached Logger so the category lookup
+// happens once per site, not once per call. Prefer PRX_VLOG(n) when n is a
+// literal — that path stays on the fast XLOG static-cached check.
+#define PRX_VLOG_LEVEL(n)                                                    \
+  FB_LOG_RAW(([]() -> ::folly::Logger& {                                     \
+               static ::folly::Logger _prx_logger{XLOG_GET_CATEGORY_NAME()}; \
+               return _prx_logger;                                           \
+             }()),                                                           \
+             ::proxygen::logging::detail::prxVLogLevel(n),                   \
+             XLOG_FILENAME,                                                  \
+             __LINE__,                                                       \
+             __func__)
+#define PRX_DVLOG_LEVEL(n) PRX_VLOG_LEVEL(n)
+
 #define PRX_LOG(level) XLOG(PRX_LOGLEVEL_##level)
 #define PRX_LOG_IF(level, cond) XLOG_IF(PRX_LOGLEVEL_##level, (cond))
 #define PRX_LOG_EVERY_MS(level, ms) XLOG_EVERY_MS(PRX_LOGLEVEL_##level, ms)
@@ -175,6 +207,8 @@ inline NoopStream operator<<(NoopStream stream, T&&) {
   }())
 #define PRX_VLOG(level) \
   ([](int) { return ::proxygen::logging::detail::NoopStream{}; }((level)))
+#define PRX_VLOG_LEVEL(level) PRX_VLOG(level)
+#define PRX_DVLOG_LEVEL(level) PRX_VLOG(level)
 #define PRX_VLOG_IF(level, cond)                      \
   ([](int, bool) {                                    \
     return ::proxygen::logging::detail::NoopStream{}; \

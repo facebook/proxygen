@@ -334,33 +334,33 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   }
 
   void dumpCounters(int verbosity) const {
-    PRX_VLOG(verbosity) << "Dumping HTTP codec callback counters";
-    PRX_VLOG(verbosity) << "headersCompleteId: " << headersCompleteId;
-    PRX_VLOG(verbosity) << "assocStreamId: " << assocStreamId;
-    PRX_VLOG(verbosity) << "pushId: " << pushId;
-    PRX_VLOG(verbosity) << "controlStreamId: " << controlStreamId;
-    PRX_VLOG(verbosity) << "unidirectional: " << isUnidirectional;
-    PRX_VLOG(verbosity) << "messageBegin: " << messageBegin;
-    PRX_VLOG(verbosity) << "headersComplete: " << headersComplete;
-    PRX_VLOG(verbosity) << "bodyCalls: " << bodyCalls;
-    PRX_VLOG(verbosity) << "bodyLength: " << bodyLength;
-    PRX_VLOG(verbosity) << "paddingBytes: " << paddingBytes;
-    PRX_VLOG(verbosity) << "chunkHeaders: " << chunkHeaders;
-    PRX_VLOG(verbosity) << "chunkComplete: " << chunkComplete;
-    PRX_VLOG(verbosity) << "trailers: " << trailers;
-    PRX_VLOG(verbosity) << "aborts: " << aborts;
-    PRX_VLOG(verbosity) << "goaways: " << goaways;
-    PRX_VLOG(verbosity) << "sessionErrors: " << sessionErrors;
-    PRX_VLOG(verbosity) << "streamErrors: " << streamErrors;
-    PRX_VLOG(verbosity) << "recvPingRequest: " << recvPingRequest;
-    PRX_VLOG(verbosity) << "recvPingReply: " << recvPingReply;
-    PRX_VLOG(verbosity) << "windowUpdateCalls: " << windowUpdateCalls;
-    PRX_VLOG(verbosity) << "settings: " << settings;
-    PRX_VLOG(verbosity) << "settingsAcks: " << settingsAcks;
-    PRX_VLOG(verbosity) << "windowSize: " << windowSize;
-    PRX_VLOG(verbosity) << "maxStreams: " << maxStreams;
-    PRX_VLOG(verbosity) << "datagramEnabled: " << datagramEnabled;
-    PRX_VLOG(verbosity) << "headerFrames: " << headerFrames;
+    PRX_VLOG_LEVEL(verbosity) << "Dumping HTTP codec callback counters";
+    PRX_VLOG_LEVEL(verbosity) << "headersCompleteId: " << headersCompleteId;
+    PRX_VLOG_LEVEL(verbosity) << "assocStreamId: " << assocStreamId;
+    PRX_VLOG_LEVEL(verbosity) << "pushId: " << pushId;
+    PRX_VLOG_LEVEL(verbosity) << "controlStreamId: " << controlStreamId;
+    PRX_VLOG_LEVEL(verbosity) << "unidirectional: " << isUnidirectional;
+    PRX_VLOG_LEVEL(verbosity) << "messageBegin: " << messageBegin;
+    PRX_VLOG_LEVEL(verbosity) << "headersComplete: " << headersComplete;
+    PRX_VLOG_LEVEL(verbosity) << "bodyCalls: " << bodyCalls;
+    PRX_VLOG_LEVEL(verbosity) << "bodyLength: " << bodyLength;
+    PRX_VLOG_LEVEL(verbosity) << "paddingBytes: " << paddingBytes;
+    PRX_VLOG_LEVEL(verbosity) << "chunkHeaders: " << chunkHeaders;
+    PRX_VLOG_LEVEL(verbosity) << "chunkComplete: " << chunkComplete;
+    PRX_VLOG_LEVEL(verbosity) << "trailers: " << trailers;
+    PRX_VLOG_LEVEL(verbosity) << "aborts: " << aborts;
+    PRX_VLOG_LEVEL(verbosity) << "goaways: " << goaways;
+    PRX_VLOG_LEVEL(verbosity) << "sessionErrors: " << sessionErrors;
+    PRX_VLOG_LEVEL(verbosity) << "streamErrors: " << streamErrors;
+    PRX_VLOG_LEVEL(verbosity) << "recvPingRequest: " << recvPingRequest;
+    PRX_VLOG_LEVEL(verbosity) << "recvPingReply: " << recvPingReply;
+    PRX_VLOG_LEVEL(verbosity) << "windowUpdateCalls: " << windowUpdateCalls;
+    PRX_VLOG_LEVEL(verbosity) << "settings: " << settings;
+    PRX_VLOG_LEVEL(verbosity) << "settingsAcks: " << settingsAcks;
+    PRX_VLOG_LEVEL(verbosity) << "windowSize: " << windowSize;
+    PRX_VLOG_LEVEL(verbosity) << "maxStreams: " << maxStreams;
+    PRX_VLOG_LEVEL(verbosity) << "datagramEnabled: " << datagramEnabled;
+    PRX_VLOG_LEVEL(verbosity) << "headerFrames: " << headerFrames;
   }
 
   HTTPCodec::StreamID headersCompleteId{0};
