@@ -1511,7 +1511,7 @@ class HTTPTransaction
 
   void decrementPendingByteEvents() {
     DestructorGuard dg(this);
-    PRX_CHECK_GT(pendingByteEvents_, 0);
+    PRX_CHECK_GT(pendingByteEvents_, 0u);
     pendingByteEvents_--;
   }
 

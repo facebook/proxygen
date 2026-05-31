@@ -1184,7 +1184,7 @@ size_t HTTPTransaction::sendDeferredBody(uint32_t maxEgress) {
         nbytes += transport_.sendChunkTerminator(this);
         chunkHeaders_.pop_front();
       } else {
-        PRX_DCHECK_EQ(canSend, 0);
+        PRX_DCHECK_EQ(canSend, 0u);
       }
     }
     willSendEOM = hasPendingEOM();
@@ -1311,7 +1311,7 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
                                     bool sendEom) {
   constexpr std::string_view kNoneStr = "None";
   PRX_DCHECK(body);
-  PRX_DCHECK_GT(bodyLen, 0);
+  PRX_DCHECK_GT(bodyLen, 0u);
   size_t nbytes = 0;
   if (useFlowControl_) {
     // Because of how sendBodyNow is embedded in HTTPTransaction code flow,
@@ -1327,7 +1327,8 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
                     sendWindow_.getSize(), " / ", sendWindow_.getCapacity())
               : kNoneStr)
       << " trailers=" << ((trailers_) ? "yes" : "no") << " " << *this;
-  PRX_DCHECK_LT(bodyLen, std::numeric_limits<int64_t>::max());
+  PRX_DCHECK_LT(bodyLen,
+                static_cast<size_t>(std::numeric_limits<int64_t>::max()));
   transport_.notifyEgressBodyBuffered(-static_cast<int64_t>(bodyLen));
   const bool sendDataFin = sendEom && !trailers_;
   if (sendDataFin) {

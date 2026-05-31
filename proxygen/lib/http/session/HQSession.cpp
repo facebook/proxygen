@@ -769,7 +769,7 @@ void HQSession::sendGoaway() {
 
   auto totalStreamLength = *writeOffset + *writeBufferedBytes +
                            connCtrlStream->writeBuf_.chainLength();
-  PRX_CHECK_GT(totalStreamLength, 0);
+  PRX_CHECK_GT(totalStreamLength, 0u);
   auto res =
       sock_->registerDeliveryCallback(connCtrlStream->getEgressStreamId(),
                                       totalStreamLength - 1,
@@ -920,7 +920,7 @@ void HQSession::dropConnectionSync(quic::QuicError errorCode,
                       << " pendingStreamStillOpen: " << pendingStreamId;
         });
   }
-  PRX_CHECK_EQ(getNumStreams(), 0);
+  PRX_CHECK_EQ(getNumStreams(), 0u);
 }
 
 void HQSession::checkForShutdown() {
@@ -3451,7 +3451,7 @@ void HQSession::HQStreamTransportBase::onByteEvent(quic::ByteEvent byteEvent) {
               << " for offset=" << byteEvent.offset << "; sess=" << session_
               << "; txn=" << txn_;
 
-  PRX_DCHECK_GT(numActiveDeliveryCallbacks_, 0);
+  PRX_DCHECK_GT(numActiveDeliveryCallbacks_, 0u);
   numActiveDeliveryCallbacks_--;
   txn_.decrementPendingByteEvents();
 
@@ -3474,7 +3474,7 @@ void HQSession::HQStreamTransportBase::onByteEventCanceled(
               << ", type=" << uint32_t(cancellation.type)
               << ", offset=" << cancellation.offset << "; sess=" << session_
               << "; txn=" << txn_;
-  PRX_DCHECK_GT(numActiveDeliveryCallbacks_, 0);
+  PRX_DCHECK_GT(numActiveDeliveryCallbacks_, 0u);
   numActiveDeliveryCallbacks_--;
   txn_.decrementPendingByteEvents();
 

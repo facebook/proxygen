@@ -114,7 +114,7 @@ class HTTPMessageFilter
 
   // Doesn't need to propagate down a chain, call on head filter
   void detachHandlerFromSink(std::unique_ptr<HTTPSink> sink) noexcept {
-    PRX_CHECK_EQ(prev_.index(), 1);
+    PRX_CHECK_EQ(prev_.index(), 1u);
     auto prev = std::get<HTTPSink*>(prev_);
     if (prev) {
       // prev points to the transaction, detach the handler from the

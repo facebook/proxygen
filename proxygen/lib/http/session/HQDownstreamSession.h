@@ -86,7 +86,7 @@ class HQDownstreamSession : public HQSession {
 
  protected:
   ~HQDownstreamSession() override {
-    PRX_CHECK_EQ(getNumStreams(), 0);
+    PRX_CHECK_EQ(getNumStreams(), 0u);
   }
 
 #ifdef _MSC_VER

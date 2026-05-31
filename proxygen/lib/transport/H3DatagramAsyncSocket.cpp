@@ -205,7 +205,7 @@ int H3DatagramAsyncSocket::recvmmsg(struct mmsghdr* msgvec,
                                     unsigned int vlen,
                                     unsigned int flags,
                                     struct timespec* /*timeout*/) {
-  PRX_CHECK_GT(vlen, 0);
+  PRX_CHECK_GT(vlen, 0u);
   auto bytesReceived = recvmsg(&msgvec->msg_hdr, flags);
   if (bytesReceived < 0) {
     return -1;

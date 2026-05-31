@@ -55,8 +55,8 @@ size_t computeLengthAndType(uint32_t length,
                             folly::Optional<uint8_t> padding,
                             size_t& headerSize) {
   // the acceptable length is now conditional based on state :(
-  PRX_DCHECK_EQ(0, ~kLengthMask & length);
-  PRX_DCHECK_EQ(0, ~kUint31Mask & stream);
+  PRX_DCHECK_EQ(0u, ~kLengthMask & length);
+  PRX_DCHECK_EQ(0u, ~kUint31Mask & stream);
 
   // Add or remove padding flags
   if (padding) {
@@ -69,7 +69,7 @@ size_t computeLengthAndType(uint32_t length,
     flags &= ~PADDED;
   }
 
-  PRX_DCHECK_EQ(0, ~kLengthMask & length);
+  PRX_DCHECK_EQ(0u, ~kLengthMask & length);
   PRX_DCHECK_EQ(true, isValidFrameType(type));
   return ((kLengthMask & length) << 8) | static_cast<uint8_t>(type);
 }
@@ -142,7 +142,7 @@ size_t writeFrameHeader(uint8_t* buf,
   bufLen -= kFrameHeaderSize;
 
   if (padding) {
-    PRX_CHECK_GE(bufLen, 1);
+    PRX_CHECK_GE(bufLen, 1u);
     *buf = *padding;
     buf++;
     bufLen--;
@@ -575,7 +575,7 @@ size_t writeData(IOBufQueue& queue,
                  folly::Optional<uint8_t> padding,
                  bool endStream,
                  bool reuseIOBufHeadroom) noexcept {
-  PRX_DCHECK_NE(0, stream);
+  PRX_DCHECK_NE(0u, stream);
   uint8_t flags = 0;
   if (endStream) {
     flags |= END_STREAM;
@@ -637,7 +637,7 @@ size_t writeHeaders(uint8_t* header,
                     folly::Optional<uint8_t> padding,
                     bool endStream,
                     bool endHeaders) noexcept {
-  PRX_DCHECK_NE(0, stream);
+  PRX_DCHECK_NE(0u, stream);
   uint32_t flags = 0;
   if (endStream) {
     flags |= END_STREAM;
@@ -660,7 +660,7 @@ size_t writeHeaders(uint8_t* header,
 size_t writeRFC9218Priority(IOBufQueue& queue,
                             uint32_t stream,
                             std::string& priority) {
-  PRX_CHECK_NE(0, stream);
+  PRX_CHECK_NE(0u, stream);
   QueueAppender appender(&queue, sizeof(stream) + priority.size());
   appender.writeBE<uint32_t>(stream);
   appender.pushAtMost((const uint8_t*)(priority.data()), priority.size());
@@ -679,7 +679,7 @@ size_t writeRFC9218Priority(IOBufQueue& queue,
 size_t writeRstStream(IOBufQueue& queue,
                       uint32_t stream,
                       ErrorCode errorCode) noexcept {
-  PRX_DCHECK_NE(0, stream);
+  PRX_DCHECK_NE(0u, stream);
   const auto frameLen = writeFrameHeader(queue,
                                          kFrameRstStreamSize,
                                          FrameType::RST_STREAM,
@@ -720,11 +720,11 @@ size_t writePushPromise(uint8_t* header,
                         size_t headersLen,
                         folly::Optional<uint8_t> padding,
                         bool endHeaders) noexcept {
-  PRX_DCHECK_NE(0, promisedStream);
-  PRX_DCHECK_NE(0, associatedStream);
-  PRX_DCHECK_EQ(0, 0x1 & promisedStream);
-  PRX_DCHECK_EQ(1, 0x1 & associatedStream);
-  PRX_DCHECK_EQ(0, ~kUint31Mask & promisedStream);
+  PRX_DCHECK_NE(0u, promisedStream);
+  PRX_DCHECK_NE(0u, associatedStream);
+  PRX_DCHECK_EQ(0u, 0x1 & promisedStream);
+  PRX_DCHECK_EQ(1u, 0x1 & associatedStream);
+  PRX_DCHECK_EQ(0u, ~kUint31Mask & promisedStream);
 
   const auto frameLen = writeFrameHeader(header,
                                          headerLen,
@@ -760,7 +760,7 @@ size_t writeGoaway(IOBufQueue& queue,
                    ErrorCode errorCode,
                    std::unique_ptr<IOBuf> debugData) noexcept {
   uint32_t debugLen = debugData ? debugData->computeChainDataLength() : 0;
-  PRX_DCHECK_EQ(0, ~kLengthMask & debugLen);
+  PRX_DCHECK_EQ(0u, ~kLengthMask & debugLen);
   const auto frameLen = writeFrameHeader(queue,
                                          kFrameGoawaySize + debugLen,
                                          FrameType::GOAWAY,
@@ -785,8 +785,8 @@ size_t writeWindowUpdate(IOBufQueue& queue,
                                          stream,
                                          kNoPadding,
                                          nullptr);
-  PRX_DCHECK_EQ(0, ~kUint31Mask & amount);
-  PRX_DCHECK_LT(0, amount);
+  PRX_DCHECK_EQ(0u, ~kUint31Mask & amount);
+  PRX_DCHECK_LT(0u, amount);
   QueueAppender appender(&queue, kFrameWindowUpdateSize);
   appender.writeBE<uint32_t>(amount);
   return kFrameHeaderSize + frameLen;
@@ -796,7 +796,7 @@ size_t writeContinuation(IOBufQueue& queue,
                          uint32_t stream,
                          bool endHeaders,
                          std::unique_ptr<IOBuf> headers) noexcept {
-  PRX_DCHECK_NE(0, stream);
+  PRX_DCHECK_NE(0u, stream);
   const auto dataLen = headers->computeChainDataLength();
   const auto frameLen = writeFrameHeader(queue,
                                          dataLen,

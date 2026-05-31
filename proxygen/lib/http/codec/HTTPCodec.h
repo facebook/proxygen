@@ -305,7 +305,7 @@ class HTTPCodec {
                                 HTTPCodec::StreamID id) {
     switch (protocol) {
       case CodecProtocol::HTTP_1_1:
-        PRX_DCHECK_NE(id, 0);
+        PRX_DCHECK_NE(id, 0u);
         return id - 1;
       case CodecProtocol::HTTP_2:
         return id / 2;

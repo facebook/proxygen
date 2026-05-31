@@ -179,7 +179,7 @@ TEST_F(HuffmanTests, FitInBuffer) {
   appender.append(appender.length() - 1);
   literal = "g";
   tree_.encode(literal, appender);
-  PRX_CHECK_EQ(appender.length(), 0);
+  PRX_CHECK_EQ(appender.length(), 0u);
 }
 
 /*

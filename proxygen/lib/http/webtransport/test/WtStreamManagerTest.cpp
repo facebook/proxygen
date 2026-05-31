@@ -142,7 +142,7 @@ TEST(WtStreamManager, BasicPeerBidi) {
   EXPECT_EQ(bidiRes.readHandle, nullptr);
   EXPECT_EQ(bidiRes.writeHandle, nullptr);
 
-  PRX_CHECK_EQ(ingressCb.peerIds.size(), 2);
+  PRX_CHECK_EQ(ingressCb.peerIds.size(), 2u);
   EXPECT_EQ(ingressCb.peerIds[0], 0x01);
   EXPECT_EQ(ingressCb.peerIds[1], 0x09);
 }
@@ -172,7 +172,7 @@ TEST(WtStreamManager, BasicPeerUni) {
   EXPECT_EQ(bidiRes.writeHandle, nullptr); // ingress only
 
   // validate peer streams
-  PRX_CHECK_EQ(ingressCb.peerIds.size(), 2);
+  PRX_CHECK_EQ(ingressCb.peerIds.size(), 2u);
   EXPECT_EQ(ingressCb.peerIds[0], 0x03);
   EXPECT_EQ(ingressCb.peerIds[1], 0x0b);
 }
@@ -482,7 +482,7 @@ TEST(WtStreamManager, GrantFlowControlCredit) {
   EXPECT_TRUE(std::exchange(egressCb.evAvail_, false)); // callback should have
                                                         // triggered
   auto events = streamManager.moveEvents();
-  PRX_CHECK_GE(events.size(), 2); // one conn & one stream fc
+  PRX_CHECK_GE(events.size(), 2u); // one conn & one stream fc
   auto maxStreamData = std::get<MaxStreamData>(events[0]);
   auto maxConnData = std::get<MaxConnData>(events[1]);
   EXPECT_EQ(maxStreamData.streamId, one.readHandle->getID());
@@ -508,7 +508,7 @@ TEST(WtStreamManager, GrantFlowControlCredit) {
   streamManager.enqueue(*ingress, {makeBuf(kBufLen), /*fin=*/false});
   streamManager.onResetStream(ResetStream{ingress->getID(), 0x00});
   events = streamManager.moveEvents();
-  PRX_CHECK_GE(events.size(), 1);
+  PRX_CHECK_GE(events.size(), 1u);
   maxConnData = std::get<MaxConnData>(events[0]);
   EXPECT_EQ(maxConnData.maxData,
             kBufLen * 4); // we've previously already issued 2x kBufLen
@@ -579,7 +579,7 @@ TEST(WtStreamManager, NonDefaultFlowControlValues) {
   EXPECT_TRUE(std::exchange(egressCb.evAvail_, false)); // callback should have
                                                         // triggered
   auto events = streamManager.moveEvents();
-  PRX_CHECK_GE(events.size(), 2); // one conn & one stream fc
+  PRX_CHECK_GE(events.size(), 2u); // one conn & one stream fc
   auto maxStreamData = std::get<MaxStreamData>(events[0]);
   auto maxConnData = std::get<MaxConnData>(events[1]);
   EXPECT_EQ(maxStreamData.streamId, one.readHandle->getID());

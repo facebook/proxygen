@@ -237,7 +237,7 @@ void HTTP2PriorityQueue::Node::removeFromTree() {
     double r = double(weight_) / totalChildWeight_;
     for (auto& child : children_) {
       uint64_t newWeight = std::max(uint64_t(child->weight_ * r), uint64_t(1));
-      PRX_CHECK_LE(newWeight, 256);
+      PRX_CHECK_LE(newWeight, 256u);
       child->updateWeight(uint8_t(newWeight) - 1);
     }
   }
@@ -355,7 +355,7 @@ void HTTP2PriorityQueue::Node::dropPriorityNodes() {
 void HTTP2PriorityQueue::Node::convertVirtualNode(HTTPTransaction* txn) {
   PRX_CHECK(!txn_);
   PRX_CHECK(!isPermanent_);
-  PRX_CHECK_GT(queue_.numVirtualNodes_, 0);
+  PRX_CHECK_GT(queue_.numVirtualNodes_, 0u);
   queue_.numVirtualNodes_--;
   txn_ = txn;
   cancelTimeout();
@@ -601,7 +601,7 @@ void HTTP2PriorityQueue::signalPendingEgress(Handle handle) {
 }
 
 void HTTP2PriorityQueue::clearPendingEgress(Handle handle) {
-  PRX_CHECK_GT(activeCount_, 0);
+  PRX_CHECK_GT(activeCount_, 0u);
   // clear does a CHECK on handle->isEnqueued()
   nodeFromBaseNode(handle)->clearPendingEgress();
   activeCount_--;

@@ -397,7 +397,7 @@ class RandBytesGenHandler : public BaseSampleHandler {
     auto path = msg->getPathAsStringPiece();
     PRX_VLOG(10) << "RandBytesGenHandler::onHeadersComplete";
     PRX_VLOG(1) << "Request path: " << path;
-    PRX_CHECK_GE(path.size(), 1);
+    PRX_CHECK_GE(path.size(), 1u);
     try {
       respBodyLen_ = folly::to<uint64_t>(path.subpiece(1));
     } catch (const folly::ConversionError&) {

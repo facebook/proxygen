@@ -407,7 +407,7 @@ void ClientRunner::run() {
   }
   eventBase_.loop();
 
-  PRX_CHECK_EQ(clientsOutstanding_, 0);
+  PRX_CHECK_EQ(clientsOutstanding_, 0u);
   parentStats_.merge(stats_);
 }
 
@@ -418,7 +418,7 @@ void ClientRunner::timeoutExpired() noexcept {
 }
 
 void ClientRunner::startClient() {
-  PRX_CHECK_GT(remainingClients_, 0);
+  PRX_CHECK_GT(remainingClients_, 0u);
   Client* client = nullptr;
   client = new Client(&eventBase_,
                       transactionTimeouts_,

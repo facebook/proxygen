@@ -74,7 +74,7 @@ HPACK::DecodeError cancelStream(QPACKDecoder& decoder,
 }
 
 std::string toFixedLengthString(uint32_t i) {
-  PRX_CHECK_LT(i, 1000);
+  PRX_CHECK_LT(i, 1000u);
   return fmt::format("{:3}", i);
 }
 } // namespace
@@ -777,8 +777,8 @@ TEST(QPACKContextTests, WrapRICBehind) {
         req.emplace_back(":scheme", "https");
       }
       auto result = encoder.encode(req, 10, 2);
-      EXPECT_EQ(result.control, nullptr);                       // no inserts
-      PRX_CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
+      EXPECT_EQ(result.control, nullptr);                        // no inserts
+      PRX_CHECK_EQ(result.stream->computeChainDataLength(), 3u); // prefix + 1
       // the decoder should be able to immediately decode it
       EXPECT_TRUE(*verifyDecode(decoder, std::move(result), req));
       encoder.decodeDecoderStream(decoder.encodeHeaderAck(2));
@@ -798,7 +798,7 @@ TEST(QPACKContextTests, WrapRICAhead) {
   // bytes.  Each loop of decoderIC is expensive, so start it at maxEntries,
   // and only run it until it actually would have made a difference in
   // the encoded size of required IC.
-  PRX_CHECK_LE(realMaxEntries, 256);
+  PRX_CHECK_LE(realMaxEntries, 256u);
   for (uint32_t decoderIC = maxEntries; decoderIC < (256 - realMaxEntries);
        decoderIC++) {
     QPACKEncoder encoder(true, tableSize);
@@ -837,7 +837,7 @@ TEST(QPACKContextTests, WrapRICAhead) {
       EXPECT_NE(result.control, nullptr)
           << "Every encode should produce an insert";
       controlQueue.append(std::move(result.control));
-      PRX_CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
+      PRX_CHECK_EQ(result.stream->computeChainDataLength(), 3u); // prefix + 1
       // the decoder has to block because the control stream is pending.
       // This verifies the whole batch of encodes against the same decoderIC
       allDone.emplace_back(verifyDecode(decoder, std::move(result), req));

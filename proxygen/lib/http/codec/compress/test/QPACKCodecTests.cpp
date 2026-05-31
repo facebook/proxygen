@@ -220,7 +220,7 @@ TEST_F(QPACKTests, HeaderCodecStats) {
   auto result = cb.getResult();
   EXPECT_TRUE(!result.hasError());
   auto& decoded = result->headers;
-  PRX_CHECK_EQ(decoded.size(), 3 * 2);
+  PRX_CHECK_EQ(decoded.size(), 3u * 2);
   EXPECT_EQ(stats.decodes, 1);
   EXPECT_EQ(stats.encodes, 0);
   EXPECT_GT(stats.decodedBytesCompr, 0);

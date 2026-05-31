@@ -235,7 +235,7 @@ uint32_t HeaderTable::next(uint32_t i) const {
 uint32_t HeaderTable::tail() const {
   // tail is private, and only called in the encoder, where head_ is always
   // valid
-  PRX_DCHECK_GT(size_, 0) << "tail() undefined";
+  PRX_DCHECK_GT(size_, 0u) << "tail() undefined";
   return (head_ + length() - size_ + 1) % length();
 }
 

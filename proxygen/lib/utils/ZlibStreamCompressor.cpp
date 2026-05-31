@@ -25,7 +25,7 @@ namespace proxygen {
 namespace {
 
 std::unique_ptr<IOBuf> addOutputBuffer(z_stream* stream, uint32_t length) {
-  PRX_CHECK_EQ(stream->avail_out, 0);
+  PRX_CHECK_EQ(stream->avail_out, 0u);
 
   auto buf = IOBuf::create(length);
   buf->append(buf->capacity());

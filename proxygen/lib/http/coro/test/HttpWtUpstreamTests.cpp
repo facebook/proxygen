@@ -783,7 +783,7 @@ CO_TEST_P_X(WtTest, Datagrams) {
   wt->sendDatagram(folly::IOBuf::copyBuffer("datagram1"));
   // wait for peer codec to receive event
   co_await wtCodecCb.waitForEvent();
-  PRX_CHECK_EQ(wtCodecCb.dgrams.size(), 1);
+  PRX_CHECK_EQ(wtCodecCb.dgrams.size(), 1u);
   EXPECT_EQ(wtCodecCb.dgrams.front()->toString(), "datagram1");
 
   // rx datagram from peer

@@ -112,7 +112,7 @@ TEST_F(HPACKCodecTests, LowercasingHeaderNames) {
   auto result = encodeDecode(server, client, headersFromArray(headers));
   EXPECT_TRUE(!result.hasError());
   auto& decoded = result->headers;
-  PRX_CHECK_EQ(decoded.size(), 6);
+  PRX_CHECK_EQ(decoded.size(), 6u);
   for (int i = 0; i < 6; i += 2) {
     EXPECT_TRUE(isLowercase(decoded[i].str));
   }
@@ -130,7 +130,7 @@ TEST_F(HPACKCodecTests, MultivalueHeaders) {
   auto result = encodeDecode(server, client, headersFromArray(headers));
   EXPECT_TRUE(!result.hasError());
   auto& decoded = result->headers;
-  PRX_CHECK_EQ(decoded.size(), 8);
+  PRX_CHECK_EQ(decoded.size(), 8u);
   uint32_t count = 0;
   for (int i = 0; i < 8; i += 2) {
     if (decoded[i].str == "x-fb-dup") {
@@ -192,7 +192,7 @@ TEST_F(HPACKCodecTests, HeaderCodecStats) {
   auto result = decode(client, cursor, cursor.totalLength());
   EXPECT_TRUE(!result.hasError());
   auto& decoded = result->headers;
-  PRX_CHECK_EQ(decoded.size(), 3 * 2);
+  PRX_CHECK_EQ(decoded.size(), 3u * 2);
   EXPECT_EQ(stats.decodes, 1);
   EXPECT_EQ(stats.encodes, 0);
   EXPECT_GT(stats.decodedBytesCompr, 0);

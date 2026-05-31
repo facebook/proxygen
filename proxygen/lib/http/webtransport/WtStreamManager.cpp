@@ -162,10 +162,12 @@ enum class WriteHandleState : uint8_t {
   Closed    /* invalid, tx rst_stream or eom sent */
 };
 
-inline std::ostream& operator<<(std::ostream& os, ReadHandleState s) {
+[[maybe_unused]] inline std::ostream& operator<<(std::ostream& os,
+                                                 ReadHandleState s) {
   return os << static_cast<uint32_t>(s);
 }
-inline std::ostream& operator<<(std::ostream& os, WriteHandleState s) {
+[[maybe_unused]] inline std::ostream& operator<<(std::ostream& os,
+                                                 WriteHandleState s) {
   return os << static_cast<uint32_t>(s);
 }
 

@@ -30,7 +30,7 @@ class QPACKScheme : public CompressionScheme {
   }
 
   ~QPACKScheme() override {
-    PRX_CHECK_EQ(server_.getQueuedBytes(), 0);
+    PRX_CHECK_EQ(server_.getQueuedBytes(), 0u);
   }
 
   struct QPACKAck : public CompressionScheme::Ack {

@@ -81,7 +81,7 @@ TEST(AcceptorTest, Basic) {
 
   base.loopForever();
 
-  PRX_CHECK_EQ(acceptor.getNumConnections(), 1);
+  PRX_CHECK_EQ(acceptor.getNumConnections(), 1u);
 
   PRX_CHECK(acceptor.getState() == Acceptor::State::kRunning);
   acceptor.forceStop();

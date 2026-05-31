@@ -183,7 +183,7 @@ size_t QPACKEncoder::encodeHeaderQ(HPACKHeaderName name,
   }
 
   // Encoding a dynamic index reference
-  PRX_DCHECK_NE(index, 0);
+  PRX_DCHECK_NE(index, 0u);
   trackReference(index, requiredInsertCount);
   if (index > baseIndex) {
     streamBuffer_.encodeInteger(index - baseIndex - 1, HPACK::Q_INDEXED_POST);
@@ -276,7 +276,7 @@ size_t QPACKEncoder::encodeStreamLiteralQ(const HPACKHeaderName& name,
 
 void QPACKEncoder::trackReference(uint32_t absoluteIndex,
                                   uint32_t& requiredInsertCount) {
-  PRX_CHECK_NE(absoluteIndex, 0);
+  PRX_CHECK_NE(absoluteIndex, 0u);
   if (absoluteIndex > requiredInsertCount) {
     requiredInsertCount = absoluteIndex;
     curOutstanding_.maxInUseIndex = requiredInsertCount;
@@ -294,7 +294,7 @@ void QPACKEncoder::trackReference(uint32_t absoluteIndex,
 }
 
 void QPACKEncoder::encodeDuplicate(uint32_t index) {
-  PRX_DCHECK_GT(index, 0);
+  PRX_DCHECK_GT(index, 0u);
   maxEncoderStreamBytes_ -=
       controlBuffer_.encodeInteger(index - 1, HPACK::Q_DUPLICATE);
 }

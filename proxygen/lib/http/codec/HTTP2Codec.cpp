@@ -1042,7 +1042,7 @@ size_t HTTP2Codec::splitCompressed(size_t compressed,
                                    uint32_t remainingFrameSize,
                                    folly::IOBufQueue& writeBuf,
                                    folly::IOBufQueue& queue) {
-  PRX_CHECK_GT(compressed, 0) << "compressed block must be at least 1 byte";
+  PRX_CHECK_GT(compressed, 0u) << "compressed block must be at least 1 byte";
   auto chunkLen = compressed;
   if (chunkLen > remainingFrameSize) {
     // There's more here than fits in one frame.  Put the remainder in queue

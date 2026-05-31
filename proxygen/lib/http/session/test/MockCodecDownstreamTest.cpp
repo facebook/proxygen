@@ -152,7 +152,7 @@ class MockCodecDownstreamTest : public testing::Test {
   template <class T>
   void onIngressImpl(T f) {
     EXPECT_CALL(*codec_, onIngress(_)).WillOnce(Invoke([&f](const IOBuf& buf) {
-      PRX_CHECK_GT(buf.computeChainDataLength(), 0);
+      PRX_CHECK_GT(buf.computeChainDataLength(), 0u);
       // The test should be independent of the dummy buffer,
       // so don't pass it in.
       f();

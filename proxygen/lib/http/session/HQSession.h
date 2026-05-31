@@ -1723,7 +1723,7 @@ class HQSession
         uint64_t streamOffset) {
       auto it = egressBodyByteEventOffsets_.find(streamOffset);
       if (it != egressBodyByteEventOffsets_.end()) {
-        PRX_CHECK_GT(it->second.callbacks, 0);
+        PRX_CHECK_GT(it->second.callbacks, 0u);
         it->second.callbacks--;
         auto bodyOffset = it->second.bodyOffset;
         if (it->second.callbacks == 0) {

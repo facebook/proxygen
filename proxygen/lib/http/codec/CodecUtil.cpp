@@ -92,7 +92,7 @@ bool CodecUtil::appendHeaders(const HTTPHeaders& inputHeaders,
     const auto& s_disallowedModernHTTPFields = disallowedModernHTTPFields();
     if (s_disallowedModernHTTPFields[code] || name.size() == 0 ||
         name[0] == ':') {
-      PRX_DCHECK_GT(name.size(), 0) << "Empty header";
+      PRX_DCHECK_GT(name.size(), 0u) << "Empty header";
       PRX_DCHECK_NE(name[0], ':') << "Invalid header=" << name;
       return;
     }

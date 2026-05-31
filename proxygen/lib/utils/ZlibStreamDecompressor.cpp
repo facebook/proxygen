@@ -83,7 +83,7 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
 
     // Ensure there is space in the output IOBuf
     appender.ensure(decompressor_buffer_minsize_);
-    PRX_DCHECK_GT(appender.length(), 0);
+    PRX_DCHECK_GT(appender.length(), 0u);
 
     const size_t origAvailIn = crtBuf->length() - offset;
     zlibStream_.next_in = const_cast<uint8_t*>(crtBuf->data() + offset);

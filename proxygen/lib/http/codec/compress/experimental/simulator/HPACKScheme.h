@@ -32,7 +32,7 @@ class HPACKScheme : public CompressionScheme {
   }
 
   ~HPACKScheme() override {
-    PRX_CHECK_EQ(serverQueue_.getQueuedBytes(), 0);
+    PRX_CHECK_EQ(serverQueue_.getQueuedBytes(), 0u);
   }
 
   // HPACK has no ACKs

@@ -306,7 +306,7 @@ TEST_P(HQDownstreamSessionTest, SimpleGet) {
   EXPECT_GT(socketDriver_->streams_[idh.first].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   // Checks that the server response is sent using the QPACK dynamic table
-  PRX_CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
+  PRX_CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0u);
   hqSession_->closeWhenIdle();
 }
 
@@ -478,7 +478,7 @@ TEST_P(HQDownstreamSessionTest, OnPriorityCallback) {
   hqSession_->onPriority(0, HTTPPriority(3, false));
   socketDriver_->expectSetPriority(0, Priority(3, false));
   auto id = sendRequest(getProgressiveGetRequest());
-  PRX_CHECK_EQ(id, 0);
+  PRX_CHECK_EQ(id, 0u);
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&]() {
     handler->sendHeaders(200, 1000);
@@ -960,7 +960,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushed) {
   size_t eomSize = 0;
   std::tie(estimatedSize, framingOverhead, eomSize) =
       estimateResponseSize(true, *reply, 1, 0);
-  PRX_CHECK_EQ(eomSize, 0);
+  PRX_CHECK_EQ(eomSize, 0u);
   auto bytesWithheld = framingOverhead;
 
   auto id = sendRequest(getGetRequest());
@@ -2428,7 +2428,7 @@ TEST_P(HQDownstreamSessionTestNoSettings, SimpleGet) {
   EXPECT_GT(socketDriver_->streams_[idh.first].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   // Checks that the server response is sent without the QPACK dynamic table
-  PRX_CHECK_EQ(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
+  PRX_CHECK_EQ(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0u);
 
   // TODO: Check that QPACK does not use the dynamic table for the response
   hqSession_->closeWhenIdle();
@@ -2552,7 +2552,7 @@ TEST_P(HQDownstreamSessionTest, StopSendingOnUnknownUnidirectionalStreams) {
   EXPECT_GT(socketDriver_->streams_[idh.first].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   // Checks that the server response is sent using the QPACK dynamic table
-  PRX_CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
+  PRX_CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0u);
   hqSession_->closeWhenIdle();
 }
 

@@ -226,7 +226,7 @@ class WeakRefCountedPtr {
         state_->ptr->onWeakRefCountedPtrCreate();
       }
       PRX_CHECK_GE(state_->count,
-                   1); // sanity if state_->count is ever unsigned
+                   1u); // sanity if state_->count is ever unsigned
     }
   }
 
@@ -240,7 +240,7 @@ class WeakRefCountedPtr {
     if (!state_) {
       return;
     }
-    PRX_CHECK_GE(state_->count, 1);
+    PRX_CHECK_GE(state_->count, 1u);
     state_->count--;
     if (state_->ptr) {
       state_->ptr->onWeakRefCountedPtrDestroy();

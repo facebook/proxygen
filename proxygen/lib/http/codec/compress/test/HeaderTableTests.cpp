@@ -296,13 +296,13 @@ TEST_F(HeaderTableTests, IncreaseLengthOfFullTable) {
   HPACKHeader smallHeader("Accept", "All-Content");
 
   HeaderTable table(448);
-  PRX_CHECK_EQ(table.length(), 7);
+  PRX_CHECK_EQ(table.length(), 7u);
 
   for (uint8_t count = 0; count < 3; count++) {
     table.add(largeHeader.copy());
     table.add(smallHeader.copy());
   } // tail is at index 0
-  PRX_CHECK_EQ(table.length(), 7);
+  PRX_CHECK_EQ(table.length(), 7u);
 
   table.add(smallHeader.copy());
   table.add(smallHeader.copy()); // tail is at index 1

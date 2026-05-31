@@ -213,7 +213,7 @@ void HQClient::connectSuccess() {
   }
   uint64_t numOpenableStreams =
       quicClient_->getNumOpenableBidirectionalStreams();
-  PRX_CHECK_GT(numOpenableStreams, 0);
+  PRX_CHECK_GT(numOpenableStreams, 0u);
   httpPaths_.insert(
       httpPaths_.end(), params_.httpPaths.begin(), params_.httpPaths.end());
   for (auto const& s : params_.requestGaps) {

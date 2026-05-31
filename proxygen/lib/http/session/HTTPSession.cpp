@@ -641,7 +641,7 @@ void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
 
     // There must be at least two transactions (we just checked). The previous
     // txns haven't completed yet. Pause reads until they complete
-    PRX_DCHECK_GE(transactions_.size(), 2);
+    PRX_DCHECK_GE(transactions_.size(), 2u);
     std::map<HTTPCodec::StreamID, HTTPTransaction*> sortedTxns;
     for (auto& x_2 : transactions_) {
       sortedTxns.emplace(x_2.first, &x_2.second);
@@ -651,7 +651,7 @@ void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
       it->second->pauseIngress();
     }
     sortedTxns.rbegin()->second->pauseIngress();
-    PRX_DCHECK_EQ(liveTransactions_, 0);
+    PRX_DCHECK_EQ(liveTransactions_, 0u);
     PRX_DCHECK(readsPaused());
   }
 }
@@ -1169,7 +1169,7 @@ size_t HTTPSession::sendSettings() {
 void HTTPSession::pauseIngress(HTTPTransaction* txn) noexcept {
   PRX_VLOG(4) << *this << " pausing streamID=" << txn->getID()
               << ", liveTransactions_ was " << liveTransactions_;
-  PRX_CHECK_GT(liveTransactions_, 0);
+  PRX_CHECK_GT(liveTransactions_, 0u);
   --liveTransactions_;
 
   if (liveTransactions_ == 0) {
@@ -1519,12 +1519,12 @@ void HTTPSession::decrementTransactionCount(HTTPTransaction* txn,
   if ((isUpstream() && !txn->isPushed()) ||
       (isDownstream() && txn->isPushed())) {
     if (ingressEOM && txn->testAndClearIsCountedTowardsStreamLimit()) {
-      PRX_DCHECK_NE(outgoingStreams_, 0);
+      PRX_DCHECK_NE(outgoingStreams_, 0u);
       outgoingStreams_--;
     }
   } else {
     if (egressEOM && txn->testAndClearIsCountedTowardsStreamLimit()) {
-      PRX_DCHECK_NE(incomingStreams_, 0);
+      PRX_DCHECK_NE(incomingStreams_, 0u);
       incomingStreams_--;
     }
   }
@@ -1574,7 +1574,7 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
 
   PRX_VLOG(4) << *this << " removing streamID=" << streamID
               << ", liveTransactions was " << liveTransactions_;
-  PRX_CHECK_GT(liveTransactions_, 0);
+  PRX_CHECK_GT(liveTransactions_, 0u);
   liveTransactions_--;
 
   if (txn->isPushed()) {

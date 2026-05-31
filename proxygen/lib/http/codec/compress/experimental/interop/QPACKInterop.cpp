@@ -373,7 +373,7 @@ struct QIFReader : public Reader {
         case VALUE:
           strings.back() += c.readWhile([](uint8_t ch) { return !iseol(ch); });
           if (!c.isAtEnd()) {
-            PRX_CHECK_GE(strings.size(), 2);
+            PRX_CHECK_GE(strings.size(), 2u);
             blocks.back().emplace_back(compress::Header::makeHeaderForTest(
                 *(strings.rbegin() + 1), *strings.rbegin()));
             state_ = EOL;

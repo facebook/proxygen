@@ -89,7 +89,7 @@ Client::Client(EventBase* eventBase,
       connector_(this, transactionTimeouts),
       serverName_(serverName),
       plaintextProto_(plaintextProto) {
-  PRX_CHECK_GT(requests_, 0);
+  PRX_CHECK_GT(requests_, 0u);
   connector_.setPlaintextProtocol(plaintextProto);
 }
 
@@ -428,7 +428,7 @@ void Client::TransactionHandler::detachTransaction() noexcept {
   PRX_DCHECK(!waitingForResponse_);
   PRX_DCHECK(!inMessage_);
   if (!parent_->inDestructor_) {
-    PRX_DCHECK_GT(parent_->outstandingTransactions_, 0);
+    PRX_DCHECK_GT(parent_->outstandingTransactions_, 0u);
     parent_->outstandingTransactions_--;
     PRX_VLOG(3) << __func__ << " requestsSent=" << parent_->requestsSent_
                 << " requests=" << parent_->requests_

@@ -67,8 +67,8 @@ std::unique_ptr<folly::IOBuf> ZstdStreamCompressor::compress(
       return {};
     }
 
-    PRX_DCHECK_EQ(inrange.size(), 0);
-    PRX_DCHECK_GT(outrange.size(), 0);
+    PRX_DCHECK_EQ(inrange.size(), 0u);
+    PRX_DCHECK_GT(outrange.size(), 0u);
 
     out->append(outrange.begin() - out->tail());
 

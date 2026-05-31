@@ -14,7 +14,7 @@
 namespace proxygen {
 
 HQUpstreamSession::~HQUpstreamSession() {
-  PRX_CHECK_EQ(getNumStreams(), 0);
+  PRX_CHECK_EQ(getNumStreams(), 0u);
 }
 
 void HQUpstreamSession::startNow() {
@@ -144,7 +144,7 @@ void HQUpstreamSession::attachThreadLocals(
 void HQUpstreamSession::detachThreadLocals(bool) {
   PRX_VLOG(4) << __func__ << " sess=" << *this;
   // TODO: deal with control streams in h2q
-  PRX_CHECK_EQ(getNumOutgoingStreams(), 0);
+  PRX_CHECK_EQ(getNumOutgoingStreams(), 0u);
   cancelLoopCallback();
 
   // TODO: Pause reads and invoke infocallback
@@ -297,7 +297,7 @@ void HQUpstreamSession::dispatchPushStream(quic::StreamId pushStreamId,
   // TODO: if/when we support client goaway, reject stream if
   // pushId >= minUnseenIncomingPushId_ after the GOAWAY is sent
   minUnseenIncomingPushId_ = std::max(minUnseenIncomingPushId_, pushId);
-  PRX_DCHECK_GT(toConsume, 0);
+  PRX_DCHECK_GT(toConsume, 0u);
 
   bool eom = false;
   if (serverPushLifecycleCb_) {

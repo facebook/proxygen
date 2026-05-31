@@ -146,23 +146,23 @@ TEST_F(HPACKBufferTests, DecodeSingleByte) {
   resetDecoder();
   uint64_t integer;
   PRX_CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
-  PRX_CHECK_EQ(integer, 67);
+  PRX_CHECK_EQ(integer, 67u);
 
   resetDecoder();
 
   PRX_CHECK_EQ(decoder_.decodeInteger(6, integer), DecodeError::NONE);
-  PRX_CHECK_EQ(integer, 3);
+  PRX_CHECK_EQ(integer, 3u);
 
   // set a bit in the prefix - it should not affect the decoded value
   *wdata = 195; // 195 = 128 + 67
   resetDecoder();
   PRX_CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
-  PRX_CHECK_EQ(integer, 67);
+  PRX_CHECK_EQ(integer, 67u);
 
   // 8-bit prefix - the entire byte
   resetDecoder();
   PRX_CHECK_EQ(decoder_.decodeInteger(8, integer), DecodeError::NONE);
-  PRX_CHECK_EQ(integer, 195);
+  PRX_CHECK_EQ(integer, 195u);
 }
 
 TEST_F(HPACKBufferTests, DecodeMultiByte) {
@@ -175,15 +175,15 @@ TEST_F(HPACKBufferTests, DecodeMultiByte) {
   resetDecoder();
   uint64_t integer;
   PRX_CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
-  PRX_CHECK_EQ(integer, 3);
-  PRX_CHECK_EQ(decoder_.cursor().length(), 0);
+  PRX_CHECK_EQ(integer, 3u);
+  PRX_CHECK_EQ(decoder_.cursor().length(), 0u);
   // edge case - encode 130 = 127 + 3 on 2-bit prefix
   wdata[0] = 3;
   wdata[1] = 127;
   resetDecoder();
   PRX_CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
-  PRX_CHECK_EQ(integer, 130);
-  PRX_CHECK_EQ(decoder_.cursor().length(), 0);
+  PRX_CHECK_EQ(integer, 130u);
+  PRX_CHECK_EQ(decoder_.cursor().length(), 0u);
   // edge case - encode 131 = 128 + 3
   buf_->append(1);
   wdata[0] = 3;
@@ -191,16 +191,16 @@ TEST_F(HPACKBufferTests, DecodeMultiByte) {
   wdata[2] = 1;
   resetDecoder();
   PRX_CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
-  PRX_CHECK_EQ(integer, 131);
-  PRX_CHECK_EQ(decoder_.cursor().length(), 0);
+  PRX_CHECK_EQ(integer, 131u);
+  PRX_CHECK_EQ(decoder_.cursor().length(), 0u);
   // encode the value from the RFC example - 1337
   wdata[0] = 31;
   wdata[1] = 154;
   wdata[2] = 10;
   resetDecoder();
   PRX_CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::NONE);
-  PRX_CHECK_EQ(integer, 1337);
-  PRX_CHECK_EQ(decoder_.cursor().length(), 0);
+  PRX_CHECK_EQ(integer, 1337u);
+  PRX_CHECK_EQ(decoder_.cursor().length(), 0u);
 }
 
 TEST_F(HPACKBufferTests, DecodeIntegerError) {

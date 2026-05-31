@@ -229,7 +229,7 @@ class HTTPUpstreamTest
       readCallback_->getReadBuffer(&buf, &bufSize);
       // This is somewhat specific to our implementation, but currently we
       // always return at least some space from getReadBuffer
-      PRX_CHECK_GT(bufSize, 0);
+      PRX_CHECK_GT(bufSize, 0u);
       bufSize = std::min(bufSize, length);
       memcpy(buf, input, bufSize);
       readCallback_->readDataAvailable(bufSize);
@@ -851,7 +851,7 @@ void HTTPUpstreamTest<CodecPair>::testBasicRequest() {
       "0\r\n\r\n");
 
   PRX_CHECK(httpSession_->supportsMoreTransactions());
-  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0u);
 }
 
 TEST_F(HTTPUpstreamSessionTest, BasicRequest) {
@@ -929,7 +929,7 @@ TEST_F(HTTPUpstreamSessionTest, TestFirstHeaderByteEventTracker) {
       "0\r\n\r\n");
 
   PRX_CHECK(httpSession_->supportsMoreTransactions());
-  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0u);
   handler->txn_->decrementPendingByteEvents();
   httpSession_->destroy();
 }
@@ -997,7 +997,7 @@ TEST_F(HTTPUpstreamSessionTest, BasicTrailers) {
       "\r\n");
 
   PRX_CHECK(httpSession_->supportsMoreTransactions());
-  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0u);
   httpSession_->destroy();
 }
 
