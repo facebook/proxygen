@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/codec/HQUtils.h>
 
 #include <folly/Random.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 using namespace proxygen::hq;
@@ -79,17 +80,17 @@ ParseResult HQControlCodec::parseCancelPush(Cursor& cursor,
 
 ParseResult HQControlCodec::parseSettings(Cursor& cursor,
                                           const FrameHeader& header) {
-  VLOG(4) << "parsing SETTINGS frame length=" << header.length;
-  CHECK(isIngress());
+  PRX_VLOG(4) << "parsing SETTINGS frame length=" << header.length;
+  PRX_CHECK(isIngress());
   std::deque<SettingPair> outSettings;
   receivedSettings_ = true;
   auto res = hq::parseSettings(cursor, header, outSettings);
-  VLOG(4) << "Received n=" << outSettings.size() << " settings";
+  PRX_VLOG(4) << "Received n=" << outSettings.size() << " settings";
   if (res) {
     return res;
   }
 
-  CHECK(isIngress());
+  PRX_CHECK(isIngress());
   auto& ingressSettings = settings_;
   SettingsList settingsList;
   for (auto& setting : outSettings) {
@@ -202,19 +203,20 @@ size_t HQControlCodec::generateGoaway(
     // Non-draining goaway, caller supplied ID
     sentFinalGoaway_ = true;
   }
-  VLOG(4) << "generating GOAWAY minUnseenId=" << minUnseenId
-          << " statusCode=" << uint32_t(statusCode);
+  PRX_VLOG(4) << "generating GOAWAY minUnseenId=" << minUnseenId
+              << " statusCode=" << uint32_t(statusCode);
 
-  DCHECK_GE(egressGoawayAck_, minUnseenId);
+  PRX_DCHECK_GE(egressGoawayAck_, minUnseenId);
   egressGoawayAck_ = minUnseenId;
   auto writeRes = hq::writeGoaway(writeBuf, minUnseenId);
-  LOG_IF(FATAL, !writeRes) << "::writeGoaway err minUnseenId=" << minUnseenId;
+  PRX_LOG_IF(FATAL, !writeRes)
+      << "::writeGoaway err minUnseenId=" << minUnseenId;
   sentGoaway_ = true;
   return *writeRes;
 }
 
 size_t HQControlCodec::generateSettings(folly::IOBufQueue& writeBuf) {
-  CHECK(!sentSettings_);
+  PRX_CHECK(!sentSettings_);
   sentSettings_ = true;
   std::deque<hq::SettingPair> settings;
   for (auto& setting : getEgressSettings()->getAllSettings()) {
@@ -242,7 +244,7 @@ size_t HQControlCodec::generateSettings(folly::IOBufQueue& writeBuf) {
       static_cast<SettingId>(*getGreaseId(folly::Random::rand32(16))),
       static_cast<SettingValue>(0xFACEB00C));
   auto writeRes = writeSettings(writeBuf, settings);
-  LOG_IF(FATAL, !writeRes) << "error writing settings frame";
+  PRX_LOG_IF(FATAL, !writeRes) << "error writing settings frame";
   return *writeRes;
 }
 
@@ -250,16 +252,17 @@ size_t HQControlCodec::generatePriority(folly::IOBufQueue& writeBuf,
                                         StreamID stream,
                                         HTTPPriority priority) {
   if (priority.urgency > quic::kDefaultMaxPriority) {
-    LOG(ERROR) << "Attempt to generate invalid priority update with urgency="
-               << (uint64_t)priority.urgency;
+    PRX_LOG(ERROR)
+        << "Attempt to generate invalid priority update with urgency="
+        << (uint64_t)priority.urgency;
     return 0;
   }
   auto updateString = folly::to<std::string>(
       "u=", priority.urgency, (priority.incremental ? ",i" : ""));
   auto writeRet = hq::writePriorityUpdate(writeBuf, stream, updateString);
   if (!writeRet) {
-    LOG(ERROR) << "error writing priority update, stream=" << stream
-               << ", priority=" << updateString;
+    PRX_LOG(ERROR) << "error writing priority update, stream=" << stream
+                   << ", priority=" << updateString;
     return 0;
   }
   return *writeRet;
@@ -269,7 +272,7 @@ size_t HQControlCodec::generatePushPriority(folly::IOBufQueue& writeBuf,
                                             StreamID pushId,
                                             HTTPPriority priority) {
   if (priority.urgency > quic::kDefaultMaxPriority) {
-    LOG(ERROR)
+    PRX_LOG(ERROR)
         << "Attempt to generate invalid push priority update with urgency="
         << (uint64_t)priority.urgency;
     return 0;
@@ -278,8 +281,8 @@ size_t HQControlCodec::generatePushPriority(folly::IOBufQueue& writeBuf,
       "u=", priority.urgency, (priority.incremental ? ",i" : ""));
   auto writeRet = hq::writePushPriorityUpdate(writeBuf, pushId, updateString);
   if (!writeRet) {
-    LOG(ERROR) << "error writing push priority update, pushId=" << pushId
-               << ", priority=" << updateString;
+    PRX_LOG(ERROR) << "error writing push priority update, pushId=" << pushId
+                   << ", priority=" << updateString;
     return 0;
   }
   return *writeRet;

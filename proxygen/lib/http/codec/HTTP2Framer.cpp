@@ -11,6 +11,7 @@
 #include <array>
 #include <folly/tracing/ScopedTraceSection.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly::io;
 using namespace folly;
@@ -54,22 +55,22 @@ size_t computeLengthAndType(uint32_t length,
                             folly::Optional<uint8_t> padding,
                             size_t& headerSize) {
   // the acceptable length is now conditional based on state :(
-  DCHECK_EQ(0, ~kLengthMask & length);
-  DCHECK_EQ(0, ~kUint31Mask & stream);
+  PRX_DCHECK_EQ(0, ~kLengthMask & length);
+  PRX_DCHECK_EQ(0, ~kUint31Mask & stream);
 
   // Add or remove padding flags
   if (padding) {
     flags |= PADDED;
-    DCHECK(FrameType::HEADERS == type || FrameType::DATA == type ||
-           FrameType::PUSH_PROMISE == type);
+    PRX_DCHECK(FrameType::HEADERS == type || FrameType::DATA == type ||
+               FrameType::PUSH_PROMISE == type);
     length += *padding + 1;
     headerSize += 1;
   } else {
     flags &= ~PADDED;
   }
 
-  DCHECK_EQ(0, ~kLengthMask & length);
-  DCHECK_EQ(true, isValidFrameType(type));
+  PRX_DCHECK_EQ(0, ~kLengthMask & length);
+  PRX_DCHECK_EQ(true, isValidFrameType(type));
   return ((kLengthMask & length) << 8) | static_cast<uint8_t>(type);
 }
 
@@ -128,7 +129,7 @@ size_t writeFrameHeader(uint8_t* buf,
   uint32_t lengthAndType =
       computeLengthAndType(length, type, flags, stream, padding, headerSize);
 
-  CHECK_GE(bufLen, headerSize);
+  PRX_CHECK_GE(bufLen, headerSize);
   lengthAndType = htonl(lengthAndType);
   memcpy(buf, &lengthAndType, sizeof(lengthAndType));
   buf += sizeof(lengthAndType);
@@ -141,7 +142,7 @@ size_t writeFrameHeader(uint8_t* buf,
   bufLen -= kFrameHeaderSize;
 
   if (padding) {
-    CHECK_GE(bufLen, 1);
+    PRX_CHECK_GE(bufLen, 1);
     *buf = *padding;
     buf++;
     bufLen--;
@@ -183,8 +184,9 @@ ErrorCode parsePadding(Cursor& cursor,
                        const FrameHeader& header,
                        uint8_t& padding,
                        uint32_t& lefttoparse) noexcept {
-  DCHECK(header.type == FrameType::DATA || header.type == FrameType::HEADERS ||
-         header.type == FrameType::PUSH_PROMISE);
+  PRX_DCHECK(header.type == FrameType::DATA ||
+             header.type == FrameType::HEADERS ||
+             header.type == FrameType::PUSH_PROMISE);
   lefttoparse = header.length;
   if (frameHasPadding(header)) {
     if (lefttoparse < 1) {
@@ -268,7 +270,7 @@ bool frameHasPadding(const FrameHeader& header) {
 
 ErrorCode parseFrameHeader(Cursor& cursor, FrameHeader& header) noexcept {
   FOLLY_SCOPED_TRACE_SECTION("HTTP2Framer - parseFrameHeader");
-  DCHECK_LE(kFrameHeaderSize, cursor.totalLength());
+  PRX_DCHECK_LE(kFrameHeaderSize, cursor.totalLength());
 
   // MUST ignore the 2 bits before the length
   auto lengthAndType = cursor.readBE<uint32_t>();
@@ -284,7 +286,7 @@ ErrorCode parseData(Cursor& cursor,
                     const FrameHeader& header,
                     std::unique_ptr<IOBuf>& outBuf,
                     uint16_t& outPadding) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream == 0) {
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -325,7 +327,7 @@ ErrorCode parseDataEnd(Cursor& cursor,
 ErrorCode parseHeaders(Cursor& cursor,
                        const FrameHeader& header,
                        std::unique_ptr<IOBuf>& outBuf) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream == 0) {
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -348,7 +350,7 @@ ErrorCode parseRFC9218Priority(Cursor& cursor,
                                const FrameHeader& header,
                                uint32_t& priStream,
                                std::string& outPriority) {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream != 0) {
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -365,7 +367,7 @@ ErrorCode parseRFC9218Priority(Cursor& cursor,
 ErrorCode parseRstStream(Cursor& cursor,
                          const FrameHeader& header,
                          ErrorCode& outCode) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.length != kFrameRstStreamSize) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
@@ -378,7 +380,7 @@ ErrorCode parseRstStream(Cursor& cursor,
 ErrorCode parseSettings(Cursor& cursor,
                         const FrameHeader& header,
                         std::deque<SettingPair>& settings) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream != 0) {
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -404,7 +406,7 @@ ErrorCode parsePushPromise(Cursor& cursor,
                            const FrameHeader& header,
                            uint32_t& outPromisedStream,
                            std::unique_ptr<IOBuf>& outBuf) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream == 0) {
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -432,7 +434,7 @@ ErrorCode parsePushPromise(Cursor& cursor,
 ErrorCode parsePing(Cursor& cursor,
                     const FrameHeader& header,
                     uint64_t& outOpaqueData) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
 
   if (header.length != kFramePingSize) {
     return ErrorCode::FRAME_SIZE_ERROR;
@@ -450,7 +452,7 @@ ErrorCode parseGoaway(Cursor& cursor,
                       uint32_t& outLastStreamID,
                       ErrorCode& outCode,
                       std::unique_ptr<IOBuf>& outDebugData) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.length < kFrameGoawaySize) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
@@ -471,7 +473,7 @@ ErrorCode parseGoaway(Cursor& cursor,
 ErrorCode parseWindowUpdate(Cursor& cursor,
                             const FrameHeader& header,
                             uint32_t& outAmount) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.length != kFrameWindowUpdateSize) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
@@ -482,8 +484,8 @@ ErrorCode parseWindowUpdate(Cursor& cursor,
 ErrorCode parseContinuation(Cursor& cursor,
                             const FrameHeader& header,
                             std::unique_ptr<IOBuf>& outBuf) noexcept {
-  DCHECK(header.type == FrameType::CONTINUATION);
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK(header.type == FrameType::CONTINUATION);
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream == 0) {
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -498,7 +500,7 @@ ErrorCode parseAltSvc(Cursor& cursor,
                       std::string& outProtocol,
                       std::string& outHost,
                       std::string& outOrigin) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.length < kFrameAltSvcSizeBase) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
@@ -528,7 +530,7 @@ ErrorCode parseCertificateRequest(
     const FrameHeader& header,
     uint16_t& outRequestId,
     std::unique_ptr<folly::IOBuf>& outAuthRequest) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.length < kFrameCertificateRequestSizeBase) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
@@ -549,7 +551,7 @@ ErrorCode parseCertificate(
     const FrameHeader& header,
     uint16_t& outCertId,
     std::unique_ptr<folly::IOBuf>& outAuthenticator) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   if (header.length < kFrameCertificateSizeBase) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
@@ -573,7 +575,7 @@ size_t writeData(IOBufQueue& queue,
                  folly::Optional<uint8_t> padding,
                  bool endStream,
                  bool reuseIOBufHeadroom) noexcept {
-  DCHECK_NE(0, stream);
+  PRX_DCHECK_NE(0, stream);
   uint8_t flags = 0;
   if (endStream) {
     flags |= END_STREAM;
@@ -635,7 +637,7 @@ size_t writeHeaders(uint8_t* header,
                     folly::Optional<uint8_t> padding,
                     bool endStream,
                     bool endHeaders) noexcept {
-  DCHECK_NE(0, stream);
+  PRX_DCHECK_NE(0, stream);
   uint32_t flags = 0;
   if (endStream) {
     flags |= END_STREAM;
@@ -658,7 +660,7 @@ size_t writeHeaders(uint8_t* header,
 size_t writeRFC9218Priority(IOBufQueue& queue,
                             uint32_t stream,
                             std::string& priority) {
-  CHECK_NE(0, stream);
+  PRX_CHECK_NE(0, stream);
   QueueAppender appender(&queue, sizeof(stream) + priority.size());
   appender.writeBE<uint32_t>(stream);
   appender.pushAtMost((const uint8_t*)(priority.data()), priority.size());
@@ -677,7 +679,7 @@ size_t writeRFC9218Priority(IOBufQueue& queue,
 size_t writeRstStream(IOBufQueue& queue,
                       uint32_t stream,
                       ErrorCode errorCode) noexcept {
-  DCHECK_NE(0, stream);
+  PRX_DCHECK_NE(0, stream);
   const auto frameLen = writeFrameHeader(queue,
                                          kFrameRstStreamSize,
                                          FrameType::RST_STREAM,
@@ -697,8 +699,8 @@ size_t writeSettings(IOBufQueue& queue,
       queue, settingsSize, FrameType::SETTINGS, 0, 0, kNoPadding, nullptr);
   QueueAppender appender(&queue, settingsSize);
   for (const auto& setting : settings) {
-    DCHECK_LE(static_cast<uint32_t>(setting.first),
-              std::numeric_limits<uint16_t>::max());
+    PRX_DCHECK_LE(static_cast<uint32_t>(setting.first),
+                  std::numeric_limits<uint16_t>::max());
     appender.writeBE<uint16_t>(static_cast<uint16_t>(setting.first));
     appender.writeBE<uint32_t>(setting.second);
   }
@@ -718,11 +720,11 @@ size_t writePushPromise(uint8_t* header,
                         size_t headersLen,
                         folly::Optional<uint8_t> padding,
                         bool endHeaders) noexcept {
-  DCHECK_NE(0, promisedStream);
-  DCHECK_NE(0, associatedStream);
-  DCHECK_EQ(0, 0x1 & promisedStream);
-  DCHECK_EQ(1, 0x1 & associatedStream);
-  DCHECK_EQ(0, ~kUint31Mask & promisedStream);
+  PRX_DCHECK_NE(0, promisedStream);
+  PRX_DCHECK_NE(0, associatedStream);
+  PRX_DCHECK_EQ(0, 0x1 & promisedStream);
+  PRX_DCHECK_EQ(1, 0x1 & associatedStream);
+  PRX_DCHECK_EQ(0, ~kUint31Mask & promisedStream);
 
   const auto frameLen = writeFrameHeader(header,
                                          headerLen,
@@ -758,7 +760,7 @@ size_t writeGoaway(IOBufQueue& queue,
                    ErrorCode errorCode,
                    std::unique_ptr<IOBuf> debugData) noexcept {
   uint32_t debugLen = debugData ? debugData->computeChainDataLength() : 0;
-  DCHECK_EQ(0, ~kLengthMask & debugLen);
+  PRX_DCHECK_EQ(0, ~kLengthMask & debugLen);
   const auto frameLen = writeFrameHeader(queue,
                                          kFrameGoawaySize + debugLen,
                                          FrameType::GOAWAY,
@@ -783,8 +785,8 @@ size_t writeWindowUpdate(IOBufQueue& queue,
                                          stream,
                                          kNoPadding,
                                          nullptr);
-  DCHECK_EQ(0, ~kUint31Mask & amount);
-  DCHECK_LT(0, amount);
+  PRX_DCHECK_EQ(0, ~kUint31Mask & amount);
+  PRX_DCHECK_LT(0, amount);
   QueueAppender appender(&queue, kFrameWindowUpdateSize);
   appender.writeBE<uint32_t>(amount);
   return kFrameHeaderSize + frameLen;
@@ -794,7 +796,7 @@ size_t writeContinuation(IOBufQueue& queue,
                          uint32_t stream,
                          bool endHeaders,
                          std::unique_ptr<IOBuf> headers) noexcept {
-  DCHECK_NE(0, stream);
+  PRX_DCHECK_NE(0, stream);
   const auto dataLen = headers->computeChainDataLength();
   const auto frameLen = writeFrameHeader(queue,
                                          dataLen,
@@ -912,6 +914,6 @@ const char* getFrameTypeString(FrameType type) {
       // can happen when type was cast from uint8_t
       return "Unknown";
   }
-  LOG(FATAL) << "Unreachable";
+  PRX_LOG(FATAL) << "Unreachable";
 }
 } // namespace proxygen::http2

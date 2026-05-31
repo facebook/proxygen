@@ -11,6 +11,7 @@
 
 #include <folly/Random.h>
 #include <folly/String.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace proxygen::hq;
@@ -18,9 +19,9 @@ using namespace proxygen::hq;
 size_t encodeQuicIntegerWithAtLeast(uint64_t value,
                                     uint8_t atLeast,
                                     folly::io::QueueAppender& appender) {
-  CHECK(atLeast == 1 || atLeast == 2 || atLeast == 4 || atLeast == 8);
+  PRX_CHECK(atLeast == 1 || atLeast == 2 || atLeast == 4 || atLeast == 8);
 
-  CHECK_LE(value, quic::kEightByteLimit);
+  PRX_CHECK_LE(value, quic::kEightByteLimit);
   uint8_t numBytes = 0;
   if (value <= quic::kOneByteLimit) {
     numBytes = 1;
@@ -31,9 +32,9 @@ size_t encodeQuicIntegerWithAtLeast(uint64_t value,
   } else if (value <= quic::kEightByteLimit) {
     numBytes = 8;
   }
-  CHECK_NE(numBytes, 0);
+  PRX_CHECK_NE(numBytes, 0);
   numBytes = std::max(numBytes, atLeast);
-  CHECK(numBytes == 1 || numBytes == 2 || numBytes == 4 || numBytes == 8);
+  PRX_CHECK(numBytes == 1 || numBytes == 2 || numBytes == 4 || numBytes == 8);
   if (numBytes == 1) {
     auto modified = static_cast<uint8_t>(value);
     appender.writeBE<uint8_t>(modified);
@@ -53,7 +54,7 @@ size_t encodeQuicIntegerWithAtLeast(uint64_t value,
     appender.writeBE<uint64_t>(modified);
     return sizeof(modified);
   }
-  CHECK(false);
+  PRX_CHECK(false);
 }
 
 size_t generateStreamPreface(folly::IOBufQueue& writeBuf,
@@ -62,7 +63,7 @@ size_t generateStreamPreface(folly::IOBufQueue& writeBuf,
   uint8_t size = 1 << (folly::Random::rand32() % 4);
   auto bytesWritten = encodeQuicIntegerWithAtLeast(
       static_cast<hq::StreamTypeType>(type), size, appender);
-  CHECK_GE(bytesWritten, size);
+  PRX_CHECK_GE(bytesWritten, size);
   return bytesWritten;
 }
 
@@ -141,7 +142,7 @@ void createControlStream(quic::MockQuicSocketDriver* socketDriver,
                          UnidirectionalStreamType streamType) {
   folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
   auto length = generateStreamPreface(writeBuf, streamType);
-  CHECK_EQ(length, writeBuf.chainLength());
+  PRX_CHECK_EQ(length, writeBuf.chainLength());
   socketDriver->sock_->setControlStream(id);
   for (size_t i = 0; i < length; i++) {
     socketDriver->addReadEvent(
@@ -154,7 +155,7 @@ bool HQSessionTest::WtStreams::streamExists(quic::StreamId id) const noexcept {
 }
 
 void HQSessionTest::WtStreams::addStream(quic::StreamId id) noexcept {
-  CHECK(!streamExists(id));
+  PRX_CHECK(!streamExists(id));
   streams_.emplace(id, Ctx{});
 }
 
@@ -169,7 +170,7 @@ void HQSessionTest::WtStreams::waitForWtStream(folly::EventBase& evb,
 // loops evb until *new* data is received by a stream
 void HQSessionTest::WtStreams::waitForWtStreamData(folly::EventBase& evb,
                                                    quic::StreamId id) noexcept {
-  CHECK(streamExists(id));
+  PRX_CHECK(streamExists(id));
   auto& stream = streams_[id];
   auto computeBytesFn = [&stream]() {
     return stream.bufferedData.chainLength() + stream.eom;
@@ -193,7 +194,7 @@ void HQSessionTest::WtStreams::appendData(quic::StreamId id,
 
 auto HQSessionTest::WtStreams::moveData(quic::StreamId id) noexcept
     -> BufferedData {
-  CHECK(streamExists(id));
+  PRX_CHECK(streamExists(id));
   auto& stream = streams_[id];
   return {stream.bufferedData.move(), stream.eom};
 }

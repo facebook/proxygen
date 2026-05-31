@@ -12,6 +12,7 @@
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/SafePathUtils.h>
 
 using namespace proxygen;
@@ -67,17 +68,17 @@ void StaticHandler::readFile(folly::EventBase* evb) {
     auto rc = folly::readNoInt(file_->fd(), data.first, data.second);
     if (rc < 0) {
       // error
-      VLOG(4) << "Read error=" << rc;
+      PRX_VLOG(4) << "Read error=" << rc;
       file_.reset();
       evb->runInEventBaseThread([this] {
-        LOG(ERROR) << "Error reading file";
+        PRX_LOG(ERROR) << "Error reading file";
         downstream_->sendAbort();
       });
       break;
     } else if (rc == 0) {
       // done
       file_.reset();
-      VLOG(4) << "Read EOF";
+      PRX_VLOG(4) << "Read EOF";
       evb->runInEventBaseThread([this] {
         if (!error_) {
           ResponseBuilder(downstream_).sendWithEOM();
@@ -98,7 +99,7 @@ void StaticHandler::readFile(folly::EventBase* evb) {
   evb->runInEventBaseThread([this] {
     readFileScheduled_ = false;
     if (!checkForCompletion() && !paused_) {
-      VLOG(4) << "Resuming deferred readFile";
+      PRX_VLOG(4) << "Resuming deferred readFile";
       onEgressResumed();
     }
   });
@@ -106,12 +107,12 @@ void StaticHandler::readFile(folly::EventBase* evb) {
 
 void StaticHandler::onEgressPaused() noexcept {
   // This will terminate readFile soon
-  VLOG(4) << "StaticHandler paused";
+  PRX_VLOG(4) << "StaticHandler paused";
   paused_ = true;
 }
 
 void StaticHandler::onEgressResumed() noexcept {
-  VLOG(4) << "StaticHandler resumed";
+  PRX_VLOG(4) << "StaticHandler resumed";
   paused_ = false;
   // If readFileScheduled_, it will reschedule itself
   if (!readFileScheduled_ && file_) {
@@ -121,7 +122,7 @@ void StaticHandler::onEgressResumed() noexcept {
           readFile(evb);
         });
   } else {
-    VLOG(4) << "Deferred scheduling readFile";
+    PRX_VLOG(4) << "Deferred scheduling readFile";
   }
 }
 
@@ -151,7 +152,7 @@ void StaticHandler::onError(ProxygenError /*err*/) noexcept {
 
 bool StaticHandler::checkForCompletion() {
   if (finished_ && !readFileScheduled_) {
-    VLOG(4) << "deleting StaticHandler";
+    PRX_VLOG(4) << "deleting StaticHandler";
     delete this;
     return true;
   }

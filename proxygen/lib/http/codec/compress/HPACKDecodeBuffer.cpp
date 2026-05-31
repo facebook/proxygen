@@ -11,6 +11,7 @@
 #include <limits>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::IOBuf;
 using proxygen::HPACK::DecodeError;
@@ -20,9 +21,9 @@ namespace proxygen {
 
 void HPACKDecodeBuffer::EOB_LOG(std::string msg, DecodeError code) const {
   if (endOfBufferIsError_ || code != DecodeError::BUFFER_UNDERFLOW) {
-    LOG(ERROR) << msg;
+    PRX_LOG(ERROR) << msg;
   } else {
-    VLOG(4) << msg;
+    PRX_VLOG(4) << msg;
   }
 }
 
@@ -31,7 +32,7 @@ bool HPACKDecodeBuffer::empty() {
 }
 
 uint8_t HPACKDecodeBuffer::next() {
-  CHECK_GT(remainingBytes_, 0);
+  PRX_CHECK_GT(remainingBytes_, 0);
   // in case we are the end of an IOBuf, peek() will move to the next one
   uint8_t byte = peek();
   cursor_.skip(1);
@@ -41,7 +42,7 @@ uint8_t HPACKDecodeBuffer::next() {
 }
 
 uint8_t HPACKDecodeBuffer::peek() {
-  CHECK_GT(remainingBytes_, 0);
+  PRX_CHECK_GT(remainingBytes_, 0);
   if (cursor_.length() == 0) {
     cursor_.peek();
   }
@@ -75,7 +76,7 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(uint8_t nbit,
     return DecodeError::BUFFER_UNDERFLOW;
   }
   if (size > maxLiteralSize_) {
-    LOG(ERROR) << "Literal too large, size=" << size;
+    PRX_LOG(ERROR) << "Literal too large, size=" << size;
     return DecodeError::LITERAL_TOO_LARGE;
   }
   const uint8_t* data;
@@ -129,13 +130,13 @@ DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint64_t& integer) {
     byte = next();
     if (fexp > 64) {
       // overflow in factorizer, f > 2^64
-      LOG(ERROR) << "overflow fexp=" << fexp;
+      PRX_LOG(ERROR) << "overflow fexp=" << fexp;
       return DecodeError::INTEGER_OVERFLOW;
     }
     uint64_t add = (byte & 127) * f;
     if (std::numeric_limits<uint64_t>::max() - integer <= add) {
       // overflow detected - we disallow uint64_t max.
-      LOG(ERROR) << "overflow integer=" << integer << " add=" << add;
+      PRX_LOG(ERROR) << "overflow integer=" << integer << " add=" << add;
       return DecodeError::INTEGER_OVERFLOW;
     }
     integer += add;

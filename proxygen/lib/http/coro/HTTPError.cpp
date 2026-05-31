@@ -7,7 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/HTTPError.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/container/F14Map.h>
 #include <proxygen/lib/http/HTTPException.h>
@@ -37,8 +37,8 @@ bool checkInvalidAppErrorCode(HTTPErrorCode ec) {
     case HTTPErrorCode::BODY_PARSE_ERROR:
     case HTTPErrorCode::DROPPED:
     case HTTPErrorCode::CORO_CANCELLED:
-      XLOG(WARNING) << "Application supplied internal error code ec="
-                    << uint16_t(ec);
+      PRX_LOG(WARNING) << "Application supplied internal error code ec="
+                       << uint16_t(ec);
       return true;
 
     // Internal H3 errors
@@ -54,8 +54,8 @@ bool checkInvalidAppErrorCode(HTTPErrorCode ec) {
     case HTTPErrorCode::QPACK_DECOMPRESSION_FAILED:
     case HTTPErrorCode::QPACK_ENCODER_STREAM_ERROR:
     case HTTPErrorCode::QPACK_DECODER_STREAM_ERROR:
-      XLOG(WARNING) << "Application supplied internal H3 error code ec="
-                    << uint16_t(ec);
+      PRX_LOG(WARNING) << "Application supplied internal H3 error code ec="
+                       << uint16_t(ec);
       return true;
     default:
       return false;
@@ -131,11 +131,11 @@ ErrorCode HTTPErrorCode2ErrorCode(HTTPErrorCode ec, bool fromSource) {
     case HTTPErrorCode::MESSAGE_ERROR:
     case HTTPErrorCode::PROTOCOL_ERROR:
     case HTTPErrorCode::GENERAL_PROTOCOL_ERROR:
-      XCHECK(!fromSource);
+      PRX_CHECK(!fromSource);
       return ErrorCode::PROTOCOL_ERROR;
 
     case HTTPErrorCode::FLOW_CONTROL_ERROR:
-      XCHECK(!fromSource);
+      PRX_CHECK(!fromSource);
       return ErrorCode::FLOW_CONTROL_ERROR;
 
     default:
@@ -183,14 +183,14 @@ HTTP3::ErrorCode HTTPErrorCode2HTTP3ErrorCode(HTTPErrorCode ec,
 
     // There is no H3 version of this
     case HTTPErrorCode::INADEQUATE_SECURITY:
-      XLOG(WARNING) << "Got INADEQUATE_SECURITY for H3 conn";
+      PRX_LOG(WARNING) << "Got INADEQUATE_SECURITY for H3 conn";
       return HTTP3::ErrorCode::HTTP_INTERNAL_ERROR;
 
     // This is really an internal code we need to map sometimes
     case HTTPErrorCode::MESSAGE_ERROR:
     case HTTPErrorCode::PROTOCOL_ERROR:
     case HTTPErrorCode::GENERAL_PROTOCOL_ERROR:
-      XCHECK(!fromSource);
+      PRX_CHECK(!fromSource);
       return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
 
     default:
@@ -239,7 +239,7 @@ HTTPErrorCode HTTPException2HTTPErrorCode(const proxygen::HTTPException& ex) {
   } else if (ex.hasProxygenError()) {
     // These come from HTTP1xCodec
     auto err = ex.getProxygenError();
-    XCHECK_NE(err, proxygen::kErrorNone);
+    PRX_CHECK_NE(err, proxygen::kErrorNone);
     switch (err) {
       case proxygen::kErrorParseHeader:
         return HTTPErrorCode::HEADER_PARSE_ERROR;

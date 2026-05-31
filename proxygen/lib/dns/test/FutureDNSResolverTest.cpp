@@ -15,6 +15,7 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using std::string;
 
@@ -48,7 +49,7 @@ class FakeDNSResolver : public DNSResolver {
         addrToHostMap_{addrToHostMap},
         hostToAddrMap_{invert(addrToHostMap)},
         mailExchangeMap_{std::move(domainToMailExchangeMap)} {
-    CHECK_EQ(addrToHostMap_.size(), hostToAddrMap_.size());
+    PRX_CHECK_EQ(addrToHostMap_.size(), hostToAddrMap_.size());
   }
 
   ~FakeDNSResolver() override = default;

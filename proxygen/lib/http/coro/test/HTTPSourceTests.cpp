@@ -20,12 +20,12 @@
 #include <folly/coro/BlockingWait.h>
 #include <folly/coro/Sleep.h>
 #include <folly/io/async/ScopedEventBaseThread.h>
-#include <folly/logging/xlog.h>
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 #include <memory>
 #include <proxygen/lib/http/HTTP3ErrorCode.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen::coro;
 using namespace testing;
@@ -60,8 +60,8 @@ class HTTPStreamSourceTest : public testing::Test {
             evb_.terminateLoopSoon();
           }
         }));
-    XCHECK(!stream_.sourceComplete());
-    XCHECK_EQ(stream_.window().getSize(), 65'535);
+    PRX_CHECK(!stream_.sourceComplete());
+    PRX_CHECK_EQ(stream_.window().getSize(), 65'535);
   }
 
  protected:
@@ -1035,7 +1035,7 @@ TEST(HTTPSourceReader, stop) {
             return HTTPSourceReader::Cancel; // Stop reading
           })
       .onBody([](BufQueue, bool) {
-        XLOG(FATAL) << "onBody called after stop";
+        ADD_FAILURE() << "onBody called after stop";
         return HTTPSourceReader::Continue;
       });
   co_withExecutor(&evb,
@@ -1061,11 +1061,13 @@ TEST(HTTPSourceReader, cancelHeaders) {
         co_return HTTPSourceReader::Continue;
       })
       .onBody([](BufQueue, bool) {
-        XLOG(FATAL) << "onBody called after cancel";
+        ADD_FAILURE() << "onBody called after cancel";
+
         return HTTPSourceReader::Continue;
       })
       .onError([](const HTTPSourceReader::ErrorContext&, const HTTPError&) {
-        XLOG(FATAL) << "onError called after cancel";
+        ADD_FAILURE() << "onError called after cancel";
+
         return HTTPSourceReader::Continue;
       });
   co_withExecutor(&evb,
@@ -1095,11 +1097,13 @@ TEST(HTTPSourceReader, cancelPreRead) {
       })
       .onHeaders(
           [](std::unique_ptr<HTTPMessage> headers, bool final, bool eom) {
-            XLOG(FATAL) << "onHeaders called after cancel";
+            ADD_FAILURE() << "onHeaders called after cancel";
+
             return HTTPSourceReader::Continue;
           })
       .onError([](const HTTPSourceReader::ErrorContext&, const HTTPError&) {
-        XLOG(FATAL) << "onError called after cancel";
+        ADD_FAILURE() << "onError called after cancel";
+
         return HTTPSourceReader::Continue;
       });
   co_withExecutor(&evb,
@@ -1236,7 +1240,7 @@ TEST(HTTPSourceReader, filter) {
   class ByteCountFilter : public HTTPSourceFilter {
    public:
     folly::coro::Task<HTTPBodyEvent> readBodyEvent(uint32_t max) override {
-      XLOG(INFO) << __func__;
+      PRX_LOG(INFO) << __func__;
       auto bodyEvent = co_await readBodyEventImpl(max);
       bytes += (bodyEvent.eventType == HTTPBodyEvent::BODY)
                    ? bodyEvent.event.body.chainLength()
@@ -1391,7 +1395,7 @@ CO_TEST(FilterChainTest, SetBeforeInsert) {
 CO_TEST(FilterChainTest, ReleaseFilterChain) {
   auto readChainTask = [](HTTPSourceHolder holder) -> folly::coro::Task<void> {
     auto headerEvent = co_await co_awaitTry(holder.readHeaderEvent());
-    CHECK(!headerEvent.hasException());
+    PRX_CHECK(!headerEvent.hasException());
     EXPECT_EQ(headerEvent->headers->getPathAsStringPiece(), "/filterchain");
     co_return;
   };
@@ -1589,34 +1593,34 @@ CO_TEST(ConsumerProducer, TestHTTPStreamSourceHolderDestructor) {
 
   auto streamSourceHolder =
       HTTPStreamSourceHolder::make(consumerAndProducerEvb.getEventBase());
-  CHECK(streamSourceHolder->get());
+  PRX_CHECK(streamSourceHolder->get());
 
   // space out producer work to introduce randomness in execution
   consumerAndProducerEvb.add([streamSourceHolder]() {
     // source should still exist
     auto source = streamSourceHolder->get();
-    CHECK(streamSourceHolder->get());
+    PRX_CHECK(streamSourceHolder->get());
     source->headers(makeResponse(200), /*eom=*/false);
   });
 
   consumerAndProducerEvb.add([streamSourceHolder]() {
     // source should still exist
     auto source = streamSourceHolder->get();
-    CHECK(streamSourceHolder->get());
+    PRX_CHECK(streamSourceHolder->get());
     source->body(makeBuf(100), /*padding=*/0, /*eom=*/false);
   });
 
   consumerAndProducerEvb.add([streamSourceHolder]() {
     // source should still exist
     auto source = streamSourceHolder->get();
-    CHECK(streamSourceHolder->get());
+    PRX_CHECK(streamSourceHolder->get());
     source->datagram(makeBuf(100));
   });
 
   consumerAndProducerEvb.add([streamSourceHolder]() {
     // source should still exist
     auto source = streamSourceHolder->get();
-    CHECK(streamSourceHolder->get());
+    PRX_CHECK(streamSourceHolder->get());
     source->eom();
   });
 
@@ -1625,36 +1629,37 @@ CO_TEST(ConsumerProducer, TestHTTPStreamSourceHolderDestructor) {
       folly::coro::co_invoke([streamSourceHolder]() -> folly::coro::Task<void> {
         auto maybeHeaders =
             co_await co_awaitTry(streamSourceHolder->get()->readHeaderEvent());
-        CHECK(!maybeHeaders.hasException());
+        PRX_CHECK(!maybeHeaders.hasException());
 
         // source should still exist
-        CHECK(streamSourceHolder->get());
+        PRX_CHECK(streamSourceHolder->get());
         auto maybeBody =
             co_await co_awaitTry(streamSourceHolder->get()->readBodyEvent());
-        CHECK(!maybeBody.hasException());
-        CHECK(maybeBody->eventType == HTTPBodyEvent::EventType::BODY);
-        CHECK(maybeBody->event.body.chainLength() == 100 &&
-              maybeBody->eom == false);
+        PRX_CHECK(!maybeBody.hasException());
+        PRX_CHECK(maybeBody->eventType == HTTPBodyEvent::EventType::BODY);
+        PRX_CHECK(maybeBody->event.body.chainLength() == 100 &&
+                  maybeBody->eom == false);
 
         // source should still exist
-        CHECK(streamSourceHolder->get());
+        PRX_CHECK(streamSourceHolder->get());
         auto maybeDatagram =
             co_await co_awaitTry(streamSourceHolder->get()->readBodyEvent());
         // this last event should be an abort so expect exception
-        CHECK(!maybeDatagram.hasException() &&
-              maybeDatagram->eventType == HTTPBodyEvent::EventType::DATAGRAM);
+        PRX_CHECK(!maybeDatagram.hasException() &&
+                  maybeDatagram->eventType ==
+                      HTTPBodyEvent::EventType::DATAGRAM);
 
         // source should still exist
-        CHECK(streamSourceHolder->get());
+        PRX_CHECK(streamSourceHolder->get());
         auto maybeEom =
             co_await co_awaitTry(streamSourceHolder->get()->readBodyEvent());
         // this last event should be an abort so expect exception
-        CHECK(!maybeEom.hasException() && maybeEom->eom);
+        PRX_CHECK(!maybeEom.hasException() && maybeEom->eom);
 
         // source should no longer exist due to ::sourceComplete callback –
         // which should run destructor of the internal HTTPStreamSource within
         // the producer evb
-        CHECK(streamSourceHolder->get() == nullptr);
+        PRX_CHECK(streamSourceHolder->get() == nullptr);
       }));
 
   folly::coro::blockingWait(std::move(consumerTask));
@@ -1667,7 +1672,7 @@ CO_TEST(ConsumerProducer, TestHTTPStreamSourceHolderDestructor) {
 TEST(HTTPStreamSourceHolder, Simple) {
   folly::EventBase evb;
   auto source = HTTPStreamSourceHolder::make(&evb);
-  XCHECK(source->get());
+  PRX_CHECK(source->get());
 
   HTTPSourceReader reader{source->get()};
   co_withExecutor(&evb, reader.read()).start();
@@ -1688,7 +1693,7 @@ TEST(HTTPStreamSourceHolder, Simple) {
 TEST(HTTPStreamSourceHolder, DestructorTest) {
   folly::EventBase evb;
   auto source = HTTPStreamSourceHolder::make(&evb);
-  XCHECK(source->get());
+  PRX_CHECK(source->get());
   source->get()->headers(makePostRequest(1'000));
 }
 

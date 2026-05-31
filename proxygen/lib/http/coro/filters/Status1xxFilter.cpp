@@ -7,7 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/filters/Status1xxFilter.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -15,7 +15,7 @@ folly::coro::Task<HTTPHeaderEvent> Status1xxFilter::readHeaderEvent() {
   auto headerEvent = co_await HTTPSourceFilter::readHeaderEvent();
   while (!headerEvent.isFinal()) {
     // Ignore this event and wait for the next one.
-    XLOG(DBG4)
+    PRX_VLOG(4)
         << fmt::format("A response with status code {} has been filtered out",
                        headerEvent.headers->getStatusCode());
     headerEvent = co_await HTTPSourceFilter::readHeaderEvent();

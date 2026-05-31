@@ -15,6 +15,7 @@
 #include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::hq {
 
@@ -34,8 +35,8 @@ HQStreamCodec::HQStreamCodec(StreamID streamId,
       qpackDecoderWriteBuf_(decoderWriteBuf),
       qpackEncoderMaxDataFn_(std::move(qpackEncoderMaxData)),
       ingressSettings_(ingressSettings) {
-  VLOG(4) << "creating " << getTransportDirectionString(direction)
-          << " HQ stream codec for stream " << streamId_;
+  PRX_VLOG(4) << "creating " << getTransportDirectionString(direction)
+              << " HQ stream codec for stream " << streamId_;
 }
 
 HQStreamCodec::~HQStreamCodec() = default;
@@ -73,10 +74,10 @@ ParseResult HQStreamCodec::parseData(Cursor& cursor,
   // It's possible the data is in the wrong place per HTTP semantics, but it
   // will be caught by HTTPTransaction
   std::unique_ptr<IOBuf> outData;
-  VLOG(10) << "parsing all frame DATA bytes for stream=" << streamId_
-           << " length=" << header.length;
+  PRX_VLOG(10) << "parsing all frame DATA bytes for stream=" << streamId_
+               << " length=" << header.length;
   auto res = hq::parseData(cursor, header, outData);
-  CHECK(!res);
+  PRX_CHECK(!res);
 
   // no need to do deliverCallbackIfAllowed
   // the HQSession can trap this and stop reading.
@@ -93,7 +94,7 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
   setParserPaused(true);
   if (finalIngressHeadersSeen_) {
     if (parsingTrailers_) {
-      VLOG(4) << "Unexpected HEADERS frame for stream=" << streamId_;
+      PRX_VLOG(4) << "Unexpected HEADERS frame for stream=" << streamId_;
       if (callback_) {
         HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                          "Invalid HEADERS frame");
@@ -108,11 +109,11 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
   std::unique_ptr<IOBuf> outHeaderData;
   auto res = hq::parseHeaders(cursor, header, outHeaderData);
   if (res) {
-    VLOG(4) << "Invalid HEADERS frame for stream=" << streamId_;
+    PRX_VLOG(4) << "Invalid HEADERS frame for stream=" << streamId_;
     return res;
   }
-  VLOG(4) << "Parsing HEADERS frame for stream=" << streamId_
-          << " length=" << outHeaderData->computeChainDataLength();
+  PRX_VLOG(4) << "Parsing HEADERS frame for stream=" << streamId_
+              << " length=" << outHeaderData->computeChainDataLength();
   if (callback_ && !parsingTrailers_) {
     // H2 performs the decompression/semantic validation first.  Also, this
     // should really only be called once per this whole codec, not per header
@@ -175,26 +176,26 @@ void HQStreamCodec::onHeader(const HPACKHeaderName& name,
       userAgent_ = value.toStdString();
     }
   } else {
-    VLOG(4) << "dir=" << uint32_t(transportDirection_)
-            << decodeInfo_.parsingError << " codec=" << headerCodec_;
+    PRX_VLOG(4) << "dir=" << uint32_t(transportDirection_)
+                << decodeInfo_.parsingError << " codec=" << headerCodec_;
   }
 }
 
 void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
                                       bool acknowledge) {
-  CHECK(parserPaused_);
+  PRX_CHECK(parserPaused_);
   decodeInfo_.onHeadersComplete(decodedSize);
   auto resumeParser = folly::makeGuard([this] { setParserPaused(false); });
   auto g2 = folly::makeGuard(activationHook_());
 
   // Check parsing error
-  DCHECK_EQ(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
+  PRX_DCHECK_EQ(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
   // Leave msg in decodeInfo_ for now, to keep the parser paused
   if (!decodeInfo_.parsingError.empty()) {
-    LOG(ERROR) << "Failed parsing header list for stream=" << streamId_
-               << ", error=" << decodeInfo_.parsingError;
+    PRX_LOG(ERROR) << "Failed parsing header list for stream=" << streamId_
+                   << ", error=" << decodeInfo_.parsingError;
     if (!decodeInfo_.headerErrorValue.empty()) {
-      DVLOG(4) << " value=" << decodeInfo_.headerErrorValue;
+      PRX_DVLOG(4) << " value=" << decodeInfo_.headerErrorValue;
     }
     HTTPException err(
         HTTPException::Direction::INGRESS,
@@ -246,18 +247,18 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
 
 void HQStreamCodec::onDecodeError(HPACK::DecodeError decodeError) {
   // the parser may be paused, but this codec is dead.
-  CHECK(parserPaused_);
+  PRX_CHECK(parserPaused_);
   decodeInfo_.decodeError = decodeError;
-  DCHECK_NE(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
-  LOG(ERROR) << "Failed decoding header block for stream=" << streamId_
-             << " decodeError=" << uint32_t(decodeError);
+  PRX_DCHECK_NE(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
+  PRX_LOG(ERROR) << "Failed decoding header block for stream=" << streamId_
+                 << " decodeError=" << uint32_t(decodeError);
 
   auto& msg = decodeInfo_.msg;
   if (decodeInfo_.decodeError == HPACK::DecodeError::HEADERS_TOO_LARGE &&
       debugLevel_ > 0 && msg) {
-    LOG(ERROR) << "QPACK Headers too large"
-               << CodecUtil::debugString(*msg, debugLevel_)
-               << CodecUtil::debugString(msg->getHeaders(), debugLevel_);
+    PRX_LOG(ERROR) << "QPACK Headers too large"
+                   << CodecUtil::debugString(*msg, debugLevel_)
+                   << CodecUtil::debugString(msg->getHeaders(), debugLevel_);
   }
 
   if (msg) {
@@ -289,7 +290,7 @@ void HQStreamCodec::generateHeader(
     bool /*eom*/,
     HTTPHeaderSize* size,
     const folly::Optional<HTTPHeaders>& extraHeaders) {
-  DCHECK_EQ(stream, streamId_);
+  PRX_DCHECK_EQ(stream, streamId_);
   generateHeaderImpl(writeBuf, msg, folly::none, size, extraHeaders);
 
   // For requests, set final header seen flag right away.
@@ -305,8 +306,8 @@ void HQStreamCodec::generatePushPromise(folly::IOBufQueue& writeBuf,
                                         StreamID pushId,
                                         bool /*eom*/,
                                         HTTPHeaderSize* size) {
-  DCHECK_EQ(stream, streamId_);
-  DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
+  PRX_DCHECK_EQ(stream, streamId_);
+  PRX_DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
   generateHeaderImpl(
       writeBuf, msg, pushId, size, folly::none /* extraHeaders */);
 }
@@ -345,8 +346,8 @@ void HQStreamCodec::generateHeaderImpl(
     }
   }();
 
-  LOG_IF(ERROR, !res) << __func__ << ": failed to write "
-                      << ((pushId) ? "push promise" : "headers");
+  PRX_LOG_IF(ERROR, !res) << __func__ << ": failed to write "
+                          << ((pushId) ? "push promise" : "headers");
 }
 
 size_t HQStreamCodec::generateBodyImpl(folly::IOBufQueue& writeBuf,
@@ -355,7 +356,7 @@ size_t HQStreamCodec::generateBodyImpl(folly::IOBufQueue& writeBuf,
   if (result) {
     return *result;
   }
-  LOG(FATAL) << "frame exceeded 2^62-1 limit";
+  PRX_LOG(FATAL) << "frame exceeded 2^62-1 limit";
 }
 
 size_t HQStreamCodec::generateBody(folly::IOBufQueue& writeBuf,
@@ -363,7 +364,7 @@ size_t HQStreamCodec::generateBody(folly::IOBufQueue& writeBuf,
                                    std::unique_ptr<folly::IOBuf> chain,
                                    folly::Optional<uint8_t> /*padding*/,
                                    bool /*eom*/) {
-  DCHECK_EQ(stream, streamId_);
+  PRX_DCHECK_EQ(stream, streamId_);
 
   size_t bytesWritten = generateBodyImpl(writeBuf, std::move(chain));
 
@@ -373,7 +374,7 @@ size_t HQStreamCodec::generateBody(folly::IOBufQueue& writeBuf,
 size_t HQStreamCodec::generateTrailers(folly::IOBufQueue& writeBuf,
                                        StreamID stream,
                                        const HTTPHeaders& trailers) {
-  DCHECK_EQ(stream, streamId_);
+  PRX_DCHECK_EQ(stream, streamId_);
   std::vector<compress::Header> allTrailers;
   CodecUtil::appendHeaders(trailers, allTrailers, HTTP_HEADER_NONE);
   auto encodeRes =
@@ -392,7 +393,7 @@ size_t HQStreamCodec::generateTrailers(folly::IOBufQueue& writeBuf,
   }();
 
   if (!res) {
-    LOG(ERROR) << __func__ << ": failed to write trailers";
+    PRX_LOG(ERROR) << __func__ << ": failed to write trailers";
     return 0;
   }
   return *res;
@@ -401,11 +402,11 @@ size_t HQStreamCodec::generateTrailers(folly::IOBufQueue& writeBuf,
 size_t HQStreamCodec::generatePadding(folly::IOBufQueue& writeBuf,
                                       StreamID stream,
                                       uint16_t padding) {
-  DCHECK_EQ(stream, streamId_);
+  PRX_DCHECK_EQ(stream, streamId_);
   auto buf = CodecUtil::zeroedBuffer(padding);
   auto res = hq::writePadding(writeBuf, std::move(buf));
   if (!res) {
-    LOG(ERROR) << __func__ << ": failed to write padding";
+    PRX_LOG(ERROR) << __func__ << ": failed to write padding";
     return 0;
   }
   return *res;
@@ -414,7 +415,7 @@ size_t HQStreamCodec::generatePadding(folly::IOBufQueue& writeBuf,
 size_t HQStreamCodec::generateEOM(folly::IOBufQueue& /*writeBuf*/,
                                   StreamID stream) {
   // Generate EOM is a no-op
-  DCHECK_EQ(stream, streamId_);
+  PRX_DCHECK_EQ(stream, streamId_);
   return 0;
 }
 

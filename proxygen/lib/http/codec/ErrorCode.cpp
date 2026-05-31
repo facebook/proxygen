@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/codec/ErrorCode.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -45,7 +45,7 @@ const char* getErrorCodeString(ErrorCode error) {
     case ErrorCode::MAX:
       return "MAX";
   }
-  LOG(FATAL) << "Unreachable";
+  PRX_LOG(FATAL) << "Unreachable";
 }
 
 } // namespace proxygen

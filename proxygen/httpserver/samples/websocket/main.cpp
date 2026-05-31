@@ -15,6 +15,7 @@
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 
 #include <proxygen/httpserver/samples/websocket/WebSocketHandler.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace websockethandler;
 using namespace proxygen;
@@ -56,7 +57,7 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_threads <= 0) {
     FLAGS_threads = folly::available_concurrency();
-    CHECK_GT(FLAGS_threads, 0);
+    PRX_CHECK_GT(FLAGS_threads, 0);
   }
 
   HTTPServerOptions options;
@@ -78,7 +79,7 @@ int main(int argc, char* argv[]) {
   // Start HTTPServer mainloop in a separate thread
   std::thread t([&]() { server.start(); });
 
-  LOG(INFO) << "Started websocket server";
+  PRX_LOG(INFO) << "Started websocket server";
 
   t.join();
   return 0;

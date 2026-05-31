@@ -11,6 +11,7 @@
 #include <proxygen/lib/utils/test/MockTime.h>
 
 #include "proxygen/lib/dns/test/Dummies.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace std;
@@ -34,7 +35,7 @@ class CachingDNSResolverFixture : public testing::Test {
     DNSResolver::UniquePtr p(new DummyDNSResolver());
     auto timeUtil = std::make_unique<MockTimeUtil>();
     underlyingResolver_ = dynamic_cast<DummyDNSResolver*>(p.get());
-    CHECK(underlyingResolver_);
+    PRX_CHECK(underlyingResolver_);
     timeUtil_ = timeUtil.get();
 
     cachingResolver_ =

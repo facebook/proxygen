@@ -8,6 +8,7 @@
 
 #include "proxygen/lib/http/coro/filters/Logger.h"
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -49,7 +50,7 @@ void Logger::Filter::describe(std::ostream& os) const {
 }
 
 void Logger::logWithVlog(int level) const {
-  VLOG(level)
+  PRX_VLOG(level)
     << "HTTP request logger: \n\t"
     << "Local Addr:\t" << localAddr << "\n\t"
     << "Peer Addr:\t" << peerAddr << "\n\t"

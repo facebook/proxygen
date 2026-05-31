@@ -10,7 +10,7 @@
 
 #include <deque>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/Range.h>
 
@@ -38,7 +38,7 @@ class HeaderPiece {
 
   ~HeaderPiece() {
     if (owner) {
-      CHECK_NOTNULL(str.data());
+      PRX_CHECK_NOTNULL(str.data());
       delete[] str.data();
     }
   }

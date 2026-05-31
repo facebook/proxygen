@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/codec/HTTPBinaryCodec.h>
 
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
@@ -178,7 +179,7 @@ ParseResult HTTPBinaryCodec::parseRequestControlData(folly::io::Cursor& cursor,
   }
   parsed += pathRes.bytesParsed_;
   remaining -= pathRes.bytesParsed_;
-  CHECK(remaining >= 0);
+  PRX_CHECK(remaining >= 0);
 
   return ParseResult(parsed);
 }
@@ -483,7 +484,7 @@ size_t HTTPBinaryCodec::onIngress(const folly::IOBuf& buf) {
         break;
 
       case ParseState::HEADERS_SECTION:
-        CHECK(decodeInfo_.msg);
+        PRX_CHECK(decodeInfo_.msg);
         parseResult = parseHeaders(
             cursor, bufLen - parsedTot, decodeInfo_, knownIngressLength_);
         HANDLE_ERROR_OR_WAITING_PARSE_RESULT(parseResult);
@@ -534,7 +535,7 @@ size_t HTTPBinaryCodec::onIngress(const folly::IOBuf& buf) {
         break;
 
       default:
-        CHECK(false);
+        PRX_CHECK(false);
     }
     parsedTot += parsed;
   }

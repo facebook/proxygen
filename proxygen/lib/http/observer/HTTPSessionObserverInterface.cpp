@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/observer/HTTPSessionObserverInterface.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -39,8 +40,9 @@ HTTPSessionObserverInterface::RequestStartedEvent::Builder::build() && {
 
 HTTPSessionObserverInterface::RequestStartedEvent::RequestStartedEvent(
     const RequestStartedEvent::BuilderFields& builderFields)
-    : timestamp(*CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())),
-      request(*CHECK_NOTNULL(builderFields.maybeRequestRef.get_pointer())),
+    : timestamp(
+          *PRX_CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())),
+      request(*PRX_CHECK_NOTNULL(builderFields.maybeRequestRef.get_pointer())),
       txnObserverAccessor(builderFields.maybeTxnObserverAccessorPtr) {
 }
 
@@ -65,9 +67,10 @@ HTTPSessionObserverInterface::PreWriteEvent::Builder::build() && {
 
 HTTPSessionObserverInterface::PreWriteEvent::PreWriteEvent(
     PreWriteEvent::BuilderFields& builderFields)
-    : pendingEgressBytes(*CHECK_NOTNULL(
+    : pendingEgressBytes(*PRX_CHECK_NOTNULL(
           builderFields.maybePendingEgressBytesRef.get_pointer())),
-      timestamp(*CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())) {
+      timestamp(
+          *PRX_CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())) {
 }
 
 HTTPSessionObserverInterface::PingReplyEvent::Builder&&
@@ -90,8 +93,9 @@ HTTPSessionObserverInterface::PingReplyEvent::Builder::build() && {
 
 HTTPSessionObserverInterface::PingReplyEvent::PingReplyEvent(
     PingReplyEvent::BuilderFields& builderFields)
-    : id(*CHECK_NOTNULL(builderFields.maybeId.get_pointer())),
-      timestamp(*CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())) {
+    : id(*PRX_CHECK_NOTNULL(builderFields.maybeId.get_pointer())),
+      timestamp(
+          *PRX_CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())) {
 }
 
 } // namespace proxygen

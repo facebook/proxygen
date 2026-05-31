@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/webtransport/QuicWebTransport.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using FCState = proxygen::WebTransport::FCState;
 
@@ -16,7 +17,7 @@ void QuicWebTransport::onFlowControlUpdate(quic::StreamId /*id*/) noexcept {
 }
 
 void QuicWebTransport::onNewBidirectionalStream(quic::StreamId id) noexcept {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   if (!handler_) {
     resetWebTransportEgress(id, WebTransport::kInternalError);
     // resetWebTransportEgress may have closed the session
@@ -35,9 +36,9 @@ void QuicWebTransport::onNewBidirectionalStream(quic::StreamId id) noexcept {
 }
 
 void QuicWebTransport::onNewUnidirectionalStream(quic::StreamId id) noexcept {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   if (!handler_) {
-    LOG(ERROR) << "Handler not set";
+    PRX_LOG(ERROR) << "Handler not set";
     stopReadingWebTransportIngress(id, WebTransport::kInternalError);
     return;
   }
@@ -73,7 +74,7 @@ void QuicWebTransport::onConnectionEndImpl(
     if (error->code.type() == quic::QuicErrorCode::Type::ApplicationErrorCode) {
       wtError = static_cast<uint32_t>(*error->code.asApplicationErrorCode());
     } else {
-      XLOG(DBG2) << "QUIC Connection Error: " << *error;
+      PRX_VLOG(2) << "QUIC Connection Error: " << *error;
       wtError = std::numeric_limits<uint32_t>::max();
     }
   }
@@ -85,7 +86,7 @@ void QuicWebTransport::onConnectionEndImpl(
 
 folly::Expected<HTTPCodec::StreamID, WebTransport::ErrorCode>
 QuicWebTransport::newWebTransportBidiStream() {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto id = quicSocket_->createBidirectionalStream();
   if (id.hasError()) {
     return folly::makeUnexpected(ErrorCode::GENERIC_ERROR);
@@ -95,7 +96,7 @@ QuicWebTransport::newWebTransportBidiStream() {
 
 folly::Expected<HTTPCodec::StreamID, WebTransport::ErrorCode>
 QuicWebTransport::newWebTransportUniStream() {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto id = quicSocket_->createUnidirectionalStream();
   if (id.hasError()) {
     return folly::makeUnexpected(ErrorCode::GENERIC_ERROR);
@@ -109,20 +110,20 @@ QuicWebTransport::sendWebTransportStreamData(
     std::unique_ptr<folly::IOBuf> data,
     bool eof,
     ByteEventCallback* deliveryCallback) {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto res =
       quicSocket_->writeChain(id, std::move(data), eof, deliveryCallback);
   if (!res) {
-    LOG(ERROR) << "Failed to write WT stream data, res=" << res.error();
+    PRX_LOG(ERROR) << "Failed to write WT stream data, res=" << res.error();
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
   }
   auto flowControl = quicSocket_->getStreamFlowControl(id);
   if (!flowControl) {
-    LOG(ERROR) << "Failed to get flow control";
+    PRX_LOG(ERROR) << "Failed to get flow control";
     return folly::makeUnexpected(WebTransport::ErrorCode::SEND_ERROR);
   }
   if (!eof && flowControl->sendWindowAvailable == 0) {
-    VLOG(4) << "fc window closed";
+    PRX_VLOG(4) << "fc window closed";
     return FCState::BLOCKED;
   } else {
     return FCState::UNBLOCKED;
@@ -132,7 +133,7 @@ QuicWebTransport::sendWebTransportStreamData(
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::notifyPendingWriteOnStream(HTTPCodec::StreamID id,
                                              quic::StreamWriteCallback* wcb) {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   quicSocket_->notifyPendingWriteOnStream(id, wcb);
   return folly::unit;
 }
@@ -140,7 +141,7 @@ QuicWebTransport::notifyPendingWriteOnStream(HTTPCodec::StreamID id,
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::resetWebTransportEgress(HTTPCodec::StreamID id,
                                           uint32_t errorCode) {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto res = quicSocket_->resetStream(id, errorCode);
   if (!res) {
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
@@ -151,7 +152,7 @@ QuicWebTransport::resetWebTransportEgress(HTTPCodec::StreamID id,
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::setWebTransportStreamPriority(
     HTTPCodec::StreamID id, quic::PriorityQueue::Priority pri) {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto res = quicSocket_->setStreamPriority(id, pri);
   if (res.hasError()) {
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
@@ -163,7 +164,7 @@ QuicWebTransport::setWebTransportStreamPriority(
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::setWebTransportPriorityQueue(
     std::unique_ptr<quic::PriorityQueue> queue) noexcept {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto res = quicSocket_->setPriorityQueue(std::move(queue));
   if (res.hasError()) {
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
@@ -173,7 +174,7 @@ QuicWebTransport::setWebTransportPriorityQueue(
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::pauseWebTransportIngress(HTTPCodec::StreamID id) {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto res = quicSocket_->pauseRead(id);
   if (res.hasError()) {
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
@@ -183,7 +184,7 @@ QuicWebTransport::pauseWebTransportIngress(HTTPCodec::StreamID id) {
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::resumeWebTransportIngress(HTTPCodec::StreamID id) {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto res = quicSocket_->resumeRead(id);
   if (res.hasError()) {
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
@@ -210,10 +211,11 @@ QuicWebTransport::stopReadingWebTransportIngress(
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::sendDatagram(std::unique_ptr<folly::IOBuf> datagram) {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto writeRes = quicSocket_->writeDatagram(std::move(datagram));
   if (writeRes.hasError()) {
-    LOG(ERROR) << "Failed to send datagram, error code: " << writeRes.error();
+    PRX_LOG(ERROR) << "Failed to send datagram, error code: "
+                   << writeRes.error();
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
   }
   return folly::unit;
@@ -263,12 +265,12 @@ void QuicWebTransport::onUnidirectionalStreamsAvailable(
 }
 
 folly::SemiFuture<folly::Unit> QuicWebTransport::awaitUniStreamCredit() {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto numOpenable = quicSocket_->getNumOpenableUnidirectionalStreams();
   if (numOpenable > 0) {
     return folly::makeFuture(folly::unit);
   }
-  CHECK(!waitingForUniStreams_);
+  PRX_CHECK(!waitingForUniStreams_);
   auto [promise, future] = folly::makePromiseContract<folly::Unit>();
   waitingForUniStreams_ = std::move(promise);
   return std::move(future);
@@ -283,37 +285,37 @@ void QuicWebTransport::onBidirectionalStreamsAvailable(
 }
 
 folly::SemiFuture<folly::Unit> QuicWebTransport::awaitBidiStreamCredit() {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto numOpenable = quicSocket_->getNumOpenableBidirectionalStreams();
   if (numOpenable > 0) {
     return folly::makeFuture(folly::unit);
   }
-  CHECK(!waitingForBidiStreams_);
+  PRX_CHECK(!waitingForBidiStreams_);
   auto [promise, future] = folly::makePromiseContract<folly::Unit>();
   waitingForBidiStreams_ = std::move(promise);
   return std::move(future);
 }
 
 bool QuicWebTransport::canCreateUniStream() {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   return quicSocket_->getNumOpenableUnidirectionalStreams() > 0;
 }
 
 bool QuicWebTransport::canCreateBidiStream() {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   return quicSocket_->getNumOpenableBidirectionalStreams() > 0;
 }
 
 void QuicWebTransport::onDatagramsAvailable() noexcept {
-  XCHECK(quicSocket_);
+  PRX_CHECK(quicSocket_);
   auto result = quicSocket_->readDatagramBufs();
   if (result.hasError()) {
-    LOG(ERROR) << "Got error while reading datagrams: error="
-               << toString(result.error());
+    PRX_LOG(ERROR) << "Got error while reading datagrams: error="
+                   << toString(result.error());
     closeSession(0);
     return;
   }
-  VLOG(4) << "Received " << result.value().size() << " datagrams";
+  PRX_VLOG(4) << "Received " << result.value().size() << " datagrams";
   if (handler_) {
     for (auto& datagram : result.value()) {
       handler_->onDatagram(std::move(datagram));

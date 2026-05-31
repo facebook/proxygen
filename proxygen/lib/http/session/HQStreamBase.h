@@ -17,6 +17,7 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/Types.h>
 
 /**
@@ -285,7 +286,7 @@ class SSBidir : public virtual HQStreamMapping {
   }
 
   quic::StreamId getStreamId() const override {
-    CHECK(streamId_) << "Stream MUST be assigned before being accessed";
+    PRX_CHECK(streamId_) << "Stream MUST be assigned before being accessed";
     return streamId_.value();
   }
 
@@ -317,12 +318,12 @@ class SSEgress : public SSBidir {
   }
 
   quic::StreamId getIngressStreamId() const override {
-    LOG(FATAL) << "Egress only stream can not be used for ingress";
+    PRX_LOG(FATAL) << "Egress only stream can not be used for ingress";
     folly::assume_unreachable();
   }
 
   void setIngressStreamId(quic::StreamId /* streamId */) override {
-    LOG(FATAL) << "Egress only stream can not be used for ingress";
+    PRX_LOG(FATAL) << "Egress only stream can not be used for ingress";
   }
 
   bool hasIngressStreamId() const override {
@@ -344,12 +345,12 @@ class SSIngress : public SSBidir {
   }
 
   quic::StreamId getEgressStreamId() const override {
-    LOG(FATAL) << "Ingress only stream can not be used for egress";
+    PRX_LOG(FATAL) << "Ingress only stream can not be used for egress";
     folly::assume_unreachable();
   }
 
   void setEgressStreamId(quic::StreamId /* streamId */) override {
-    LOG(FATAL) << "Ingress only stream can not be used for egress";
+    PRX_LOG(FATAL) << "Ingress only stream can not be used for egress";
   }
 
   bool hasEgressStreamId() const override {
@@ -380,13 +381,13 @@ class CSBidir : public virtual HQStreamMapping {
   }
 
   quic::StreamId getEgressStreamId() const override {
-    CHECK(egressStreamId_)
+    PRX_CHECK(egressStreamId_)
         << "Egress stream MUST be assigned before being accessed";
     return egressStreamId_.value();
   }
 
   quic::StreamId getIngressStreamId() const override {
-    CHECK(ingressStreamId_)
+    PRX_CHECK(ingressStreamId_)
         << "Ingress stream MUST be assigned before being accessed";
     return ingressStreamId_.value();
   }
@@ -414,7 +415,7 @@ class CSBidir : public virtual HQStreamMapping {
   }
 
   quic::StreamId getStreamId() const override {
-    LOG(FATAL) << "Ambiguous call 'getStreamId' on a composite stream";
+    PRX_LOG(FATAL) << "Ambiguous call 'getStreamId' on a composite stream";
     folly::assume_unreachable();
   }
 

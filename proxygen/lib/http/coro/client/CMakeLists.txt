@@ -12,8 +12,8 @@ proxygen_add_library(proxygen_http_coro_client_dns_resolver
   DEPS
     proxygen_dns_dns_module
     proxygen_dns_rfc6724
+    proxygen_utils_log_shim
     Folly::folly_io_async_async_base
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_dns_dns_base
     Folly::folly_coro_baton
@@ -30,6 +30,7 @@ proxygen_add_library(proxygen_http_coro_client_http_connector
     proxygen_http_coro_transport_coro_ssl_transport
     proxygen_http_coro_transport_http_connect_transport
     proxygen_http_coro_util_Transport
+    proxygen_utils_log_shim
     mvfst::mvfst_api_transport
     mvfst::mvfst_client
     mvfst::mvfst_common_events_folly_eventbase
@@ -45,7 +46,6 @@ proxygen_add_library(proxygen_http_coro_client_http_connector
     Folly::folly_file_util
     Folly::folly_io_async_async_ssl_socket
     Folly::folly_io_async_ssl_options
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_coro
     proxygen_http_codec_codec_common
@@ -81,15 +81,15 @@ proxygen_add_library(proxygen_http_coro_client_http_connpool
     proxygen_coro
     proxygen_http_coro_client_http_connector
     proxygen_http_coro_client_http_session_factory
+    proxygen_utils_log_shim
     Folly::folly_intrusive_list
-    Folly::folly_logging_logging
 )
 
 proxygen_add_library(proxygen_http_coro_client_cert_reload_session_pool
   SRCS
     CertReloadSessionPool.cpp
   DEPS
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_coro_client_http_connector
     proxygen_http_coro_client_http_connpool
@@ -104,9 +104,9 @@ proxygen_add_library(proxygen_http_coro_client_http_client_connection_cache
     proxygen_http_coro_client_http_client_lib
   EXPORTED_DEPS
     proxygen_http_coro_client_http_connpool
+    proxygen_utils_log_shim
     fizz::fizz
     Folly::folly_container_evicting_cache_map
-    Folly::folly_logging_logging
 )
 
 proxygen_add_library(proxygen_http_coro_client_http_client_lib
@@ -115,7 +115,7 @@ proxygen_add_library(proxygen_http_coro_client_http_client_lib
   DEPS
     proxygen_coro_source
     proxygen_http_coro_client_dns_resolver
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
     Folly::folly_network_address
   EXPORTED_DEPS
     proxygen_coro

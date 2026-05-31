@@ -12,7 +12,7 @@
 #include <folly/Conv.h>
 #include <folly/Try.h>
 #include <folly/base64.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersUtilities.h>
 
@@ -100,7 +100,7 @@ DecodeError StructuredHeadersBuffer::parseNumber(StructuredHeaderItem& result) {
 DecodeError StructuredHeadersBuffer::parseBoolean(
     StructuredHeaderItem& result) {
   if (removeSymbol("?", true) != DecodeError::OK) {
-    CHECK(false) << "Only invoked after peeking a '?'";
+    PRX_CHECK(false) << "Only invoked after peeking a '?'";
   }
   if (isEmpty()) {
     return handleDecodeError(DecodeError::UNEXPECTED_END_OF_BUFFER);
@@ -284,7 +284,7 @@ DecodeError StructuredHeadersBuffer::removeSymbol(const std::string& symbol,
 }
 
 DecodeError StructuredHeadersBuffer::handleDecodeError(const DecodeError& err) {
-  LOG_EVERY_N(ERROR, 1000)
+  PRX_LOG_EVERY_N(ERROR, 1000)
       << "Error message: " << decodeErrToString(err)
       << ". Number of characters parsed before error:" << getNumCharsParsed()
       << ". Header Content:" << originalContent_.str();

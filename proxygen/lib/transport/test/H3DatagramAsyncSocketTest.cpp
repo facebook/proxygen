@@ -11,6 +11,7 @@
 #include <proxygen/lib/transport/test/H3DatagramAsyncSocketTest.h>
 
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace quic;
@@ -83,7 +84,7 @@ folly::SocketAddress& H3DatagramAsyncSocketTest::getRemoteAddress() {
 
 ssize_t H3DatagramAsyncSocketTest::sendDatagramUpstream(
     std::unique_ptr<folly::IOBuf> datagram) {
-  CHECK(datagramSocket_);
+  PRX_CHECK(datagramSocket_);
   return datagramSocket_->write(getRemoteAddress(), datagram);
 }
 

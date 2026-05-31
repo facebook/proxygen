@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include "proxygen/lib/dns/DNSModule.h"
 #include "proxygen/lib/dns/DNSResolver.h"
@@ -34,7 +34,7 @@ bool hasStatsCollector(folly::EventBase* evb) {
 }
 
 StatsCollector* getStatsCollector(folly::EventBase* evb) {
-  XCHECK(hasStatsCollector(evb));
+  PRX_CHECK(hasStatsCollector(evb));
   return stats_.get(*evb)->get();
 }
 

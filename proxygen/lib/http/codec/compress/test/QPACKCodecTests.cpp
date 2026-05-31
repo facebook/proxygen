@@ -10,12 +10,12 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 #include <folly/portability/GTest.h>
-#include <glog/logging.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <vector>
 
 using namespace folly;
@@ -106,8 +106,8 @@ TEST_F(QPACKTests, TestAbsoluteIndex) {
       EXPECT_EQ(encodeResult.control.get(), nullptr);
     } else {
       ASSERT_NE(encodeResult.control.get(), nullptr);
-      CHECK_EQ(server.decodeEncoderStream(std::move(encodeResult.control)),
-               HPACK::DecodeError::NONE);
+      PRX_CHECK_EQ(server.decodeEncoderStream(std::move(encodeResult.control)),
+                   HPACK::DecodeError::NONE);
     }
     TestStreamingCallback cb;
     auto length = encodeResult.stream->computeChainDataLength();
@@ -143,7 +143,7 @@ TEST_F(QPACKTests, TestWithQueue) {
         reqI.emplace_back(HTTP_HEADER_CONNECTION,
                           values[std::max(f * 4 + i - j * 8, 0)]);
       }
-      VLOG(4) << "Encoding req=" << f * 4 + i;
+      PRX_VLOG(4) << "Encoding req=" << f * 4 + i;
       auto res = client.encode(reqI, f * 4 + i);
       if (res.control && res.control->computeChainDataLength() > 0) {
         controlFrames.emplace_back(std::move(res.control));
@@ -180,7 +180,7 @@ TEST_F(QPACKTests, TestWithQueue) {
       headerAck(f * 4 + i);
       i++;
     }
-    VLOG(4) << "getHolBlockCount=" << server.getHolBlockCount();
+    PRX_VLOG(4) << "getHolBlockCount=" << server.getHolBlockCount();
   }
   // Skipping redundant table adds reduces the HOL block count
   EXPECT_EQ(server.getHolBlockCount(), 30);
@@ -220,7 +220,7 @@ TEST_F(QPACKTests, HeaderCodecStats) {
   auto result = cb.getResult();
   EXPECT_TRUE(!result.hasError());
   auto& decoded = result->headers;
-  CHECK_EQ(decoded.size(), 3 * 2);
+  PRX_CHECK_EQ(decoded.size(), 3 * 2);
   EXPECT_EQ(stats.decodes, 1);
   EXPECT_EQ(stats.encodes, 0);
   EXPECT_GT(stats.decodedBytesCompr, 0);

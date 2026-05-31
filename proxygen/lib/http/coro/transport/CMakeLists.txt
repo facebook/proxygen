@@ -10,9 +10,9 @@ proxygen_add_library(proxygen_http_coro_transport_coro_ssl_transport
   SRCS
     CoroSSLTransport.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_io_async_ssl_basic_transport_certificate
     Folly::folly_io_async_ssl_ssl_errors
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_http_coro_util_timed_baton
     Folly::folly_io_async_certificate_identity_verifier
@@ -31,8 +31,8 @@ proxygen_add_library(proxygen_http_coro_transport_http_connect_transport
   EXPORTED_DEPS
     proxygen_coro
     proxygen_http_coro_coro_stream_source
+    proxygen_utils_log_shim
     Folly::folly_coro_bounded_queue
     Folly::folly_io_async_async_transport
     Folly::folly_io_coro_socket
-    Folly::folly_logging_logging
 )

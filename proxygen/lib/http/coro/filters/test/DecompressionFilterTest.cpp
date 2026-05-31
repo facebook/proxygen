@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/coro/filters/DecompressionFilterFactory.h>
 #include <proxygen/lib/http/coro/test/HTTPTestSources.h>
 #include <proxygen/lib/http/coro/util/test/TestHelpers.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace testing;
 
@@ -63,7 +64,7 @@ CO_TEST_F_X(DecompressionEgressFilterTest, TestExceptionPassthru) {
         getEgressDecompressionFilter(&headerEventExceptionSource);
 
     auto headerEvent = co_await co_awaitTry(egressFilter->readHeaderEvent());
-    XCHECK(headerEvent.hasException());
+    PRX_CHECK(headerEvent.hasException());
   }
 
   // test yielding exception on body event
@@ -75,9 +76,9 @@ CO_TEST_F_X(DecompressionEgressFilterTest, TestExceptionPassthru) {
         getEgressDecompressionFilter(&bodyEventExceptionSource);
 
     auto headerEvent = co_await co_awaitTry(egressFilter->readHeaderEvent());
-    XCHECK(!headerEvent.hasException());
+    PRX_CHECK(!headerEvent.hasException());
     auto bodyEvent = co_await co_awaitTry(egressFilter->readBodyEvent());
-    XCHECK(bodyEvent.hasException());
+    PRX_CHECK(bodyEvent.hasException());
   }
 }
 
@@ -93,7 +94,7 @@ CO_TEST_F_X(DecompressionEgressFilterTest, SkipExistingAcceptEncoding) {
 
   // check filter doesn't modify header
   auto headerEvent = co_await co_awaitTry(egressFilter->readHeaderEvent());
-  XCHECK(!headerEvent.hasException() && headerEvent->eom);
+  PRX_CHECK(!headerEvent.hasException() && headerEvent->eom);
   auto acceptEncoding = headerEvent->headers->getHeaders().getSingleOrEmpty(
       HTTP_HEADER_ACCEPT_ENCODING);
   EXPECT_EQ(acceptEncoding, "foo");
@@ -108,7 +109,7 @@ CO_TEST_F_X(DecompressionEgressFilterTest, AddAcceptEncodingIfMissing) {
 
   // check filter adds headers
   auto headerEvent = co_await co_awaitTry(egressFilter->readHeaderEvent());
-  XCHECK(!headerEvent.hasException() && headerEvent->eom);
+  PRX_CHECK(!headerEvent.hasException() && headerEvent->eom);
   auto acceptEncoding = headerEvent->headers->getHeaders().getSingleOrEmpty(
       HTTP_HEADER_ACCEPT_ENCODING);
   EXPECT_EQ(acceptEncoding, "gzip, deflate, zstd");
@@ -136,7 +137,7 @@ CO_TEST_F_X(DecompressionIngressFilterTest, TestExceptionPassthru) {
         getIngressDecompressionFilter(&headerEventExceptionSource);
 
     auto headerEvent = co_await co_awaitTry(ingressFilter->readHeaderEvent());
-    XCHECK(headerEvent.hasException());
+    PRX_CHECK(headerEvent.hasException());
   }
 
   // test yielding exception on body event
@@ -149,9 +150,9 @@ CO_TEST_F_X(DecompressionIngressFilterTest, TestExceptionPassthru) {
         getIngressDecompressionFilter(&bodyEventExceptionSource);
 
     auto headerEvent = co_await co_awaitTry(ingressFilter->readHeaderEvent());
-    XCHECK(!headerEvent.hasException());
+    PRX_CHECK(!headerEvent.hasException());
     auto bodyEvent = co_await co_awaitTry(ingressFilter->readBodyEvent());
-    XCHECK(bodyEvent.hasException());
+    PRX_CHECK(bodyEvent.hasException());
   }
 }
 
@@ -181,7 +182,7 @@ CO_TEST_P_X(DecompressionIngressFilterCompressionTest,
   // should we modify the headers if just eom (i.e. no body)?
   auto* ingressFilter = getIngressDecompressionFilter(&respSource);
   auto headerEvent = co_await co_awaitTry(ingressFilter->readHeaderEvent());
-  XCHECK(!headerEvent.hasException());
+  PRX_CHECK(!headerEvent.hasException());
   const auto& respHeaders = headerEvent->headers->getHeaders();
   // should have been stripped by the filter
   EXPECT_FALSE(respHeaders.exists(HTTP_HEADER_CONTENT_ENCODING));
@@ -191,9 +192,9 @@ CO_TEST_P_X(DecompressionIngressFilterCompressionTest,
   EXPECT_EQ(transferEncoding, "chunked");
 
   auto bodyEvent = co_await co_awaitTry(ingressFilter->readBodyEvent());
-  XCHECK(!bodyEvent.hasException());
-  XCHECK(bodyEvent->eventType == HTTPBodyEvent::EventType::BODY &&
-         bodyEvent->eom);
+  PRX_CHECK(!bodyEvent.hasException());
+  PRX_CHECK(bodyEvent->eventType == HTTPBodyEvent::EventType::BODY &&
+            bodyEvent->eom);
   EXPECT_EQ(bodyEvent->event.body.move()->toString(),
             "abcdefghijklmnopqrstuvwxyz");
 }
@@ -208,13 +209,13 @@ CO_TEST_P_X(DecompressionIngressFilterCompressionTest,
 
   auto&& [requestFilter, responseFilter] =
       ServerDecompressionFilterFactory{}.makeFilters();
-  XCHECK(responseFilter == nullptr);
-  XCHECK(requestFilter != nullptr);
+  PRX_CHECK(responseFilter == nullptr);
+  PRX_CHECK(requestFilter != nullptr);
   requestFilter->setSource(&reqSource);
 
   const auto headerEvent =
       co_await co_awaitTry(requestFilter->readHeaderEvent());
-  XCHECK(headerEvent.hasValue());
+  PRX_CHECK(headerEvent.hasValue());
   const auto& respHeaders = headerEvent->headers->getHeaders();
   // should have been stripped by the filter
   EXPECT_FALSE(respHeaders.exists(HTTP_HEADER_CONTENT_ENCODING));
@@ -224,9 +225,9 @@ CO_TEST_P_X(DecompressionIngressFilterCompressionTest,
   EXPECT_EQ(transferEncoding, "chunked");
 
   auto bodyEvent = co_await co_awaitTry(requestFilter->readBodyEvent());
-  XCHECK(bodyEvent.hasValue() &&
-         bodyEvent->eventType == HTTPBodyEvent::EventType::BODY &&
-         bodyEvent->eom);
+  PRX_CHECK(bodyEvent.hasValue() &&
+            bodyEvent->eventType == HTTPBodyEvent::EventType::BODY &&
+            bodyEvent->eom);
   EXPECT_EQ(bodyEvent->event.body.move()->toString(),
             "abcdefghijklmnopqrstuvwxyz");
 }
@@ -261,7 +262,7 @@ CO_TEST_F_X(DecompressionIngressFilterTest, TestUnsupportedCompression) {
 
   auto* ingressFilter = getIngressDecompressionFilter(&respSource);
   auto headerEvent = co_await co_awaitTry(ingressFilter->readHeaderEvent());
-  XCHECK(!headerEvent.hasException());
+  PRX_CHECK(!headerEvent.hasException());
   const auto& respHeaders = headerEvent->headers->getHeaders();
   // should NOT have been stripped by the filter
   const auto& contentEncoding =
@@ -270,9 +271,9 @@ CO_TEST_F_X(DecompressionIngressFilterTest, TestUnsupportedCompression) {
   EXPECT_TRUE(respHeaders.exists(HTTP_HEADER_CONTENT_LENGTH));
 
   auto bodyEvent = co_await co_awaitTry(ingressFilter->readBodyEvent());
-  XCHECK(!bodyEvent.hasException());
-  XCHECK(bodyEvent->eventType == HTTPBodyEvent::EventType::BODY &&
-         bodyEvent->eom);
+  PRX_CHECK(!bodyEvent.hasException());
+  PRX_CHECK(bodyEvent->eventType == HTTPBodyEvent::EventType::BODY &&
+            bodyEvent->eom);
   // should be identical to original body
   EXPECT_EQ(bodyEvent->event.body.move()->to<std::string>(),
             "abcdefghijklmnopqrstuvwxyz");
@@ -291,7 +292,7 @@ CO_TEST_F_X(DecompressionIngressFilterTest, TestMalformedCompression) {
 
   auto* ingressFilter = getIngressDecompressionFilter(&respSource);
   auto headerEvent = co_await co_awaitTry(ingressFilter->readHeaderEvent());
-  XCHECK(!headerEvent.hasException());
+  PRX_CHECK(!headerEvent.hasException());
   const auto& respHeaders = headerEvent->headers->getHeaders();
   // should have been stripped by the filter
   EXPECT_FALSE(respHeaders.exists(HTTP_HEADER_CONTENT_ENCODING));
@@ -301,7 +302,7 @@ CO_TEST_F_X(DecompressionIngressFilterTest, TestMalformedCompression) {
   EXPECT_EQ(transferEncoding, "chunked");
 
   auto bodyEvent = co_await co_awaitTry(ingressFilter->readBodyEvent());
-  XCHECK(bodyEvent.hasException());
+  PRX_CHECK(bodyEvent.hasException());
 }
 
 class MockStatsCallback : public DecompressionIngressFilter::StatsCallback {
@@ -366,7 +367,7 @@ CO_TEST_F_X(DecompressionIngressFilterTest, TestStatsCallback_Failure) {
 
   co_await co_awaitTry(ingressFilter->readHeaderEvent());
   auto bodyEvent = co_await co_awaitTry(ingressFilter->readBodyEvent());
-  XCHECK(bodyEvent.hasException());
+  PRX_CHECK(bodyEvent.hasException());
 }
 
 } // namespace proxygen::coro::test

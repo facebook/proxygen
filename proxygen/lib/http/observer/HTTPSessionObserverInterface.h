@@ -9,8 +9,8 @@
 #pragma once
 #include <chrono>
 #include <cstdint>
-#include <glog/logging.h>
 #include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <utility>
 
 namespace proxygen {

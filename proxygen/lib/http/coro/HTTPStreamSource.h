@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 
 #include <list>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 /**
@@ -92,7 +93,7 @@ class HTTPStreamSource : public HTTPSource {
   ~HTTPStreamSource() override {
     // must be destructed in evb thread
     auto* evb = event_.getEventBase();
-    XCHECK(evb->isInEventBaseThread());
+    PRX_CHECK(evb->isInEventBaseThread());
   }
   HTTPStreamSource(const HTTPStreamSource&) = delete;
   HTTPStreamSource& operator=(const HTTPStreamSource&) = delete;
@@ -127,7 +128,7 @@ class HTTPStreamSource : public HTTPSource {
   // This is only for H3 ingress push streams which can be created before a
   // transport stream ID is assigned
   void setStreamID(HTTPCodec::StreamID id) {
-    XCHECK_EQ(id_, HTTPCodec::MaxStreamID);
+    PRX_CHECK_EQ(id_, HTTPCodec::MaxStreamID);
     id_ = id;
   }
 
@@ -213,7 +214,7 @@ class HTTPStreamSource : public HTTPSource {
         expectedIngressContentLength_,
         ", actual= ",
         observedBodySize);
-    XLOG(ERR) << errorMsg << " " << this;
+    PRX_LOG(ERROR) << errorMsg << " " << this;
     expectedIngressContentLengthRemaining_ = 0;
     shouldValidateContentLength_ = false;
     setError(HTTPErrorCode::CONTENT_LENGTH_MISMATCH, errorMsg);
@@ -303,8 +304,8 @@ class HTTPStreamSource : public HTTPSource {
  protected:
   // consumer will be expected to only invoke ::readBodyEvent
   void validateHeadersAndSkip(const HTTPMessage& msg, bool eom = false) {
-    XCHECK_EQ(readState_, ReadState::HeaderEvents);
-    XCHECK(headerQueue_.empty());
+    PRX_CHECK_EQ(readState_, ReadState::HeaderEvents);
+    PRX_CHECK(headerQueue_.empty());
     validateHeaders(msg, eom);
     readState_ = ReadState::BodyEvents;
   }
@@ -329,10 +330,14 @@ class HTTPStreamSource : public HTTPSource {
     HeaderEvents,
     BodyEvents
   } readState_{ReadState::HeaderEvents};
+  friend std::ostream& operator<<(std::ostream& os, ReadState s) {
+    return os << static_cast<uint32_t>(s);
+  }
   bool sinkMode_ : 1;
   bool sourceComplete_ : 1;
   bool strictFlowControl_ : 1;
   bool shouldValidateContentLength_ : 1;
   bool canSuspend_ : 1;
 };
+
 } // namespace proxygen::coro

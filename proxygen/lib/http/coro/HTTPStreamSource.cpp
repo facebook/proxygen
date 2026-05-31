@@ -7,7 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/HTTPStreamSource.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 constexpr uint32_t kMaxBufferedDatagramSize = 65536;
 
@@ -22,7 +22,7 @@ HTTPStreamSource::HTTPStreamSource(folly::EventBase* evb,
     : id_(id),
       callback_(callback),
       recvWindow_(recvStreamFlowControlWindow),
-      event_(CHECK_NOTNULL(evb), readTimeout),
+      event_(PRX_CHECK_NOTNULL(evb), readTimeout),
       sinkMode_(false),
       sourceComplete_(false),
       strictFlowControl_(strictFlowControl),
@@ -103,8 +103,8 @@ void HTTPStreamSource::datagram(std::unique_ptr<folly::IOBuf> datagram) {
   }
   auto length = datagram->computeChainDataLength();
   if (bufferedDatagramSize_ + length > kMaxBufferedDatagramSize) {
-    XLOG(DBG2) << "Dropping datagram length=" << length
-               << " bufferedDatagramSize_=" << bufferedDatagramSize_;
+    PRX_VLOG(2) << "Dropping datagram length=" << length
+                << " bufferedDatagramSize_=" << bufferedDatagramSize_;
     return;
   }
   if (!sinkMode_) {
@@ -119,7 +119,7 @@ void HTTPStreamSource::pushPromise(std::unique_ptr<HTTPMessage> promise,
                                    bool eom) {
   // Treat this like a body event for state machine purposes.  Legal
   // anytime after headers and before eom
-  XCHECK(pushSource);
+  PRX_CHECK(pushSource);
   if (!validateStateTransition(HTTPTransactionIngressSM::Event::onBody, eom)) {
     pushSource->stopReading();
     return;
@@ -169,12 +169,12 @@ void HTTPStreamSource::eom() {
         // both queues are empty, put eom in body queue
         bodyQueue_.emplace_back(nullptr, true);
         event_.signal();
-        XLOG(DBG6) << "placing eom in bodyQueue_ id=" << id_;
+        PRX_VLOG(6) << "placing eom in bodyQueue_ id=" << id_;
       } else {
         // body queue is empty but header queue is not empty, put eom in
         // header queue
         headerQueue_.back().eom = true;
-        XLOG(DBG6) << "placing eom in headerQueue_ id=" << id_;
+        PRX_VLOG(6) << "placing eom in headerQueue_ id=" << id_;
       }
     } else {
       // body queue is non-empty, put eom in body queue, except datagram
@@ -183,10 +183,10 @@ void HTTPStreamSource::eom() {
       } else {
         bodyQueue_.back().eom = true;
       }
-      XLOG(DBG6) << "placing eom in bodyQueue_ id=" << id_;
+      PRX_VLOG(6) << "placing eom in bodyQueue_ id=" << id_;
     }
   } else {
-    XLOG(DBG4) << "discarding eom for sinkMode_ id=" << id_;
+    PRX_VLOG(4) << "discarding eom for sinkMode_ id=" << id_;
   }
 }
 
@@ -203,7 +203,7 @@ void HTTPStreamSource::abort(HTTPErrorCode error, std::string_view details) {
 }
 
 folly::coro::Task<HTTPHeaderEvent> HTTPStreamSource::readHeaderEvent() {
-  XCHECK(event_.getEventBase()->isInEventBaseThread());
+  PRX_CHECK(event_.getEventBase()->isInEventBaseThread());
 
   bool eomReturn = false;
   auto guard =
@@ -220,7 +220,7 @@ folly::coro::Task<HTTPHeaderEvent> HTTPStreamSource::readHeaderEvent() {
     co_yield folly::coro::co_error(std::move(error_->first));
   }
   // Calling body() before headers() will error out of waitForEvent
-  XCHECK(!headerQueue_.empty());
+  PRX_CHECK(!headerQueue_.empty());
   auto res = std::move(headerQueue_.front());
   headerQueue_.pop_front();
   eomReturn = res.eom;
@@ -232,8 +232,8 @@ folly::coro::Task<HTTPHeaderEvent> HTTPStreamSource::readHeaderEvent() {
 }
 
 folly::coro::Task<HTTPBodyEvent> HTTPStreamSource::readBodyEvent(uint32_t max) {
-  XCHECK_GT(max, 0UL);
-  XCHECK(event_.getEventBase()->isInEventBaseThread());
+  PRX_CHECK_GT(max, 0UL);
+  PRX_CHECK(event_.getEventBase()->isInEventBaseThread());
   bool eomReturn = false;
   auto guard =
       folly::makeGuard([this, &eomReturn] { checkForCompletion(eomReturn); });
@@ -259,7 +259,7 @@ folly::coro::Task<HTTPBodyEvent> HTTPStreamSource::readBodyEvent(uint32_t max) {
     co_yield folly::coro::co_error(std::move(error_->first));
   }
   // If there's no error, there must be queued body event
-  XCHECK(!bodyQueue_.empty());
+  PRX_CHECK(!bodyQueue_.empty());
   auto res = std::move(bodyQueue_.front());
   bodyQueue_.pop_front();
   if (res.eventType == HTTPBodyEvent::BODY && !res.event.body.empty()) {
@@ -278,10 +278,10 @@ folly::coro::Task<HTTPBodyEvent> HTTPStreamSource::readBodyEvent(uint32_t max) {
   } else if (res.eventType == HTTPBodyEvent::DATAGRAM) {
     auto length = res.event.datagram->computeChainDataLength();
     if (length > max) {
-      VLOG(2) << "Returning DATAGRAM with length=" << length
-              << " exceeding max=" << max;
+      PRX_VLOG(2) << "Returning DATAGRAM with length=" << length
+                  << " exceeding max=" << max;
     }
-    DCHECK_GE(bufferedDatagramSize_, length);
+    PRX_DCHECK_GE(bufferedDatagramSize_, length);
     bufferedDatagramSize_ -= length;
   }
   eomReturn = res.eom;
@@ -290,8 +290,8 @@ folly::coro::Task<HTTPBodyEvent> HTTPStreamSource::readBodyEvent(uint32_t max) {
 
 void HTTPStreamSource::stopReading(
     folly::Optional<const HTTPErrorCode> error) noexcept {
-  XCHECK(!sourceComplete_) << "Cannot call stopReading twice, or after you "
-                              "have finished reading";
+  PRX_CHECK(!sourceComplete_) << "Cannot call stopReading twice, or after you "
+                                 "have finished reading";
 
   setErrorImpl(error.value_or(HTTPErrorCode::NO_ERROR),
                "Abandoned reading",
@@ -317,7 +317,7 @@ bool HTTPStreamSource::validateHeaders(const HTTPMessage& msg, bool eom) {
     auto parsedContentLen = folly::tryTo<uint64_t>(contentLen);
     if (parsedContentLen.hasError()) {
       shouldValidateContentLength_ = false;
-      XLOG_IF(ERR, !contentLen.empty())
+      PRX_LOG_IF(ERROR, !contentLen.empty())
           << "Invalid content-length: " << contentLen;
     } else {
       expectedIngressContentLength_ = expectedIngressContentLengthRemaining_ =
@@ -340,8 +340,8 @@ void HTTPStreamSource::setError(HTTPErrorCode error,
     // there's already an error queued, no-op
     return;
   }
-  XLOG(DBG4) << "Encountered error on stream=" << id_
-             << " error=" << uint64_t(error) << " msg=" << msg;
+  PRX_VLOG(4) << "Encountered error on stream=" << id_
+              << " error=" << uint64_t(error) << " msg=" << msg;
   setErrorImpl(error, std::move(msg), ingress);
 }
 
@@ -358,7 +358,7 @@ void HTTPStreamSource::setErrorImpl(HTTPErrorCode error,
 }
 
 void HTTPStreamSource::enableSinkMode() {
-  XLOG(DBG4) << "clearing source events for id_=" << id_;
+  PRX_VLOG(4) << "clearing source events for id_=" << id_;
   headerQueue_.clear();
   while (!bodyQueue_.empty()) {
     auto res = std::move(bodyQueue_.front());
@@ -374,7 +374,7 @@ void HTTPStreamSource::enableSinkMode() {
 folly::coro::Task<void> HTTPStreamSource::waitForEvent() noexcept {
   event_.reset();
   // Really not sure why it can be > 1
-  XCHECK_LT(waiters_, std::numeric_limits<uint8_t>::max());
+  PRX_CHECK_LT(waiters_, std::numeric_limits<uint8_t>::max());
   waiters_++;
   auto status = co_await event_.wait();
   waiters_--;

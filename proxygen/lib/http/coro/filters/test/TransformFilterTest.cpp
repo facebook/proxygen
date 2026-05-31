@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/coro/HTTPStreamSource.h>
 #include <proxygen/lib/http/coro/filters/TransformFilter.h>
 #include <proxygen/lib/http/coro/util/test/TestHelpers.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace testing;
 
@@ -38,7 +39,7 @@ CO_TEST_F_X(TransformFilterTest, BasicTest) {
   // header transform filter adds two header fields into HTTPHeaders
   TransformFilter::HeaderTransformFn headerHook =
       [](folly::Try<HTTPHeaderEvent>&& headerEvent) {
-        CHECK(!headerEvent.hasException());
+        PRX_CHECK(!headerEvent.hasException());
         // add two random header fields
         auto& headers = headerEvent->headers->getHeaders();
         headers.add("x-header-a", "x-value-a");
@@ -49,10 +50,10 @@ CO_TEST_F_X(TransformFilterTest, BasicTest) {
   // body transform filter ("hello", eom=false) -> ("world", eom=true)
   TransformFilter::BodyTransformFn bodyHook =
       [](folly::Try<HTTPBodyEvent>&& bodyEvent) {
-        CHECK(!bodyEvent.hasException());
+        PRX_CHECK(!bodyEvent.hasException());
         // replace "hello" in body with "world"
         EXPECT_EQ(bodyEvent->eventType, HTTPBodyEvent::BODY);
-        CHECK(!bodyEvent->event.body.empty());
+        PRX_CHECK(!bodyEvent->event.body.empty());
         auto bodyStr = bodyEvent->event.body.move()->to<std::string>();
         EXPECT_EQ(bodyStr, "hello");
         bodyEvent->event.body.append(folly::IOBuf::copyBuffer("world"));
@@ -78,7 +79,7 @@ CO_TEST_F_X(TransformFilterTest, BasicTest) {
       });
 
   reader.onBody([](BufQueue body, bool /*eom*/) {
-    CHECK(!body.empty());
+    PRX_CHECK(!body.empty());
     auto bodyStr = body.move()->to<std::string>();
     EXPECT_EQ(bodyStr, "world");
     return HTTPSourceReader::Continue;
@@ -113,7 +114,7 @@ CO_TEST_F_X(TransformFilterTest, PassthruFilter) {
         return HTTPSourceReader::Continue;
       });
   reader.onBody([&kBodyStr](BufQueue body, bool /*eom*/) {
-    EXPECT_EQ((void*)CHECK_NOTNULL(body.front())->data(), kBodyStr.begin());
+    EXPECT_EQ((void*)PRX_CHECK_NOTNULL(body.front())->data(), kBodyStr.begin());
     return HTTPSourceReader::Continue;
   });
 
@@ -133,7 +134,7 @@ CO_TEST_F_X(TransformFilterTest, InvokeOnError) {
       };
   TransformFilter::BodyTransformFn bodyHook =
       [](folly::Try<HTTPBodyEvent>&& bodyEvent) -> folly::Try<HTTPBodyEvent> {
-    LOG(FATAL) << "unreachable";
+    PRX_LOG(FATAL) << "unreachable";
   };
 
   auto* transformSource = new TransformFilter(
@@ -170,7 +171,7 @@ CO_TEST_F_X(TransformFilterTest, TransformBodyToError) {
   HTTPSourceReader reader(transformSource);
 
   reader.onBody([](BufQueue body, bool /*eom*/) -> bool {
-    LOG(FATAL) << "shouldn't happen";
+    PRX_LOG(FATAL) << "shouldn't happen";
   });
 
   // read response

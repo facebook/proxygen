@@ -19,6 +19,7 @@
 #include <proxygen/lib/http/coro/server/HTTPServer.h>
 #include <proxygen/lib/http/coro/server/ScopedHTTPServer.h>
 #include <proxygen/lib/http/coro/test/HTTPTestSources.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <chrono>
 #include <folly/coro/GtestHelpers.h>
@@ -174,7 +175,7 @@ class HTTPServerTests : public TestWithParam<TransportType> {
       }
     }
 
-    CHECK(handler_);
+    PRX_CHECK(handler_);
     server_ = ScopedHTTPServer::start(
         std::move(serverConfig_), handler_, mockObserver);
   }
@@ -195,7 +196,7 @@ class HTTPServerTests : public TestWithParam<TransportType> {
                                kTestDir + "certs/test_key1.pem",
                                "");
     } catch (const std::exception& ex) {
-      XLOG(ERR) << "Invalid certificate file or key file: %s" << ex.what();
+      PRX_LOG(ERROR) << "Invalid certificate file or key file: %s" << ex.what();
     }
     return tlsConfig;
   }
@@ -254,7 +255,7 @@ TEST_P(HTTPServerTests, TestExistingSocket) {
   initClient();
 
   auto address = server_->address();
-  CHECK(address.has_value());
+  PRX_CHECK(address.has_value());
   auto url = fmt::format("https://{}/test", address->describe());
   EventBase evb;
   auto response = blockingWait(
@@ -473,7 +474,7 @@ TEST_P(HTTPServerTests, TestUpdateTLSCredentials) {
       TlsConnectCb cb{*sock};
       sock->connect(&cb, server_->address().value(), 100);
       co_await cb.baton;
-      CHECK(!cb.ex && cb.peerCert);
+      PRX_CHECK(!cb.ex && cb.peerCert);
       co_return getCertDigest(cb.peerCert.get());
     });
   };
@@ -559,12 +560,12 @@ TEST_P(HTTPStatsFilterTests, TestSimplePostStatsFilter) {
       HTTPClient::post(
           &evb, url, std::move(body), std::chrono::milliseconds(500), useQuic),
       &evb);
-  CHECK(response.headers.get());
+  PRX_CHECK(response.headers.get());
   auto statusCode = response.headers->getStatusCode();
   EXPECT_EQ(statusCode, 200);
 
   // stats is thread local and needs to run in server evb
-  CHECK_NOTNULL(serverEvb_)
+  PRX_CHECK_NOTNULL(serverEvb_)
       ->runImmediatelyOrRunInEventBaseThreadAndWait(
           [this, bodyLen, statusCode]() {
             auto& fakeStats = statsFilterFactory_->stats_;
@@ -606,7 +607,7 @@ TEST_P(HTTPStatsFilterTests, TestServerErrorHandler) {
   EXPECT_TRUE(response.hasException());
 
   // stats is thread local and needs to run in server evb
-  CHECK_NOTNULL(serverEvb_)
+  PRX_CHECK_NOTNULL(serverEvb_)
       ->runImmediatelyOrRunInEventBaseThreadAndWait([this, bodyLen]() {
         auto& fakeStats = statsFilterFactory_->stats_;
         EXPECT_EQ(fakeStats.reqs, 1);
@@ -635,7 +636,7 @@ class MultiAcceptorHttpServerTest : public HTTPServerTests {
  protected:
   void startServer(std::vector<folly::SocketAddress>&& addresses,
                    MockServerObserver* mockObserver = nullptr) {
-    CHECK(handler_);
+    PRX_CHECK(handler_);
     HTTPServer::SocketAcceptorConfigFactoryFn socketAcceptorConfigFactoryFn =
         [this, addresses](folly::EventBase& evb,
                           [[maybe_unused]] const HTTPServer::Config& config) {
@@ -680,7 +681,7 @@ TEST_F(MultiAcceptorHttpServerTest, TestMultiplePorts) {
     auto response = blockingWait(
         HTTPClient::get(&evb, url, std::chrono::milliseconds(500), false),
         &evb);
-    CHECK(response.headers.get());
+    PRX_CHECK(response.headers.get());
     EXPECT_EQ(response.headers->getStatusCode(), 200);
   }
 
@@ -786,27 +787,27 @@ namespace {
 // Creates a pair of connected TCP sockets (server-side, client-side).
 std::pair<folly::NetworkSocket, folly::NetworkSocket> createTcpSocketPair() {
   int listenFd = ::socket(AF_INET, SOCK_STREAM, 0);
-  CHECK_GE(listenFd, 0);
+  PRX_CHECK_GE(listenFd, 0);
 
   struct sockaddr_in addr{};
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
   addr.sin_port = 0;
-  CHECK_EQ(::bind(listenFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)),
-           0);
-  CHECK_EQ(::listen(listenFd, 1), 0);
+  PRX_CHECK_EQ(
+      ::bind(listenFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)), 0);
+  PRX_CHECK_EQ(::listen(listenFd, 1), 0);
 
   socklen_t addrLen = sizeof(addr);
-  CHECK_EQ(
+  PRX_CHECK_EQ(
       ::getsockname(listenFd, reinterpret_cast<sockaddr*>(&addr), &addrLen), 0);
 
   int clientFd = ::socket(AF_INET, SOCK_STREAM, 0);
-  CHECK_GE(clientFd, 0);
-  CHECK_EQ(
+  PRX_CHECK_GE(clientFd, 0);
+  PRX_CHECK_EQ(
       ::connect(clientFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)), 0);
 
   int serverFd = ::accept(listenFd, nullptr, nullptr);
-  CHECK_GE(serverFd, 0);
+  PRX_CHECK_GE(serverFd, 0);
   ::close(listenFd);
 
   return {folly::NetworkSocket::fromFd(serverFd),

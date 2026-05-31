@@ -10,6 +10,7 @@ proxygen_add_library(proxygen_http_connpool_session_holder
   SRCS
     SessionHolder.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_io_async_async_socket
     Folly::folly_random
   EXPORTED_DEPS
@@ -25,6 +26,7 @@ proxygen_add_library(proxygen_http_connpool
     SessionPool.cpp
     ThreadIdleSessionController.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_io_async_event_base_manager
   EXPORTED_DEPS
     proxygen_http_connpool_session_holder

@@ -13,6 +13,7 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/webtransport/WebTransportCapsuleCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/TestUtils.h>
 
 namespace proxygen {
@@ -333,33 +334,33 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   }
 
   void dumpCounters(int verbosity) const {
-    VLOG(verbosity) << "Dumping HTTP codec callback counters";
-    VLOG(verbosity) << "headersCompleteId: " << headersCompleteId;
-    VLOG(verbosity) << "assocStreamId: " << assocStreamId;
-    VLOG(verbosity) << "pushId: " << pushId;
-    VLOG(verbosity) << "controlStreamId: " << controlStreamId;
-    VLOG(verbosity) << "unidirectional: " << isUnidirectional;
-    VLOG(verbosity) << "messageBegin: " << messageBegin;
-    VLOG(verbosity) << "headersComplete: " << headersComplete;
-    VLOG(verbosity) << "bodyCalls: " << bodyCalls;
-    VLOG(verbosity) << "bodyLength: " << bodyLength;
-    VLOG(verbosity) << "paddingBytes: " << paddingBytes;
-    VLOG(verbosity) << "chunkHeaders: " << chunkHeaders;
-    VLOG(verbosity) << "chunkComplete: " << chunkComplete;
-    VLOG(verbosity) << "trailers: " << trailers;
-    VLOG(verbosity) << "aborts: " << aborts;
-    VLOG(verbosity) << "goaways: " << goaways;
-    VLOG(verbosity) << "sessionErrors: " << sessionErrors;
-    VLOG(verbosity) << "streamErrors: " << streamErrors;
-    VLOG(verbosity) << "recvPingRequest: " << recvPingRequest;
-    VLOG(verbosity) << "recvPingReply: " << recvPingReply;
-    VLOG(verbosity) << "windowUpdateCalls: " << windowUpdateCalls;
-    VLOG(verbosity) << "settings: " << settings;
-    VLOG(verbosity) << "settingsAcks: " << settingsAcks;
-    VLOG(verbosity) << "windowSize: " << windowSize;
-    VLOG(verbosity) << "maxStreams: " << maxStreams;
-    VLOG(verbosity) << "datagramEnabled: " << datagramEnabled;
-    VLOG(verbosity) << "headerFrames: " << headerFrames;
+    PRX_VLOG(verbosity) << "Dumping HTTP codec callback counters";
+    PRX_VLOG(verbosity) << "headersCompleteId: " << headersCompleteId;
+    PRX_VLOG(verbosity) << "assocStreamId: " << assocStreamId;
+    PRX_VLOG(verbosity) << "pushId: " << pushId;
+    PRX_VLOG(verbosity) << "controlStreamId: " << controlStreamId;
+    PRX_VLOG(verbosity) << "unidirectional: " << isUnidirectional;
+    PRX_VLOG(verbosity) << "messageBegin: " << messageBegin;
+    PRX_VLOG(verbosity) << "headersComplete: " << headersComplete;
+    PRX_VLOG(verbosity) << "bodyCalls: " << bodyCalls;
+    PRX_VLOG(verbosity) << "bodyLength: " << bodyLength;
+    PRX_VLOG(verbosity) << "paddingBytes: " << paddingBytes;
+    PRX_VLOG(verbosity) << "chunkHeaders: " << chunkHeaders;
+    PRX_VLOG(verbosity) << "chunkComplete: " << chunkComplete;
+    PRX_VLOG(verbosity) << "trailers: " << trailers;
+    PRX_VLOG(verbosity) << "aborts: " << aborts;
+    PRX_VLOG(verbosity) << "goaways: " << goaways;
+    PRX_VLOG(verbosity) << "sessionErrors: " << sessionErrors;
+    PRX_VLOG(verbosity) << "streamErrors: " << streamErrors;
+    PRX_VLOG(verbosity) << "recvPingRequest: " << recvPingRequest;
+    PRX_VLOG(verbosity) << "recvPingReply: " << recvPingReply;
+    PRX_VLOG(verbosity) << "windowUpdateCalls: " << windowUpdateCalls;
+    PRX_VLOG(verbosity) << "settings: " << settings;
+    PRX_VLOG(verbosity) << "settingsAcks: " << settingsAcks;
+    PRX_VLOG(verbosity) << "windowSize: " << windowSize;
+    PRX_VLOG(verbosity) << "maxStreams: " << maxStreams;
+    PRX_VLOG(verbosity) << "datagramEnabled: " << datagramEnabled;
+    PRX_VLOG(verbosity) << "headerFrames: " << headerFrames;
   }
 
   HTTPCodec::StreamID headersCompleteId{0};

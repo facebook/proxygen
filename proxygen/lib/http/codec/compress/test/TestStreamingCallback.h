@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -53,7 +54,7 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
   }
 
   std::unique_ptr<std::vector<HPACKHeader>> hpackHeaders() const {
-    CHECK(!hasError());
+    PRX_CHECK(!hasError());
     auto result = std::make_unique<std::vector<HPACKHeader>>();
     for (size_t i = 0; i < headers.size(); i += 2) {
       result->emplace_back(headers[i].str, headers[i + 1].str);
@@ -65,7 +66,7 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
   compress::HeaderPieceList headers;
   HPACK::DecodeError error{HPACK::DecodeError::NONE};
   char* duplicate(const folly::fbstring& str) {
-    char* res = CHECK_NOTNULL(new char[str.length() + 1]);
+    char* res = PRX_CHECK_NOTNULL(new char[str.length() + 1]);
     memcpy(res, str.data(), str.length() + 1);
     return res;
   }

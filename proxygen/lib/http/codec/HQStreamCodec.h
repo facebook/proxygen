@@ -15,6 +15,7 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
 #include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -128,11 +129,11 @@ class HQStreamCodec
   size_t generateEOM(folly::IOBufQueue& writeBuf, StreamID stream) override;
 
   uint32_t getDefaultWindowSize() const override {
-    CHECK(false) << __func__ << " not supported";
+    PRX_CHECK(false) << __func__ << " not supported";
   }
 
   bool isRequest(StreamID /*id*/) const {
-    CHECK(false) << __func__ << " not implemented yet";
+    PRX_CHECK(false) << __func__ << " not implemented yet";
   }
 
   CompressionInfo getCompressionInfo() const override;

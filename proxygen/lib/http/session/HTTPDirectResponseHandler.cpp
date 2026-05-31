@@ -10,6 +10,7 @@
 
 #include <folly/Conv.h>
 #include <proxygen/lib/http/session/HTTPErrorPage.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::IOBuf;
 using std::string;
@@ -40,7 +41,7 @@ void HTTPDirectResponseHandler::detachTransaction() noexcept {
 
 void HTTPDirectResponseHandler::onHeadersComplete(
     std::unique_ptr<HTTPMessage> /*msg*/) noexcept {
-  VLOG(4) << "processing request";
+  PRX_VLOG(4) << "processing request";
   headersSent_ = true;
   HTTPMessage response;
   std::unique_ptr<folly::IOBuf> responseBody;
@@ -57,7 +58,7 @@ void HTTPDirectResponseHandler::onHeadersComplete(
   if (errorPage_) {
     HTTPErrorPage::Page page = errorPage_->generate(
         0, statusCode_, statusMessage_, nullptr, empty_string, err_);
-    VLOG(4) << "sending error page with type " << page.contentType;
+    PRX_VLOG(4) << "sending error page with type " << page.contentType;
     response.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, page.contentType);
     responseBody = std::move(page.content);
     page.headers.copyTo(response.getHeaders());
@@ -73,12 +74,12 @@ void HTTPDirectResponseHandler::onHeadersComplete(
 }
 
 void HTTPDirectResponseHandler::onBody(unique_ptr<IOBuf> /*chain*/) noexcept {
-  VLOG(4) << "discarding request body";
+  PRX_VLOG(4) << "discarding request body";
 }
 
 void HTTPDirectResponseHandler::onTrailers(
     unique_ptr<HTTPHeaders> /*trailers*/) noexcept {
-  VLOG(4) << "discarding request trailers";
+  PRX_VLOG(4) << "discarding request trailers";
 }
 
 void HTTPDirectResponseHandler::onEOM() noexcept {
@@ -97,7 +98,7 @@ void HTTPDirectResponseHandler::onError(const HTTPException& error) noexcept {
 
   if (error.getDirection() == HTTPException::Direction::INGRESS) {
     if (error.getProxygenError() == kErrorTimeout) {
-      VLOG(4) << "processing ingress timeout";
+      PRX_VLOG(4) << "processing ingress timeout";
       if (!headersSent_) {
         onHeadersComplete(nullptr);
       }
@@ -105,7 +106,7 @@ void HTTPDirectResponseHandler::onError(const HTTPException& error) noexcept {
         onEOM();
       }
     } else {
-      VLOG(4) << "processing ingress error";
+      PRX_VLOG(4) << "processing ingress error";
       if (!headersSent_) {
         onHeadersComplete(nullptr);
       }

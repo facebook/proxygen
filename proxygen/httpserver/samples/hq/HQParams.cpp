@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/httpserver/samples/hq/HQParams.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace quic::samples {
 
@@ -22,8 +23,8 @@ bool HTTPVersion::parse(const std::string& verString) {
   std::string delimiter = ".";
   std::size_t pos = version.find(delimiter);
   if (pos == std::string::npos) {
-    LOG(ERROR) << "Invalid http-version string: " << version
-               << ", defaulting to HTTP/1.1";
+    PRX_LOG(ERROR) << "Invalid http-version string: " << version
+                   << ", defaulting to HTTP/1.1";
     major = 1;
     minor = 1;
     canonical = folly::to<std::string>(major, ".", minor);
@@ -38,8 +39,8 @@ bool HTTPVersion::parse(const std::string& verString) {
     canonical = folly::to<std::string>(major, ".", minor);
     return true;
   } catch (const folly::ConversionError&) {
-    LOG(ERROR) << "Invalid http-version string: " << version
-               << ", defaulting to HTTP/1.1";
+    PRX_LOG(ERROR) << "Invalid http-version string: " << version
+                   << ", defaulting to HTTP/1.1";
     major = 1;
     minor = 1;
     canonical = folly::to<std::string>(major, ".", minor);

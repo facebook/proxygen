@@ -10,7 +10,7 @@
 
 #include <folly/io/async/EventBase.h>
 #include <folly/portability/GTest.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly;
 using namespace wangle;
@@ -81,9 +81,9 @@ TEST(AcceptorTest, Basic) {
 
   base.loopForever();
 
-  CHECK_EQ(acceptor.getNumConnections(), 1);
+  PRX_CHECK_EQ(acceptor.getNumConnections(), 1);
 
-  CHECK(acceptor.getState() == Acceptor::State::kRunning);
+  PRX_CHECK(acceptor.getState() == Acceptor::State::kRunning);
   acceptor.forceStop();
   socket->stopAccepting();
   base.loop();

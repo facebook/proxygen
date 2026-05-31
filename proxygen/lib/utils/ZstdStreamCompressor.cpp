@@ -9,6 +9,7 @@
 #include <proxygen/lib/utils/ZstdStreamCompressor.h>
 
 #include <folly/compression/Compression.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -66,8 +67,8 @@ std::unique_ptr<folly::IOBuf> ZstdStreamCompressor::compress(
       return {};
     }
 
-    DCHECK_EQ(inrange.size(), 0);
-    DCHECK_GT(outrange.size(), 0);
+    PRX_DCHECK_EQ(inrange.size(), 0);
+    PRX_DCHECK_GT(outrange.size(), 0);
 
     out->append(outrange.begin() - out->tail());
 

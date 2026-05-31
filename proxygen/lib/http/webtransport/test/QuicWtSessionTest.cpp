@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/webtransport/QuicWtSession.h>
 #include <proxygen/lib/http/webtransport/test/Mocks.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace proxygen::test;
@@ -842,7 +843,7 @@ TEST_F(H3WtSessionTest, CreateUniBidiStream) {
   { // uni&bidi stream credit now available
     auto uni = session_->createUniStream();
     auto bidi = session_->createBidiStream();
-    CHECK(uni && bidi);
+    PRX_CHECK(uni && bidi);
 
     // validate the wt stream prefix was written to the quic stream
     auto uniId = (*uni)->getID();
@@ -909,7 +910,7 @@ TEST_F(H3WtSessionTest, CreateUniBidiStream) {
   { // can no longer create bidi/uni streams after ::shutdown
     auto uni = session_->createUniStream();
     auto bidi = session_->createBidiStream();
-    CHECK(!uni && !bidi);
+    PRX_CHECK(!uni && !bidi);
   }
 }
 
@@ -926,12 +927,12 @@ TEST_F(H3WtSessionTest, AcquireIngressStream) {
 
   // acquire uni stream and verify handler notification
   EXPECT_TRUE(session_->acquireIngressStream(kClientUniId));
-  XCHECK(uni && uni->getID() == kClientUniId);
+  PRX_CHECK(uni && uni->getID() == kClientUniId);
 
   // acquire bidi stream and verify handler notification
   EXPECT_TRUE(session_->acquireIngressStream(kClientBidiId));
-  XCHECK(bidi.readHandle && bidi.writeHandle &&
-         bidi.readHandle->getID() == kClientBidiId);
+  PRX_CHECK(bidi.readHandle && bidi.writeHandle &&
+            bidi.readHandle->getID() == kClientBidiId);
 
   // enqueue data on uni&bidi stream and verify read handle receives it
   constexpr std::string_view body = "abcdefghijklmnopqrstuvwxyz";
@@ -945,7 +946,7 @@ TEST_F(H3WtSessionTest, AcquireIngressStream) {
   auto uniRead = uni->readStreamData();
   auto bidiRead = bidi.readHandle->readStreamData();
   for (auto& read : {&uniRead, &bidiRead}) {
-    CHECK(read->isReady()); // fut should be ready;
+    PRX_CHECK(read->isReady()); // fut should be ready;
     EXPECT_EQ(read->value().data->toString(), body);
     EXPECT_TRUE(read->value().fin);
   }

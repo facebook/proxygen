@@ -10,7 +10,7 @@
 
 #include <limits>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/Random.h>
 #include <folly/hash/Hash.h>
@@ -24,7 +24,7 @@ Sampling::Sampling(double rate) {
 Sampling::~Sampling() = default;
 
 void Sampling::updateRate(double rate) {
-  CHECK(rate >= 0.0 && rate <= 1.0);
+  PRX_CHECK(rate >= 0.0 && rate <= 1.0);
   rate_ = rate;
   weight_ = rateToWeight(rate);
 }

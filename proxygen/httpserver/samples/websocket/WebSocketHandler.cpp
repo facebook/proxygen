@@ -9,6 +9,7 @@
 #include <proxygen/httpserver/samples/websocket/WebSocketHandler.h>
 
 #include <folly/io/async/EventBaseManager.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 
@@ -26,12 +27,12 @@ const std::string kUpgradeTo = "Websocket";
 void WebSocketHandler::onRequest(
     std::unique_ptr<HTTPMessage> request) noexcept {
 
-  VLOG(4) << " New incoming request" << *request;
+  PRX_VLOG(4) << " New incoming request" << *request;
 
   // Check if Upgrade and Connection headers are present.
   if (!request->getHeaders().exists(HTTP_HEADER_UPGRADE) ||
       !request->getHeaders().exists(HTTP_HEADER_CONNECTION)) {
-    LOG(ERROR) << " Missing Upgrade/Connection header";
+    PRX_LOG(ERROR) << " Missing Upgrade/Connection header";
     ResponseBuilder(downstream_).rejectUpgradeRequest();
     return;
   }
@@ -40,8 +41,8 @@ void WebSocketHandler::onRequest(
   const std::string& proto =
       request->getHeaders().getSingleOrEmpty(HTTP_HEADER_UPGRADE);
   if (!caseInsensitiveEqual(proto, kUpgradeTo)) {
-    LOG(ERROR) << "Provided upgrade protocol: '" << proto << "', expected: '"
-               << kUpgradeTo << "'";
+    PRX_LOG(ERROR) << "Provided upgrade protocol: '" << proto
+                   << "', expected: '" << kUpgradeTo << "'";
     ResponseBuilder(downstream_).rejectUpgradeRequest();
     return;
   }
@@ -56,15 +57,15 @@ void WebSocketHandler::onRequest(
 }
 
 void WebSocketHandler::onEgressPaused() noexcept {
-  VLOG(4) << "WebSocketHandler egress paused";
+  PRX_VLOG(4) << "WebSocketHandler egress paused";
 }
 
 void WebSocketHandler::onEgressResumed() noexcept {
-  VLOG(4) << "WebSocketHandler resumed";
+  PRX_VLOG(4) << "WebSocketHandler resumed";
 }
 
 void WebSocketHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
-  VLOG(4) << "WebsocketHandler::onBody";
+  PRX_VLOG(4) << "WebsocketHandler::onBody";
   auto res = wsStream_->onData(std::move(body));
   if (res.hasError()) {
     ResponseBuilder response(downstream_);
@@ -80,17 +81,17 @@ void WebSocketHandler::onEOM() noexcept {
 }
 
 void WebSocketHandler::onUpgrade(UpgradeProtocol /*protocol*/) noexcept {
-  VLOG(4) << "WebSocketHandler onUpgrade";
+  PRX_VLOG(4) << "WebSocketHandler onUpgrade";
   wsStream_ = std::make_unique<WebSocketStream>();
 }
 
 void WebSocketHandler::requestComplete() noexcept {
-  VLOG(4) << " WebSocketHandler::requestComplete";
+  PRX_VLOG(4) << " WebSocketHandler::requestComplete";
   delete this;
 }
 
 void WebSocketHandler::onError(ProxygenError err) noexcept {
-  VLOG(4) << " WebSocketHandler::onError: " << err;
+  PRX_VLOG(4) << " WebSocketHandler::onError: " << err;
   delete this;
 }
 
@@ -98,7 +99,8 @@ folly::Expected<std::unique_ptr<folly::IOBuf>,
                 WebSocketStream::WebSocketStreamError>
 WebSocketStream::onData(std::unique_ptr<folly::IOBuf> chain) {
   // Parse websocket framing here etc.
-  VLOG(4) << "WebSocketStream::onData: " << chain->clone()->moveToFbString();
+  PRX_VLOG(4) << "WebSocketStream::onData: "
+              << chain->clone()->moveToFbString();
   // We just echo the bytes back.
   return std::move(chain);
 }

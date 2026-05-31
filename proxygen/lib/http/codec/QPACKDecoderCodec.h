@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::hq {
 
@@ -29,7 +30,7 @@ class QPACKDecoderCodec : public HQUnidirectionalCodec {
       std::unique_ptr<folly::IOBuf> buf) override {
     auto err = qpackCodec_.decodeDecoderStream(std::move(buf));
     if (err != HPACK::DecodeError::NONE) {
-      LOG(ERROR) << "QPACK decoder stream decode error err=" << err;
+      PRX_LOG(ERROR) << "QPACK decoder stream decode error err=" << err;
       HTTPException ex(
           HTTPException::Direction::INGRESS_AND_EGRESS,
           folly::to<std::string>("Compression error on decoder stream err=",
@@ -41,7 +42,7 @@ class QPACKDecoderCodec : public HQUnidirectionalCodec {
   }
 
   void onUnidirectionalIngressEOF() override {
-    LOG(ERROR) << "Unexpected QPACK encoder stream EOF";
+    PRX_LOG(ERROR) << "Unexpected QPACK encoder stream EOF";
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                      "Encoder stream EOF");
     ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);

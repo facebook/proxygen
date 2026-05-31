@@ -12,6 +12,7 @@
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly::io;
 using namespace folly;
@@ -144,24 +145,24 @@ TEST_F(HPACKBufferTests, DecodeSingleByte) {
   *wdata = 67;
   resetDecoder();
   uint64_t integer;
-  CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
-  CHECK_EQ(integer, 67);
+  PRX_CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
+  PRX_CHECK_EQ(integer, 67);
 
   resetDecoder();
 
-  CHECK_EQ(decoder_.decodeInteger(6, integer), DecodeError::NONE);
-  CHECK_EQ(integer, 3);
+  PRX_CHECK_EQ(decoder_.decodeInteger(6, integer), DecodeError::NONE);
+  PRX_CHECK_EQ(integer, 3);
 
   // set a bit in the prefix - it should not affect the decoded value
   *wdata = 195; // 195 = 128 + 67
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
-  CHECK_EQ(integer, 67);
+  PRX_CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
+  PRX_CHECK_EQ(integer, 67);
 
   // 8-bit prefix - the entire byte
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(8, integer), DecodeError::NONE);
-  CHECK_EQ(integer, 195);
+  PRX_CHECK_EQ(decoder_.decodeInteger(8, integer), DecodeError::NONE);
+  PRX_CHECK_EQ(integer, 195);
 }
 
 TEST_F(HPACKBufferTests, DecodeMultiByte) {
@@ -173,33 +174,33 @@ TEST_F(HPACKBufferTests, DecodeMultiByte) {
   wdata[1] = 0;
   resetDecoder();
   uint64_t integer;
-  CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
-  CHECK_EQ(integer, 3);
-  CHECK_EQ(decoder_.cursor().length(), 0);
+  PRX_CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
+  PRX_CHECK_EQ(integer, 3);
+  PRX_CHECK_EQ(decoder_.cursor().length(), 0);
   // edge case - encode 130 = 127 + 3 on 2-bit prefix
   wdata[0] = 3;
   wdata[1] = 127;
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
-  CHECK_EQ(integer, 130);
-  CHECK_EQ(decoder_.cursor().length(), 0);
+  PRX_CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
+  PRX_CHECK_EQ(integer, 130);
+  PRX_CHECK_EQ(decoder_.cursor().length(), 0);
   // edge case - encode 131 = 128 + 3
   buf_->append(1);
   wdata[0] = 3;
   wdata[1] = 128;
   wdata[2] = 1;
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
-  CHECK_EQ(integer, 131);
-  CHECK_EQ(decoder_.cursor().length(), 0);
+  PRX_CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
+  PRX_CHECK_EQ(integer, 131);
+  PRX_CHECK_EQ(decoder_.cursor().length(), 0);
   // encode the value from the RFC example - 1337
   wdata[0] = 31;
   wdata[1] = 154;
   wdata[2] = 10;
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::NONE);
-  CHECK_EQ(integer, 1337);
-  CHECK_EQ(decoder_.cursor().length(), 0);
+  PRX_CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::NONE);
+  PRX_CHECK_EQ(integer, 1337);
+  PRX_CHECK_EQ(decoder_.cursor().length(), 0);
 }
 
 TEST_F(HPACKBufferTests, DecodeIntegerError) {
@@ -207,7 +208,8 @@ TEST_F(HPACKBufferTests, DecodeIntegerError) {
   resetDecoder();
   // empty buffer
   uint64_t integer;
-  CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::BUFFER_UNDERFLOW);
+  PRX_CHECK_EQ(decoder_.decodeInteger(5, integer),
+               DecodeError::BUFFER_UNDERFLOW);
 
   // incomplete buffer
   buf_->append(2);
@@ -215,7 +217,8 @@ TEST_F(HPACKBufferTests, DecodeIntegerError) {
   wdata[0] = 31;
   wdata[1] = 154;
   // wdata[2] = 10 missing
-  CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::BUFFER_UNDERFLOW);
+  PRX_CHECK_EQ(decoder_.decodeInteger(5, integer),
+               DecodeError::BUFFER_UNDERFLOW);
 }
 
 TEST_F(HPACKBufferTests, DecodeLiteralError) {
@@ -228,7 +231,7 @@ TEST_F(HPACKBufferTests, DecodeLiteralError) {
   wdata[1] = 'a';
   wdata[2] = 'b';
   folly::fbstring literal;
-  CHECK_EQ(decoder_.decodeLiteral(literal), DecodeError::BUFFER_UNDERFLOW);
+  PRX_CHECK_EQ(decoder_.decodeLiteral(literal), DecodeError::BUFFER_UNDERFLOW);
 
   resetDecoder();
   // error decoding the size of the literal
@@ -336,7 +339,7 @@ TEST_F(HPACKBufferTests, DecodePlainLiteral) {
 
   resetDecoder();
   decoder_.decodeLiteral(literal);
-  CHECK_EQ(literal, gzip);
+  PRX_CHECK_EQ(literal, gzip);
 }
 
 TEST_F(HPACKBufferTests, DecodePlainLiteralN) {
@@ -351,7 +354,7 @@ TEST_F(HPACKBufferTests, DecodePlainLiteralN) {
 
   resetDecoder();
   decoder_.decodeLiteral(4, literal);
-  CHECK_EQ(literal, gzip);
+  PRX_CHECK_EQ(literal, gzip);
 }
 
 TEST_F(HPACKBufferTests, IntegerEncodeDecode) {

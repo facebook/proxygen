@@ -10,6 +10,7 @@
 
 #include <folly/String.h>
 #include <proxygen/lib/http/RFC2616.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -91,15 +92,15 @@ bool CodecUtil::appendHeaders(const HTTPHeaders& inputHeaders,
     const auto& s_disallowedModernHTTPFields = disallowedModernHTTPFields();
     if (s_disallowedModernHTTPFields[code] || name.size() == 0 ||
         name[0] == ':') {
-      DCHECK_GT(name.size(), 0) << "Empty header";
-      DCHECK_NE(name[0], ':') << "Invalid header=" << name;
+      PRX_DCHECK_GT(name.size(), 0) << "Empty header";
+      PRX_DCHECK_NE(name[0], ':') << "Invalid header=" << name;
       return;
     }
     // Note this code will not drop headers named by Connection.  That's the
     // caller's job
 
     // see HTTP/2 spec, 8.1.2
-    DCHECK(name != "TE" || value == "trailers");
+    PRX_DCHECK(name != "TE" || value == "trailers");
     if ((name.size() > 0 && name[0] != ':') && code != HTTP_HEADER_HOST) {
       headers.emplace_back(code, name, value);
     }
@@ -168,8 +169,9 @@ void CodecUtil::logIfFieldSectionExceedsPeerMax(
     // The remote side told us they don't want headers this large, but try
     // anyways
     debugStr += CodecUtil::debugString(fields, debugLevel);
-    LOG(ERROR) << "generating HEADERS frame larger than peer maximum nHeaders="
-               << fields.size() << " all headers=" << debugStr;
+    PRX_LOG(ERROR)
+        << "generating HEADERS frame larger than peer maximum nHeaders="
+        << fields.size() << " all headers=" << debugStr;
   }
 }
 

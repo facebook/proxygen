@@ -11,6 +11,7 @@
 #include <folly/Singleton.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -58,13 +59,13 @@ void WheelTimerInstance::scheduleTimeout(
   if (wheelTimerPtr_) {
     wheelTimerPtr_->scheduleTimeout(callback, timeout);
   } else {
-    VLOG(2) << "Ingoring scheduleTimeout on an empty WheelTimerInstance";
+    PRX_VLOG(2) << "Ingoring scheduleTimeout on an empty WheelTimerInstance";
   }
 }
 
 void WheelTimerInstance::scheduleTimeout(
     folly::HHWheelTimer::Callback* callback) {
-  CHECK_GE(defaultTimeoutMS_.count(), 0);
+  PRX_CHECK_GE(defaultTimeoutMS_.count(), 0);
   scheduleTimeout(callback, defaultTimeoutMS_);
 }
 

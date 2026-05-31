@@ -19,6 +19,7 @@ proxygen_add_library(proxygen_http_coro_filter_factory_handler
   DEPS
     proxygen_coro_source
     proxygen_http_coro_filters_FilterFactory
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_coro_handler_chain
 )
@@ -39,6 +40,7 @@ proxygen_add_library(proxygen_coro_source
     proxygen_http_h3_errors
     proxygen_http_http_header_size
     proxygen_http_message
+    proxygen_utils_log_shim
     proxygen_utils_parse_url
     proxygen_utils_weak_ref_counted_ptr
     mvfst::mvfst_common_buf_util
@@ -46,7 +48,6 @@ proxygen_add_library(proxygen_coro_source
     Folly::folly_coro_task
     Folly::folly_function
     Folly::folly_io_iobuf
-    Folly::folly_logging_logging
     Folly::folly_optional
     Folly::folly_scope_guard
 )
@@ -57,20 +58,19 @@ proxygen_add_library(proxygen_http_coro_coro_reader
   EXPORTED_DEPS
     proxygen_coro_source
     proxygen_http_coro_util_timed_baton
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_coro_coro_stream_source
   SRCS
     HTTPStreamSource.cpp
-  DEPS
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_coro_source
     proxygen_http_codec_codec_common
     proxygen_http_coro_util_timed_baton
     proxygen_http_coro_util_window_contiainer
     proxygen_http_session_http_state_machine_lib
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_coro
@@ -99,6 +99,7 @@ proxygen_add_library(proxygen_coro
     proxygen_http_coro_util_window_contiainer
     proxygen_http_session_quic_protocol_info
     proxygen_http_session_stream_dispatcher
+    proxygen_utils_log_shim
     proxygen_utils_util_inl
     mvfst::mvfst_api_transport
     mvfst::mvfst_common_events_folly_eventbase
@@ -113,7 +114,6 @@ proxygen_add_library(proxygen_coro
     Folly::folly_io_async_async_base
     Folly::folly_io_async_async_socket
     Folly::folly_io_coro_socket
-    Folly::folly_logging_logging
     Folly::folly_utility
 )
 
@@ -128,6 +128,7 @@ proxygen_add_library(proxygen_coro_stream_source_sink
     proxygen_http_session_http_transaction
     proxygen_http_sink_client_sink_interface
     proxygen_utils_conditional_gate
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_coro_http_transaction_adaptor_source
@@ -135,6 +136,7 @@ proxygen_add_library(proxygen_http_coro_http_transaction_adaptor_source
     HTTPTransactionAdaptorSource.cpp
   DEPS
     proxygen_http_coro_coro_reader
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_coro_source
     proxygen_http_coro_coro_stream_source

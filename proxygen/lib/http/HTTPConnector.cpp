@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/HTTPConnector.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/AsyncSSLSocket.h>
@@ -30,25 +30,25 @@ HTTPConnector::HTTPConnector(Callback* callback,
 
 HTTPConnector::HTTPConnector(Callback* callback,
                              const WheelTimerInstance& timeout)
-    : cb_(CHECK_NOTNULL(callback)),
+    : cb_(PRX_CHECK_NOTNULL(callback)),
       timeout_(timeout),
       httpCodecFactory_(std::make_unique<DefaultHTTPCodecFactory>()) {
-  XLOG(DBG4) << "HTTPConnector";
+  PRX_VLOG(4) << "HTTPConnector";
 }
 
 HTTPConnector::~HTTPConnector() {
-  XLOG(DBG4) << "~HTTPConnector";
+  PRX_VLOG(4) << "~HTTPConnector";
   reset(false);
 }
 
 void HTTPConnector::reset(bool invokeCallbacks) {
-  XLOG(DBG4) << "reset invokeCallbacks=" << invokeCallbacks;
+  PRX_VLOG(4) << "reset invokeCallbacks=" << invokeCallbacks;
   if (socket_) {
     auto cb = cb_;
     if (!invokeCallbacks) {
       cb_ = nullptr;
     }
-    XLOG(DBG4) << "socket_.reset()";
+    PRX_VLOG(4) << "socket_.reset()";
     socket_.reset(); // This invokes connectError() but will be ignored
     cb_ = cb;
   }
@@ -68,8 +68,8 @@ void HTTPConnector::connect(EventBase* eventBase,
                             const SocketOptionMap& socketOptions,
                             const folly::SocketAddress& bindAddr) {
 
-  XLOG(DBG4) << "connect";
-  DCHECK(!isBusy());
+  PRX_VLOG(4) << "connect";
+  PRX_DCHECK(!isBusy());
   transportInfo_ = wangle::TransportInfo();
   transportInfo_.secure = false;
   auto sock = new AsyncSocket(eventBase);
@@ -88,8 +88,8 @@ void HTTPConnector::connectSSL(EventBase* eventBase,
                                const folly::SocketAddress& bindAddr,
                                const std::string& serverName) {
 
-  XLOG(DBG4) << "connectSSL";
-  DCHECK(!isBusy());
+  PRX_VLOG(4) << "connectSSL";
+  PRX_DCHECK(!isBusy());
   transportInfo_ = wangle::TransportInfo();
   transportInfo_.secure = true;
   auto sslSock = new AsyncSSLSocket(context, eventBase);
@@ -148,7 +148,7 @@ void HTTPConnector::connectSuccess() noexcept {
     proto = &plaintextProtocol_;
   }
 
-  CHECK(proto);
+  PRX_CHECK(proto);
   codec = httpCodecFactory_->getCodec(
       *proto, TransportDirection::UPSTREAM, transportInfo_.secure);
 
@@ -169,12 +169,12 @@ void HTTPConnector::connectSuccess() noexcept {
                                           transportInfo_,
                                           nullptr);
 
-  XLOG(DBG5) << " connectSuccess, HTTPUpstreamSession " << session;
+  PRX_VLOG(5) << " connectSuccess, HTTPUpstreamSession " << session;
   cb_->connectSuccess(session);
 }
 
 void HTTPConnector::connectErr(const AsyncSocketException& ex) noexcept {
-  XLOG(DBG3) << " connectErr " << ex.what();
+  PRX_VLOG(3) << " connectErr " << ex.what();
   socket_.reset();
   if (cb_) {
     cb_->connectError(ex);

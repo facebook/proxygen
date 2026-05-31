@@ -10,6 +10,7 @@
 
 #include <folly/IntrusiveList.h>
 #include <folly/io/async/EventBase.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro::detail {
 
@@ -24,7 +25,7 @@ namespace proxygen::coro::detail {
 class DetachableExecutor : public folly::Executor {
  public:
   explicit DetachableExecutor(folly::EventBase* pEvb)
-      : pEvb_(CHECK_NOTNULL(pEvb)) {
+      : pEvb_(PRX_CHECK_NOTNULL(pEvb)) {
   }
   /**
    * DetachableGuard should only be acquired in strategic suspension points

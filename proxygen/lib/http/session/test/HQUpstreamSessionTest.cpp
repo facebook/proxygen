@@ -26,6 +26,7 @@
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/MockSessionObserver.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/api/test/MockQuicSocket.h>
 #include <quic/priority/HTTPPriorityQueue.h>
 
@@ -77,7 +78,7 @@ void HQUpstreamSessionTest::sendPartialBody(quic::StreamId id,
                                             std::unique_ptr<folly::IOBuf> body,
                                             bool eom) {
   auto it = streams_.find(id);
-  CHECK(it != streams_.end());
+  PRX_CHECK(it != streams_.end());
   auto& stream = it->second;
 
   stream.readEOF = eom;
@@ -151,7 +152,7 @@ void HQUpstreamSessionTest::flushAndLoop(bool eof,
                                          milliseconds initialDelay,
                                          std::function<void()> extraEventsFn) {
   flush(eof, eofDelay, initialDelay, extraEventsFn);
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
 }
 
 void HQUpstreamSessionTest::flushAndLoopN(uint64_t n,
@@ -257,7 +258,7 @@ TEST_P(HQUpstreamSessionTest, GetWithTrailers) {
   auto id = handler->txn_->getID();
   sendResponse(id, *std::get<0>(resp), std::move(std::get<1>(resp)), false);
   auto it = streams_.find(id);
-  CHECK(it != streams_.end());
+  PRX_CHECK(it != streams_.end());
   auto& stream = it->second;
   trailers.remove("x-trailer-1");
   trailers.add("x-trailer-2", "trailer2");
@@ -285,7 +286,7 @@ TEST_P(HQUpstreamSessionTest, AbortOnBodyWithBlockedQPACKTrailers) {
   auto control1 = encoderWriteBuf_.move();
   flushAndLoopN(1);
   auto it = streams_.find(id);
-  CHECK(it != streams_.end());
+  PRX_CHECK(it != streams_.end());
   auto& stream = it->second;
   trailers.remove("x-trailer-1");
   trailers.add("x-trailer-2", "trailer2");
@@ -1006,9 +1007,9 @@ TEST_P(HQUpstreamSessionTest, DelayedQPACKAfterReset) {
   });
 
   auto streamIt1 = streams_.find(handler1->txn_->getID());
-  CHECK(streamIt1 != streams_.end());
+  PRX_CHECK(streamIt1 != streams_.end());
   auto streamIt2 = streams_.find(handler2->txn_->getID());
-  CHECK(streamIt2 != streams_.end());
+  PRX_CHECK(streamIt2 != streams_.end());
   // add all the events in the same callback, with the stream data coming
   // before the QPACK data
   std::vector<MockQuicSocketDriver::ReadEvent> events;
@@ -1384,7 +1385,7 @@ class HQUpstreamSessionTestPush : public HQUpstreamSessionTest {
 
     auto eventbuf = tmpbuf.splitAtMost(maxlen);
     auto wlen = eventbuf->length();
-    CHECK_LE(wlen, maxlen) << "The written len must not exceed the max len";
+    PRX_CHECK_LE(wlen, maxlen) << "The written len must not exceed the max len";
     socketDriver_->addReadEvent(id, std::move(eventbuf), milliseconds(0));
     return wlen;
   }
@@ -1407,7 +1408,7 @@ class HQUpstreamSessionTestPush : public HQUpstreamSessionTest {
       folly::io::QueueAppender appender(&outbuf, 8);
       uint8_t size = 1 << (folly::Random::rand32() % 4);
       auto wlen = encodeQuicIntegerWithAtLeast(pushId, size, appender);
-      CHECK_GE(wlen, size);
+      PRX_CHECK_GE(wlen, size);
       return wlen;
     };
 
@@ -2104,7 +2105,7 @@ TEST_P(HQUpstreamSessionTestDatagram, TestReceiveDatagram) {
   handler->expectDatagram();
   flushAndLoopN(1);
   auto it = streams_.find(id);
-  CHECK(it != streams_.end());
+  PRX_CHECK(it != streams_.end());
   auto& stream = it->second;
   stream.readEOF = true;
   handler->expectEOM();
@@ -2133,7 +2134,7 @@ TEST_P(HQUpstreamSessionTestDatagram, TestReceiveEarlyDatagramsSingleStream) {
       .Times(kDefaultMaxBufferedDatagrams);
   flushAndLoopN(1);
   auto it = streams_.find(id);
-  CHECK(it != streams_.end());
+  PRX_CHECK(it != streams_.end());
   auto& stream = it->second;
   stream.readEOF = true;
   handler->expectEOM();
@@ -2169,7 +2170,7 @@ TEST_P(HQUpstreamSessionTestDatagram, TestReceiveEarlyDatagramsMultiStream) {
         .WillRepeatedly(InvokeWithoutArgs([&]() { deliveredDatagrams++; }));
     flushAndLoopN(1);
     auto it = streams_.find(id);
-    CHECK(it != streams_.end());
+    PRX_CHECK(it != streams_.end());
     auto& stream = it->second;
     stream.readEOF = true;
     handler->expectEOM();
@@ -2344,7 +2345,7 @@ TEST_P(HQUpstreamSessionTestWebTransport, BidirectionalStream) {
       .value()
       .via(&eventBase_)
       .then([&, writeHandle, cancelToken](const auto&) {
-        VLOG(4) << "big write complete";
+        PRX_VLOG(4) << "big write complete";
         if (!cancelToken.isCancellationRequested()) {
           // after it completes, write FIN
           writeHandle->writeStreamData(nullptr, true, nullptr);
@@ -2353,14 +2354,14 @@ TEST_P(HQUpstreamSessionTestWebTransport, BidirectionalStream) {
             .value()
             .via(&eventBase_)
             .then([&](auto) {
-              VLOG(4) << "fin write complete";
+              PRX_VLOG(4) << "fin write complete";
               writeComplete = true;
             });
         // ug, can't determine fin write complete;
 #endif
           writeComplete = true;
         } else {
-          VLOG(4) << "Stream was cancelled, skipping FIN write";
+          PRX_VLOG(4) << "Stream was cancelled, skipping FIN write";
           writeComplete = true;
         }
       });
@@ -2376,34 +2377,34 @@ TEST_P(HQUpstreamSessionTestWebTransport, BidirectionalStream) {
 
   // Wait for a read
   stream.readHandle->awaitNextRead(&eventBase_, [&](auto, auto, auto) {
-    VLOG(4) << "read 1, adding 70k";
+    PRX_VLOG(4) << "read 1, adding 70k";
     // Now add a big buf, which will pause ingress
     socketDriver_->addReadEvent(
         id, makeBuf(70000), std::chrono::milliseconds(0));
   });
   // add a small read to trigger the above handler
   socketDriver_->addReadEvent(id, makeBuf(10), std::chrono::milliseconds(0));
-  VLOG(4) << "flushLoop 1";
+  PRX_VLOG(4) << "flushLoop 1";
   flushAndLoopN(4);
   EXPECT_TRUE(socketDriver_->isStreamPaused(id));
 
   // Read again
   stream.readHandle->awaitNextRead(
       &eventBase_, [&](auto, auto, auto streamData) {
-        VLOG(4) << "read 2, adding EOF";
+        PRX_VLOG(4) << "read 2, adding EOF";
         EXPECT_EQ(streamData->data->computeChainDataLength(), 65535);
         // Add EOF and wait for it
         socketDriver_->addReadEOF(id, std::chrono::milliseconds(0));
       });
-  VLOG(4) << "flushLoop 2";
+  PRX_VLOG(4) << "flushLoop 2";
   flushAndLoopN(2);
   stream.readHandle->awaitNextRead(
       &eventBase_, [&](auto, auto, auto streamData) {
-        LOG(INFO) << "read 3";
+        PRX_LOG(INFO) << "read 3";
         EXPECT_EQ(streamData->data->computeChainDataLength(), 4465);
         EXPECT_TRUE(streamData->fin);
       });
-  VLOG(4) << "flushLoop 3";
+  PRX_VLOG(4) << "flushLoop 3";
   flushAndLoopN(1);
   closeWTSession();
 }
@@ -2573,7 +2574,7 @@ TEST_P(HQUpstreamSessionTestWebTransport, CloseSessionCapsuleWithStreams) {
   // Send data using a bidi stream, then try to close the WebTransport session.
   auto bidiStream = wt_->createBidiStream().value();
   auto bidiStreamId = bidiStream.readHandle->getID();
-  VLOG(4) << "Created bidi stream with ID: " << bidiStreamId;
+  PRX_VLOG(4) << "Created bidi stream with ID: " << bidiStreamId;
 
   auto wtImpl = dynamic_cast<WebTransportImpl*>(wt_);
   ASSERT_NE(wtImpl, nullptr);
@@ -2585,13 +2586,13 @@ TEST_P(HQUpstreamSessionTestWebTransport, CloseSessionCapsuleWithStreams) {
       bidiStream.writeHandle->writeStreamData(makeBuf(100), false, nullptr);
   EXPECT_TRUE(writeRes.hasValue());
   eventBase_.loopOnce();
-  VLOG(4) << "Successfully wrote 100 bytes to bidi stream";
+  PRX_VLOG(4) << "Successfully wrote 100 bytes to bidi stream";
 
   bool dataReceived = false;
   bidiStream.readHandle->awaitNextRead(
       &eventBase_, [&](auto, auto, auto streamData) {
-        VLOG(4) << "Received " << streamData->data->computeChainDataLength()
-                << " bytes on bidi stream";
+        PRX_VLOG(4) << "Received " << streamData->data->computeChainDataLength()
+                    << " bytes on bidi stream";
         EXPECT_EQ(streamData->data->computeChainDataLength(), 50);
         dataReceived = true;
       });
@@ -2962,11 +2963,11 @@ class H3WtUpstreamTest : public HQUpstreamSessionTest {
     wt.handlerCtx = wtHandler->ctx;
     auto wtReq =
         upstreamSession()->sendWebTransportRequest(req, std::move(wtHandler));
-    CHECK(!wtReq.isReady());
+    PRX_CHECK(!wtReq.isReady());
     loopN(2);
 
     // ::onWebTransportSession notified prior to 2xx
-    CHECK(wt.handlerCtx->wtSession);
+    PRX_CHECK(wt.handlerCtx->wtSession);
 
     // notify HqSession of datagrams, verify buffering simulating reordering
     socketDriver_->addDatagram(getH3Datagram(0, makeBuf(10), folly::none));
@@ -2979,7 +2980,7 @@ class H3WtUpstreamTest : public HQUpstreamSessionTest {
 
     // wait for session to parse/receive resp
     auto res = waitForFut(std::move(wtReq), eventBase_);
-    CHECK(res.hasValue());
+    PRX_CHECK(res.hasValue());
     EXPECT_EQ(res.value()->getStatusCode(), 200);
     wt.sess = std::move(wt.handlerCtx->wtSession);
     loopN(1);
@@ -3039,7 +3040,7 @@ TEST_P(H3WtUpstreamTest, SimpleUniEgress) {
   EXPECT_TRUE(wt.sess->awaitUniStreamCredit().isReady());
   // peer advertised uni credit => ::createUniStream now yields handle
   createStream = wt.sess->createUniStream();
-  CHECK(createStream.hasValue());
+  PRX_CHECK(createStream.hasValue());
   auto* wh = createStream.value();
   auto id = wh->getID();
   socketDriver_->setStreamFlowControlWindow(id, kLargeFc);
@@ -3143,7 +3144,7 @@ TEST_P(H3WtUpstreamTest, SimpleBidiEcho) {
 
   // peer advertised bidi credit => ::createBidiStream now yields handle
   createStream = wt.sess->createBidiStream();
-  CHECK(createStream.hasValue());
+  PRX_CHECK(createStream.hasValue());
   auto handle = createStream.value();
   auto id = handle.readHandle->getID();
 
@@ -3173,7 +3174,7 @@ TEST_P(H3WtUpstreamTest, SimpleBidiEcho) {
     socketDriver_->addReadEvent(id, buf->clone());
     // expect to client to rx same bytes
     auto read = waitForFut(wt.sess->readStreamData(id).value(), eventBase_);
-    CHECK(read.hasValue());
+    PRX_CHECK(read.hasValue());
     EXPECT_EQ(*read->data->data(), idx);
   }
 
@@ -3215,7 +3216,7 @@ TEST_P(H3WtUpstreamTest, ConnectStreamEom) {
 
   auto uni = wt.sess->createUniStream();
   auto bidi = wt.sess->createBidiStream();
-  CHECK(uni && bidi);
+  PRX_CHECK(uni && bidi);
   uint64_t uniId = uni.value()->getID(), bidiId = bidi->writeHandle->getID();
 
   // ingress eom on connect stream => close

@@ -7,6 +7,8 @@
  */
 
 #include "proxygen/lib/http/coro/client/test/HTTPClientTestsCommon.h"
+#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::coro::co_nothrow;
 
@@ -39,7 +41,7 @@ namespace proxygen::coro::test {
                              kTestDir + "certs/test_key1.pem",
                              "");
   } catch (const std::exception& ex) {
-    XLOG(ERR) << "Invalid certificate file or key file: %s" << ex.what();
+    PRX_LOG(ERROR) << "Invalid certificate file or key file: %s" << ex.what();
   }
   HTTPServer::Config serverConfig;
   serverConfig.socketConfig.bindAddress.setFromIpPort(ip, port);
@@ -112,7 +114,7 @@ folly::coro::Task<HTTPSourceHolder> TestHandler::handleRequest(
     co_yield folly::coro::co_error(HTTPError(HTTPErrorCode::CANCEL, "cancel"));
   }
   if (request->getPathAsStringPiece() == "/trailers") {
-    XCHECK(headerEvent.eom);
+    PRX_CHECK(headerEvent.eom);
     auto resp = HTTPFixedSource::makeFixedResponse(200, "Trailers");
     resp->trailers_ = std::make_unique<HTTPHeaders>();
     resp->trailers_->add("Test", "Success");

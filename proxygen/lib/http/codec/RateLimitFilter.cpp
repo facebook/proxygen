@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/HeadersRateLimitFilter.h>
 #include <proxygen/lib/http/codec/RateLimitFilter.h>
 #include <proxygen/lib/http/codec/ResetsRateLimitFilter.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -50,7 +51,7 @@ bool RateLimiter::incrementNumEventsInCurrentInterval() {
   if (numEventsInCurrentInterval_ == 0) {
     // The first control message (or first after a reset) schedules the next
     // reset timer
-    CHECK(timer_);
+    PRX_CHECK(timer_);
     timer_->scheduleTimeout(this, timeoutDuration_);
   }
 

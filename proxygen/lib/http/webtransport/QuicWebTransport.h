@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/webtransport/WebTransportImpl.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/api/QuicSocket.h>
 
 namespace proxygen {
@@ -42,14 +42,14 @@ class QuicWebTransport
   }
 
   [[nodiscard]] quic::TransportInfo getTransportInfo() const override {
-    XCHECK(quicSocket_);
+    PRX_CHECK(quicSocket_);
     return quicSocket_->getTransportInfo();
   }
 
   [[nodiscard]] quic::Expected<quic::QuicSocketLite::FlowControlState,
                                quic::LocalErrorCode>
   getConnectionFlowControl() const {
-    XCHECK(quicSocket_);
+    PRX_CHECK(quicSocket_);
     return quicSocket_->getConnectionFlowControl();
   }
 

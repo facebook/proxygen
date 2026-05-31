@@ -32,6 +32,7 @@
 #include <proxygen/lib/http/sink/FlowControlInfo.h>
 #include <proxygen/lib/http/webtransport/WebTransport.h>
 #include <proxygen/lib/http/webtransport/WebTransportImpl.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/TraceEvent.h>
 #include <proxygen/lib/utils/TraceEventObserver.h>
@@ -240,7 +241,7 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * example is mis-use of the egress APIs (sendBody() before sendHeaders()).
    */
   virtual void onInvariantViolation(const HTTPException& error) noexcept {
-    LOG(FATAL) << error.what();
+    PRX_LOG(FATAL) << error.what();
   }
   /**
    * If the remote side's receive buffer fills up, this callback will be
@@ -335,40 +336,40 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
   ~HTTPPushTransactionHandler() override = default;
 
   void onHeadersComplete(std::unique_ptr<HTTPMessage>) noexcept final {
-    LOG(FATAL) << "push txn received headers";
+    PRX_LOG(FATAL) << "push txn received headers";
   }
 
   void onBody(std::unique_ptr<folly::IOBuf>) noexcept final {
-    LOG(FATAL) << "push txn received body";
+    PRX_LOG(FATAL) << "push txn received body";
   }
 
   void onBodyWithOffset(uint64_t,
                         std::unique_ptr<folly::IOBuf>) noexcept final {
-    LOG(FATAL) << "push txn received body with offset";
+    PRX_LOG(FATAL) << "push txn received body with offset";
   }
 
   void onChunkHeader(size_t /* length */) noexcept final {
-    LOG(FATAL) << "push txn received chunk header";
+    PRX_LOG(FATAL) << "push txn received chunk header";
   }
 
   void onChunkComplete() noexcept final {
-    LOG(FATAL) << "push txn received chunk complete";
+    PRX_LOG(FATAL) << "push txn received chunk complete";
   }
 
   void onTrailers(std::unique_ptr<HTTPHeaders>) noexcept final {
-    LOG(FATAL) << "push txn received trailers";
+    PRX_LOG(FATAL) << "push txn received trailers";
   }
 
   void onEOM() noexcept final {
-    LOG(FATAL) << "push txn received EOM";
+    PRX_LOG(FATAL) << "push txn received EOM";
   }
 
   void onUpgrade(UpgradeProtocol) noexcept final {
-    LOG(FATAL) << "push txn received upgrade";
+    PRX_LOG(FATAL) << "push txn received upgrade";
   }
 
   void onPushedTransaction(HTTPTransaction*) noexcept final {
-    LOG(FATAL) << "push txn received push txn";
+    PRX_LOG(FATAL) << "push txn received push txn";
   }
 };
 
@@ -574,7 +575,7 @@ class HTTPTransaction
 
     folly::Expected<folly::Unit, WebTransport::ErrorCode> sendDatagram(
         std::unique_ptr<folly::IOBuf> /*datagram*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
@@ -583,7 +584,7 @@ class HTTPTransaction
     }
 
     bool isPeerInitiatedStream(HTTPCodec::StreamID /*id*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
@@ -593,33 +594,33 @@ class HTTPTransaction
 
     folly::Expected<HTTPCodec::StreamID, WebTransport::ErrorCode>
     newWebTransportBidiStream() override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::Expected<HTTPCodec::StreamID, WebTransport::ErrorCode>
     newWebTransportUniStream() override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::SemiFuture<folly::Unit> awaitUniStreamCredit() override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::SemiFuture<folly::Unit> awaitBidiStreamCredit() override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     bool canCreateUniStream() override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     bool canCreateBidiStream() override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
@@ -629,28 +630,28 @@ class HTTPTransaction
         std::unique_ptr<folly::IOBuf> /*data*/,
         bool /*eof*/,
         WebTransport::ByteEventCallback* /* deliveryCallback */) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::Expected<folly::Unit, WebTransport::ErrorCode>
     notifyPendingWriteOnStream(HTTPCodec::StreamID,
                                quic::StreamWriteCallback*) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::Expected<folly::Unit, WebTransport::ErrorCode>
     resetWebTransportEgress(HTTPCodec::StreamID /*id*/,
                             uint32_t /*errorCode*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::Expected<std::pair<std::unique_ptr<folly::IOBuf>, bool>,
                     WebTransport::ErrorCode>
     readWebTransportData(HTTPCodec::StreamID /*id*/, size_t /*max*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
@@ -658,7 +659,7 @@ class HTTPTransaction
     initiateReadOnBidiStream(
         HTTPCodec::StreamID /*id*/,
         quic::StreamReadCallback* /*readCallback*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
@@ -666,26 +667,26 @@ class HTTPTransaction
     setWebTransportStreamPriority(
         HTTPCodec::StreamID /*id*/,
         quic::PriorityQueue::Priority /*pri*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::Expected<folly::Unit, WebTransport::ErrorCode>
     setWebTransportPriorityQueue(
         std::unique_ptr<quic::PriorityQueue> /*queue*/) noexcept override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::Expected<folly::Unit, WebTransport::ErrorCode>
     pauseWebTransportIngress(HTTPCodec::StreamID /*id*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
     folly::Expected<folly::Unit, WebTransport::ErrorCode>
     resumeWebTransportIngress(HTTPCodec::StreamID /*id*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
@@ -693,7 +694,7 @@ class HTTPTransaction
     stopReadingWebTransportIngress(
         HTTPCodec::StreamID /*id*/,
         folly::Optional<uint32_t> /*errorCode*/) override {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
@@ -702,7 +703,7 @@ class HTTPTransaction
      */
     virtual void trackEgressBodyOffset(uint64_t /* bodyOffset */,
                                        ByteEvent::EventFlags /*flags*/) {
-      LOG(FATAL) << __func__ << " not supported";
+      PRX_LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
 
@@ -1503,14 +1504,14 @@ class HTTPTransaction
    * to decrementPendingByteEvents or the transaction will never be destroyed.
    */
   void incrementPendingByteEvents() {
-    CHECK_LT(pendingByteEvents_,
-             std::numeric_limits<decltype(pendingByteEvents_)>::max());
+    PRX_CHECK_LT(pendingByteEvents_,
+                 std::numeric_limits<decltype(pendingByteEvents_)>::max());
     pendingByteEvents_++;
   }
 
   void decrementPendingByteEvents() {
     DestructorGuard dg(this);
-    CHECK_GT(pendingByteEvents_, 0);
+    PRX_CHECK_GT(pendingByteEvents_, 0);
     pendingByteEvents_--;
   }
 
@@ -1612,7 +1613,7 @@ class HTTPTransaction
       return nullptr;
     }
     if (!webTransportImpl_) {
-      CHECK(wtTransportProvider_);
+      PRX_CHECK(wtTransportProvider_);
       webTransportImpl_ =
           std::make_unique<WebTransportImpl>(*wtTransportProvider_, *this);
     }
@@ -1685,7 +1686,7 @@ class HTTPTransaction
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
 
   void dequeue() {
-    CHECK(isEnqueued());
+    PRX_CHECK(isEnqueued());
     egressQueue_.clearPendingEgress(queueHandle_);
   }
 

@@ -10,6 +10,7 @@
 
 #include "proxygen/lib/http/coro/HTTPSourceFilter.h"
 #include <proxygen/lib/utils/CompressionFilterUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 using FilterParams = proxygen::CompressionFilterUtils::FilterParams;
@@ -21,7 +22,7 @@ class CompressionFilter : public HTTPSourceFilter {
   CompressionFilter(HTTPSource* source,
                     std::shared_ptr<folly::Optional<FilterParams>> params)
       : HTTPSourceFilter(source), params_(std::move(params)) {
-    CHECK(params_);
+    PRX_CHECK(params_);
   }
 
   folly::coro::Task<HTTPHeaderEvent> readHeaderEvent() override;

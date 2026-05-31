@@ -10,6 +10,7 @@
 #include <folly/Range.h>
 #include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace std;
 using namespace folly;
@@ -24,11 +25,11 @@ void encodeDecode(vector<HPACKHeader>& headers,
                   HPACKEncoder& encoder,
                   HPACKDecoder& decoder) {
   unique_ptr<IOBuf> encoded = encode(headers, encoder);
-  CHECK(encoded);
+  PRX_CHECK(encoded);
   TestStreamingCallback cb;
   folly::io::Cursor c(encoded.get());
   decoder.decodeStreaming(c, c.totalLength(), &cb);
-  CHECK(!cb.hasError());
+  PRX_CHECK(!cb.hasError());
 }
 
 vector<HPACKHeader> getHeaders() {

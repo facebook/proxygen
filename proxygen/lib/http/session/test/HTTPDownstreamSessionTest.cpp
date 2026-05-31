@@ -34,6 +34,7 @@
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/http/webtransport/test/Mocks.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
 using namespace proxygen;
@@ -2813,7 +2814,7 @@ TEST_F(HTTP2DownstreamSessionTest, NewTxnEgressPaused) {
       handler1->sendBody(750); // over the limit
       req2p.setValue();
     });
-    handler1->expectEgressPaused([] { LOG(INFO) << "paused 1"; });
+    handler1->expectEgressPaused([] { PRX_LOG(INFO) << "paused 1"; });
 
     handler2 = addSimpleStrictHandler();
     handler2->expectHeaders();
@@ -4152,7 +4153,7 @@ TEST_F(HTTPDownstreamSessionTest, InvariantViolation) {
 
   EXPECT_CALL(*handler, _onInvariantViolation(_)).WillOnce([&]() {
     // invariantViolation callback can send headers if allowed
-    CHECK(txn->canSendHeaders());
+    PRX_CHECK(txn->canSendHeaders());
     txn->sendHeaders(getResponse(500, 0));
   });
 
@@ -4214,7 +4215,7 @@ TEST_F(HTTP2DownstreamSessionTest, InvariantViolation) {
 
   EXPECT_CALL(*handler, _onInvariantViolation(_)).WillOnce([&]() {
     // invariantViolation callback can send headers if allowed
-    CHECK(txn->canSendHeaders());
+    PRX_CHECK(txn->canSendHeaders());
     txn->sendHeaders(getResponse(500, 0));
     txn->sendEOM();
   });

@@ -12,8 +12,8 @@
 #include "proxygen/lib/http/coro/HTTPSourceHolder.h"
 #include "proxygen/lib/http/coro/util/CancellableBaton.h"
 #include <folly/coro/Task.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -69,7 +69,7 @@ class HTTPBodyEventQueue {
   }
 
   virtual void contentLengthMismatch() {
-    XLOG(ERR) << folly::to<std::string>(
+    PRX_LOG(ERROR) << folly::to<std::string>(
         "Content-Length/body mismatch on egress: expected= ",
         expectedContentLength_,
         ", actual= ",

@@ -9,6 +9,7 @@
 #pragma once
 
 #include "proxygen/lib/http/coro/HTTPSourceFilter.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -21,7 +22,7 @@ namespace proxygen::coro {
 class ExecutorSourceFilter : public HTTPSourceFilter {
  public:
   static std::unique_ptr<HTTPSourceFilter> make(folly::EventBase* evb) {
-    auto* executorSource = new ExecutorSourceFilter(*CHECK_NOTNULL(evb));
+    auto* executorSource = new ExecutorSourceFilter(*PRX_CHECK_NOTNULL(evb));
     executorSource->setHeapAllocated();
     return std::unique_ptr<HTTPSourceFilter>(executorSource);
   }

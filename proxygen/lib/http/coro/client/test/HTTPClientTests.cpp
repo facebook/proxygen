@@ -14,7 +14,7 @@
 #include "proxygen/lib/http/coro/client/test/HTTPClientTestsCommon.h"
 #include "proxygen/lib/http/coro/test/HTTPTestSources.h"
 #include "proxygen/lib/http/coro/util/test/TestHelpers.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/client/QuicClientTransport.h>
 
 #include <folly/SocketAddress.h>
@@ -45,7 +45,7 @@ HTTPClient::SecureTransportImpl transportImpl(TransportType transportType) {
     case TransportType::TLS_FIZZ:
       return HTTPClient::SecureTransportImpl::FIZZ;
     default:
-      XLOG(FATAL) << "Don't call this for QUIC";
+      PRX_LOG(FATAL) << "Don't call this for QUIC";
   }
 }
 
@@ -251,7 +251,7 @@ CO_TEST_P_X(HTTPClientTests, MigrateSessionEvb) {
   std::array<folly::ScopedEventBaseThread, 10> scopedEvbs{};
 
   // validate we've connected successfully
-  CHECK(!maybeSess.hasException());
+  PRX_CHECK(!maybeSess.hasException());
   auto* sess = maybeSess.value();
 
   // we require a few evb loops until we reach the detachable suspension points
@@ -273,7 +273,7 @@ CO_TEST_P_X(HTTPClientTests, MigrateSessionEvb) {
 
           auto res = co_await co_awaitTry(
               sess->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-          CHECK(!res.hasException());
+          PRX_CHECK(!res.hasException());
 
           HTTPSourceReader reader(std::move(res).value());
           reader.onHeaders(
@@ -286,7 +286,7 @@ CO_TEST_P_X(HTTPClientTests, MigrateSessionEvb) {
           auto readRes = co_await folly::coro::co_awaitTry(reader.read());
           EXPECT_FALSE(readRes.hasException());
 
-          XCHECK(sess->isDetachable());
+          PRX_CHECK(sess->isDetachable());
           sess->detachEvb();
         }));
   }
@@ -343,7 +343,7 @@ CO_TEST_P_X(HTTPClientTests, ConnectorConnectError) {
                                 folly::SocketAddress("169.254.1.1", 443),
                                 milliseconds(1),
                                 getConnParams(GetParam())));
-  CHECK(sess.hasException());
+  PRX_CHECK(sess.hasException());
   if (useQuic()) {
     auto ex = sess.tryGetExceptionObject<quic::QuicInternalException>();
     EXPECT_TRUE(ex->errorCode() == quic::LocalErrorCode::CONNECT_FAILED ||
@@ -404,7 +404,7 @@ CO_TEST_P_X(HTTPClientTests, ConnectorConnectTimeout) {
           .start()
           .getTry();
 
-  CHECK(sess.hasException());
+  PRX_CHECK(sess.hasException());
   expectException(GetParam(), sess, ExceptionType::TIMED_OUT);
 
   co_return;
@@ -1182,9 +1182,9 @@ CO_TEST_P_X(HTTPCoroSessionPoolTests, PoolLateBindConnectOnClose) {
   EXPECT_FALSE(respSource.hasException());
   res->session->initiateDrain();
   auto fut = co_withExecutor(&evb_, pool_->getSessionWithReservation()).start();
-  XLOG(DBG4) << "waiting for headers";
+  PRX_VLOG(4) << "waiting for headers";
   auto resp = co_await co_awaitTry(respSource->readHeaderEvent());
-  XLOG(DBG4) << "got headers";
+  PRX_VLOG(4) << "got headers";
   EXPECT_FALSE(resp.hasException());
   EXPECT_EQ(resp->headers->getStatusCode(), 200);
   EXPECT_TRUE(resp->eom);
@@ -1280,7 +1280,7 @@ CO_TEST_P_X(HTTPCoroSessionPoolTests, TwoWaitersOneConns) {
                                      std::move(res2->reservation)))
                      .start();
   auto res3 = co_await folly::coro::co_awaitTry(std::move(res3Fut));
-  XCHECK(res3.hasValue());
+  PRX_CHECK(res3.hasValue());
   EXPECT_EQ(res1->session, res3->session);
 
   // maxWaiters=2 => res4Fut is cancelled
@@ -1571,7 +1571,7 @@ CO_TEST_P_X(HTTPCoroSessionPoolTests, IdleSessionsTest) {
     co_await folly::coro::co_reschedule_on_current_executor;
     // there should be two idle sessions; expect detach to return session
     auto idleSession = pool_->detachIdleSession();
-    XCHECK(idleSession);
+    PRX_CHECK(idleSession);
     EXPECT_EQ(idleSession->getEventBase(), nullptr);
 
     // reservation will synchronously return reservation since we still have one
@@ -1584,7 +1584,7 @@ CO_TEST_P_X(HTTPCoroSessionPoolTests, IdleSessionsTest) {
     // no available sessions => will open new connection
     EXPECT_FALSE(pool_->hasAvailableSessions());
     auto res2 = co_await co_awaitTry(pool_->getSessionWithReservation());
-    XCHECK(!res2.hasException());
+    PRX_CHECK(!res2.hasException());
 
     // acquiring another res will indefinitely suspend since pool is full
     EXPECT_TRUE(pool_->full());
@@ -1957,7 +1957,7 @@ CO_TEST_P_X(HTTPClientConnectionCacheTests, GetSessionDuringDrain) {
   auto res = co_await co_awaitTry(connCache_.getSessionWithReservation(
       getURL(""), std::chrono::seconds(1)));
   auto ex = res.tryGetExceptionObject<HTTPCoroSessionPool::Exception>();
-  CHECK(ex);
+  PRX_CHECK(ex);
   EXPECT_EQ(ex->type, HTTPCoroSessionPool::Exception::Type::Draining);
   EXPECT_EQ(std::string(ex->what()), "Pool is draining");
 }
@@ -1973,7 +1973,7 @@ CO_TEST_P_X(HTTPClientConnectionCacheTests, GetSessionReqCancel) {
                                            std::chrono::seconds(1))));
 
   auto ex = res.tryGetExceptionObject<HTTPError>();
-  CHECK(ex);
+  PRX_CHECK(ex);
   EXPECT_EQ(ex->code, HTTPErrorCode::CORO_CANCELLED);
   EXPECT_EQ(ex->msg, "Cancelled");
 }
@@ -2006,9 +2006,9 @@ CO_TEST_P_X(HTTPClientConnectionCacheTests, PendingGetSessionDrain) {
   auto ex = co_await co_awaitTry(
       connCache.getSessionWithReservation(getURL(""), kTimeout));
 
-  CHECK(ex.hasException());
+  PRX_CHECK(ex.hasException());
   auto poolEx = ex.tryGetExceptionObject<HTTPCoroSessionPool::Exception>();
-  CHECK(poolEx);
+  PRX_CHECK(poolEx);
   EXPECT_EQ(poolEx->type, HTTPCoroSessionPool::Exception::Type::Draining);
   EXPECT_EQ(std::string(poolEx->what()), "Pool is draining");
 }
@@ -2045,9 +2045,9 @@ CO_TEST_P_X(HTTPClientConnectionCacheTests, PendingGetSessionReqCancel) {
   auto ex = co_await co_awaitTry(co_withCancellation(
       cancelSource.getToken(),
       connCache.getSessionWithReservation(getURL(""), kTimeout)));
-  CHECK(ex.hasException());
+  PRX_CHECK(ex.hasException());
   auto poolEx = ex.tryGetExceptionObject<HTTPCoroSessionPool::Exception>();
-  CHECK(poolEx);
+  PRX_CHECK(poolEx);
   EXPECT_EQ(poolEx->type, HTTPCoroSessionPool::Exception::Type::Cancelled);
   EXPECT_EQ(std::string(poolEx->what()), "Cancelled");
 }

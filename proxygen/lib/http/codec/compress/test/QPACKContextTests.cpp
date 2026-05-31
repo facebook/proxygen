@@ -9,14 +9,13 @@
 #include <folly/Conv.h>
 #include <folly/Format.h>
 #include <folly/portability/GTest.h>
-#include <glog/logging.h>
-#include <limits>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -75,7 +74,7 @@ HPACK::DecodeError cancelStream(QPACKDecoder& decoder,
 }
 
 std::string toFixedLengthString(uint32_t i) {
-  CHECK_LT(i, 1000);
+  PRX_CHECK_LT(i, 1000);
   return fmt::format("{:3}", i);
 }
 } // namespace
@@ -753,8 +752,8 @@ TEST(QPACKContextTests, WrapRICBehind) {
     if (decoderIC > 0) {
       // add one more header to decoder
       vector<HPACKHeader> req;
-      VLOG(5) << "priming decoder with h=" << decoderIC
-              << " decoderIC=" << decoderIC;
+      PRX_VLOG(5) << "priming decoder with h=" << decoderIC
+                  << " decoderIC=" << decoderIC;
       req.emplace_back(toFixedLengthString(decoderIC), "");
       auto result = encoder.encode(req, 10, 1);
       EXPECT_NE(result.control, nullptr)
@@ -767,8 +766,8 @@ TEST(QPACKContextTests, WrapRICBehind) {
              std::max<int64_t>(0, int64_t(decoderIC) - realMaxEntries + 1);
          requiredIC <= decoderIC;
          requiredIC++) {
-      VLOG(5) << "WrapRIC test decoderIC=" << decoderIC
-              << " requiredIC=" << requiredIC;
+      PRX_VLOG(5) << "WrapRIC test decoderIC=" << decoderIC
+                  << " requiredIC=" << requiredIC;
 
       // Now send encode a request for the given RIC.
       vector<HPACKHeader> req;
@@ -778,8 +777,8 @@ TEST(QPACKContextTests, WrapRICBehind) {
         req.emplace_back(":scheme", "https");
       }
       auto result = encoder.encode(req, 10, 2);
-      EXPECT_EQ(result.control, nullptr);                   // no inserts
-      CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
+      EXPECT_EQ(result.control, nullptr);                       // no inserts
+      PRX_CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
       // the decoder should be able to immediately decode it
       EXPECT_TRUE(*verifyDecode(decoder, std::move(result), req));
       encoder.decodeDecoderStream(decoder.encodeHeaderAck(2));
@@ -799,7 +798,7 @@ TEST(QPACKContextTests, WrapRICAhead) {
   // bytes.  Each loop of decoderIC is expensive, so start it at maxEntries,
   // and only run it until it actually would have made a difference in
   // the encoded size of required IC.
-  CHECK_LE(realMaxEntries, 256);
+  PRX_CHECK_LE(realMaxEntries, 256);
   for (uint32_t decoderIC = maxEntries; decoderIC < (256 - realMaxEntries);
        decoderIC++) {
     QPACKEncoder encoder(true, tableSize);
@@ -810,7 +809,8 @@ TEST(QPACKContextTests, WrapRICAhead) {
     for (uint32_t i = 1; i <= decoderIC; i++) {
       vector<HPACKHeader> req;
       // populate the encoder and decode table to decoderIC.
-      VLOG(5) << "priming decoder with h=" << i << " decoderIC=" << decoderIC;
+      PRX_VLOG(5) << "priming decoder with h=" << i
+                  << " decoderIC=" << decoderIC;
       req.emplace_back(toFixedLengthString(i), "");
       auto result = encoder.encode(req, 10, 1);
       EXPECT_NE(result.control, nullptr)
@@ -828,8 +828,8 @@ TEST(QPACKContextTests, WrapRICAhead) {
     for (auto requiredIC = decoderIC + 1;
          requiredIC <= decoderIC + realMaxEntries;
          requiredIC++) {
-      VLOG(5) << "WrapRIC test decoderIC=" << decoderIC
-              << " requiredIC=" << requiredIC;
+      PRX_VLOG(5) << "WrapRIC test decoderIC=" << decoderIC
+                  << " requiredIC=" << requiredIC;
       reqs.emplace_back();
       auto& req = reqs.back();
       req.emplace_back(toFixedLengthString(requiredIC), "");
@@ -837,7 +837,7 @@ TEST(QPACKContextTests, WrapRICAhead) {
       EXPECT_NE(result.control, nullptr)
           << "Every encode should produce an insert";
       controlQueue.append(std::move(result.control));
-      CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
+      PRX_CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
       // the decoder has to block because the control stream is pending.
       // This verifies the whole batch of encodes against the same decoderIC
       allDone.emplace_back(verifyDecode(decoder, std::move(result), req));
@@ -886,50 +886,50 @@ TEST(QPACKContextTests, DecodeErrors) {
   QPACKDecoder decoder(128);
   unique_ptr<IOBuf> buf = IOBuf::create(128);
 
-  VLOG(10) << "Required IC underflow";
+  PRX_VLOG(10) << "Required IC underflow";
   buf->writableData()[0] = 0xFF;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
-  VLOG(10) << "Required IC > 2*ME";
+  PRX_VLOG(10) << "Required IC > 2*ME";
   buf->writableData()[0] = 0x09;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "Required IC invalid encoding";
+  PRX_VLOG(10) << "Required IC invalid encoding";
   buf->writableData()[0] = 0x06;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "Base delta missing";
+  PRX_VLOG(10) << "Base delta missing";
   buf->writableData()[0] = 0x01;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
-  VLOG(10) << "Base delta invalid";
+  PRX_VLOG(10) << "Base delta invalid";
   buf->writableData()[1] = 0xFF;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
-  VLOG(10) << "Base delta too negative";
+  PRX_VLOG(10) << "Base delta too negative";
   buf->writableData()[0] = 0x02;
   buf->writableData()[1] = 0x83;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "Base delta = LR";
+  PRX_VLOG(10) << "Base delta = LR";
   buf->writableData()[1] = 0x81;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "LR + deltaBase >= 2^32";
+  PRX_VLOG(10) << "LR + deltaBase >= 2^32";
   HPACKEncodeBuffer encBuf(128, true);
   encBuf.encodeInteger(2);
   encBuf.encodeInteger((uint64_t(1) << 32) - 1, HPACK::Q_DELTA_BASE);
   checkQError(decoder, encBuf.release(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "Exceeds blocking max";
+  PRX_VLOG(10) << "Exceeds blocking max";
   decoder.setMaxBlocking(0);
   buf->writableData()[0] = 0x02;
   buf->writableData()[1] = 0x00;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::TOO_MANY_BLOCKING);
 
-  VLOG(10) << "Non-zero insert count when decoder disabled dynamic table";
+  PRX_VLOG(10) << "Non-zero insert count when decoder disabled dynamic table";
   QPACKDecoder zeroDecoder(0);
   checkQError(zeroDecoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
@@ -937,50 +937,50 @@ TEST(QPACKContextTests, DecodeErrors) {
   buf->writableData()[0] = 0x00;
   buf->writableData()[1] = 0x00;
 
-  VLOG(10) << "Literal bad name index";
+  PRX_VLOG(10) << "Literal bad name index";
   buf->writableData()[2] = 0x4F;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
-  VLOG(10) << "Invalid literal name index";
+  PRX_VLOG(10) << "Invalid literal name index";
   buf->writableData()[2] = 0x41;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "Literal name index == 2^32 - 1";
+  PRX_VLOG(10) << "Literal name index == 2^32 - 1";
   encBuf.encodeInteger(0);
   encBuf.encodeInteger(0);
   encBuf.encodeInteger(std::numeric_limits<uint32_t>::max(),
                        HPACK::Q_LITERAL_NAME_REF);
   checkQError(decoder, encBuf.release(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "Post-base index > 2^32 - 1";
+  PRX_VLOG(10) << "Post-base index > 2^32 - 1";
   encBuf.encodeInteger(std::numeric_limits<uint32_t>::max() - 5);
   encBuf.encodeInteger(0);
   encBuf.encodeInteger(5, HPACK::Q_INDEXED);
   checkQError(decoder, encBuf.release(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "Literal bad name length";
+  PRX_VLOG(10) << "Literal bad name length";
   buf->writableData()[2] = 0x27;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
-  VLOG(10) << "Literal invalid value length";
+  PRX_VLOG(10) << "Literal invalid value length";
   buf->writableData()[2] = 0x51;
   buf->writableData()[3] = 0xFF;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   buf->trimEnd(1);
-  VLOG(10) << "Bad Index";
+  PRX_VLOG(10) << "Bad Index";
   buf->writableData()[2] = 0xBF;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
-  VLOG(10) << "Index static index";
+  PRX_VLOG(10) << "Index static index";
   buf->writableData()[2] = 0xFF;
   buf->writableData()[3] = 0x7E;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
-  VLOG(10) << "No error after previous error";
+  PRX_VLOG(10) << "No error after previous error";
   buf->writableData()[0] = 0xC1;
   buf->writableData()[1] = 0x01;
   buf->writableData()[2] = 0x41;
@@ -988,7 +988,7 @@ TEST(QPACKContextTests, DecodeErrors) {
   EXPECT_EQ(decoder.decodeEncoderStream(buf->clone()),
             HPACK::DecodeError::NONE);
 
-  VLOG(10) << "Control decode error";
+  PRX_VLOG(10) << "Control decode error";
   QPACKDecoder decoder2(64);
   buf->writableData()[0] = 0x01; // duplicate dynamic index 1
   buf->trimEnd(2);
@@ -1009,11 +1009,11 @@ TEST(QPACKContextTests, DecodeErrors) {
   buf->writableData()[10] = 0x7F;
   buf->append(10);
 
-  VLOG(10) << "Bad header ack";
+  PRX_VLOG(10) << "Bad header ack";
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
 
-  VLOG(10) << "Bad cancel";
+  PRX_VLOG(10) << "Bad cancel";
   buf->writableData()[0] = 0x7F;
   buf->writableData()[10] = 0xFF;
   buf->writableData()[11] = 0x01;
@@ -1021,12 +1021,12 @@ TEST(QPACKContextTests, DecodeErrors) {
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
 
-  VLOG(10) << "Bad table state sync";
+  PRX_VLOG(10) << "Bad table state sync";
   buf->writableData()[0] = 0x3F;
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
 
-  VLOG(10) << "Insert too large";
+  PRX_VLOG(10) << "Insert too large";
   vector<HPACKHeader> req;
   req.emplace_back("X-Header-Too-Big", "aaaaaaaaaaaaaaaaa");
   auto result = encoder.encode(req, 10, 1);

@@ -9,7 +9,7 @@
 #pragma once
 
 #include <folly/io/async/AsyncTransport.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include "proxygen/lib/http/coro/transport/HTTPConnectStream.h"
 
@@ -108,10 +108,10 @@ class HTTPConnectAsyncTransport
     return ingressError_ || connectStream_->egressError_;
   }
   void attachEventBase(folly::EventBase* /*eventBase*/) override {
-    XLOG(FATAL) << "Cannot change eventBase";
+    PRX_LOG(FATAL) << "Cannot change eventBase";
   }
   void detachEventBase() override {
-    XLOG(FATAL) << "Cannot change eventBase";
+    PRX_LOG(FATAL) << "Cannot change eventBase";
   }
   [[nodiscard]] bool isDetachable() const override {
     return false;
@@ -138,7 +138,7 @@ class HTTPConnectAsyncTransport
 
   void setEorTracking(bool track) override {
     if (track) {
-      XLOG(WARNING)
+      PRX_LOG(WARNING)
           << "Cannot enable EOR tracking with HTTPConnectAsyncTransport";
     }
   }

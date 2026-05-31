@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/HTTPSourceReader.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -134,7 +135,7 @@ HTTPSourceReader& HTTPSourceReader::onErrorAsync(AsyncErrorFn errorFn) {
 
 folly::coro::Task<void> HTTPSourceReader::read(uint32_t maxBodySize) {
   auto head = filterChain_.release();
-  XCHECK(head);
+  PRX_CHECK(head);
   bool readCompleted = false;
   SCOPE_EXIT {
     if (!readCompleted) {
@@ -211,7 +212,7 @@ folly::coro::Task<void> HTTPSourceReader::read(uint32_t maxBodySize) {
     readCompleted = bodyEvent->eom;
     switch (bodyEvent->eventType) {
       case HTTPBodyEvent::BODY:
-        XCHECK(!bodyEvent->event.body.empty() || bodyEvent->eom);
+        PRX_CHECK(!bodyEvent->event.body.empty() || bodyEvent->eom);
         if (bodyFn_) {
           stop |= bodyFn_(std::move(bodyEvent->event.body), bodyEvent->eom);
         } else if (asyncBodyFn_) {
@@ -220,8 +221,8 @@ folly::coro::Task<void> HTTPSourceReader::read(uint32_t maxBodySize) {
         }
         break;
       case HTTPBodyEvent::DATAGRAM:
-        CHECK(bodyEvent->event.datagram);
-        CHECK(!bodyEvent->eom);
+        PRX_CHECK(bodyEvent->event.datagram);
+        PRX_CHECK(!bodyEvent->eom);
         if (datagramFn_) {
           stop |= datagramFn_(std::move(bodyEvent->event.datagram));
         } else if (asyncDatagramFn_) {
@@ -242,7 +243,7 @@ folly::coro::Task<void> HTTPSourceReader::read(uint32_t maxBodySize) {
         }
         break;
       case HTTPBodyEvent::TRAILERS:
-        XCHECK(bodyEvent->eom) << "Trailers implies EOM";
+        PRX_CHECK(bodyEvent->eom) << "Trailers implies EOM";
         if (trailerFn_) {
           trailerFn_(std::move(bodyEvent->event.trailers));
         } else if (asyncTrailerFn_) {

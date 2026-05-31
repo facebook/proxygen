@@ -12,6 +12,7 @@
 #include <folly/io/async/EventBase.h>
 #include <proxygen/httpclient/samples/websocket/WebSocketClient.h>
 #include <proxygen/lib/http/HTTPConnector.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/URL.h>
 
 using namespace folly;
@@ -34,7 +35,7 @@ int main(int argc, char* argv[]) {
   WebSocketClient client(&evb, url);
 
   auto addr = SocketAddress(url.getHost(), url.getPort(), true);
-  LOG(INFO) << "Trying to connect to " << addr;
+  PRX_LOG(INFO) << "Trying to connect to " << addr;
 
   // Note: HHWheelTimer is a large object and should be created at most
   // once per thread

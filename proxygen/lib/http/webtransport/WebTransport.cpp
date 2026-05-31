@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/http/webtransport/WebTransport.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 
@@ -39,7 +40,7 @@ WebTransport::toApplicationErrorCode(uint64_t h) {
   }
   uint64_t shifted = h - kFirstErrorCode;
   uint64_t appErrorCode = shifted - (shifted / 0x1f);
-  DCHECK_LE(appErrorCode, std::numeric_limits<uint32_t>::max());
+  PRX_DCHECK_LE(appErrorCode, std::numeric_limits<uint32_t>::max());
   return static_cast<uint32_t>(appErrorCode);
 }
 

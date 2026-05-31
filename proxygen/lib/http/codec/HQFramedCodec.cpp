@@ -15,6 +15,7 @@
 #include <folly/tracing/ScopedTraceSection.h>
 
 #include <iomanip>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::hq {
 
@@ -52,7 +53,7 @@ ParseResult HQFramedCodec::parseFrame(Cursor& cursor) {
       break;
   }
 
-  VLOG(3) << "Skipping frame (type=" << (uint64_t)curHeader_.type << ")";
+  PRX_VLOG(3) << "Skipping frame (type=" << (uint64_t)curHeader_.type << ")";
   cursor.skip(curHeader_.length);
   return folly::none;
 }
@@ -78,9 +79,10 @@ size_t HQFramedCodec::onFramedIngress(const IOBuf& buf) {
       parsed += type->second;
       auto res = checkFrameAllowed(curHeader_.type);
       if (res) {
-        VLOG(4) << "Frame not allowed: 0x" << std::setfill('0')
-                << std::setw(sizeof(uint64_t) * 2) << std::hex
-                << (uint64_t)curHeader_.type << " on streamID=" << streamId_;
+        PRX_VLOG(4) << "Frame not allowed: 0x" << std::setfill('0')
+                    << std::setw(sizeof(uint64_t) * 2) << std::hex
+                    << (uint64_t)curHeader_.type
+                    << " on streamID=" << streamId_;
         connError_ = res;
         break;
       }
@@ -140,7 +142,7 @@ size_t HQFramedCodec::onFramedIngress(const IOBuf& buf) {
         frameState_ = FrameState::FRAME_HEADER_TYPE;
       }
     }
-    CHECK_GE(bufLen, parsed);
+    PRX_CHECK_GE(bufLen, parsed);
     bufLen -= parsed;
     parsedTot += parsed;
     totalBytesParsed_ += parsed;
@@ -156,7 +158,8 @@ bool HQFramedCodec::onFramedIngressEOF() {
     deferredEOF_ = true;
     return false;
   } else if (frameState_ != FrameState::FRAME_HEADER_TYPE) {
-    VLOG(3) << "Stream ended in the middle of a frame type=" << curHeader_.type;
+    PRX_VLOG(3) << "Stream ended in the middle of a frame type="
+                << curHeader_.type;
     connError_ = HTTP3::ErrorCode::HTTP_FRAME_ERROR;
     checkConnectionError(connError_, nullptr);
     return false;
@@ -168,9 +171,9 @@ bool HQFramedCodec::onFramedIngressEOF() {
 bool HQFramedCodec::checkConnectionError(ParseResult err,
                                          const folly::IOBuf* buf) {
   if (err != folly::none) {
-    LOG(ERROR) << "Connection error with ingress=";
+    PRX_LOG(ERROR) << "Connection error with ingress=";
     if (buf) {
-      VLOG(3) << IOBufPrinter::printHexFolly(buf, true);
+      PRX_VLOG(3) << IOBufPrinter::printHexFolly(buf, true);
     }
     setParserPaused(true);
     if (callback_) {

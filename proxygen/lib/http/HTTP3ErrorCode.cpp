@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <glog/logging.h>
 #include <proxygen/lib/http/HTTP3ErrorCode.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -56,7 +56,7 @@ std::string toString(HTTP3::ErrorCode code) {
     case HTTP3::ErrorCode::GIVEUP_ZERO_RTT:
       return "Give up Zero RTT";
   }
-  LOG(WARNING)
+  PRX_LOG(WARNING)
       << "toString has unhandled ErrorCode: "
       << static_cast<std::underlying_type<HTTP3::ErrorCode>::type>(code);
   return "Unknown error";

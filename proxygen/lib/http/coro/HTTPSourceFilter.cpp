@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/HTTPSourceFilter.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -18,7 +19,7 @@ HTTPSourceFilter::~HTTPSourceFilter() {
 
 folly::coro::Task<HTTPHeaderEvent> HTTPSourceFilter::readHeaderEventImpl(
     bool deleteOnDone) {
-  XCHECK(source_);
+  PRX_CHECK(source_);
   auto event = co_await co_awaitTry(source_->readHeaderEvent());
   if (event.hasException() || event->eom) {
     source_ = nullptr;
@@ -31,7 +32,7 @@ folly::coro::Task<HTTPHeaderEvent> HTTPSourceFilter::readHeaderEventImpl(
 
 folly::coro::Task<HTTPBodyEvent> HTTPSourceFilter::readBodyEventImpl(
     uint32_t max, bool deleteOnDone) {
-  XCHECK(source_);
+  PRX_CHECK(source_);
   auto event = co_await co_awaitTry(source_->readBodyEvent(max));
   if (event.hasException() || event->eom) {
     source_ = nullptr;
@@ -44,7 +45,7 @@ folly::coro::Task<HTTPBodyEvent> HTTPSourceFilter::readBodyEventImpl(
 
 void HTTPSourceFilter::stopReading(
     folly::Optional<const HTTPErrorCode> error) noexcept {
-  XCHECK(source_);
+  PRX_CHECK(source_);
   source_->stopReading(error);
   source_ = nullptr;
   if (heapAllocated_) {

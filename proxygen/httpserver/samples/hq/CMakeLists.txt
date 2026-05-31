@@ -30,6 +30,7 @@ proxygen_add_library(proxygen_hq_server
   DEPS
     proxygen_hq_logger_helper
     proxygen_http_session_hq_downstream_session
+    proxygen_utils_log_shim
     mvfst::mvfst_common_udpsocket_folly_async_udp_socket
     fizz::fizz
     Folly::folly_file_util
@@ -72,6 +73,7 @@ proxygen_add_library(proxygen_hq_samples
     proxygen_http_session_hq_session
     proxygen_webtransport
     proxygen_transport_persistent_quic_psk_cache
+    proxygen_utils_log_shim
     proxygen_utils_logging
     proxygen_utils_util_inl
     mvfst::mvfst_constants

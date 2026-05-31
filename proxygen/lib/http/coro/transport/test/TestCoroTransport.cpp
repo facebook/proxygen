@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/transport/test/TestCoroTransport.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 using TransportErrorCode = folly::coro::TransportIf::ErrorCode;
 
@@ -20,7 +21,7 @@ folly::coro::Task<size_t> TestCoroTransport::read(
     folly::MutableByteRange buf, std::chrono::milliseconds timeout) noexcept {
   const auto &cancelToken = co_await folly::coro::co_current_cancellation_token;
   folly::CancellationCallback cancellationCallback{
-      cancelToken, [&]() { XLOG(DBG8) << "::read() cancelled"; }};
+      cancelToken, [&]() { PRX_VLOG(8) << "::read() cancelled"; }};
 
   while (true) {
     const bool hasError = state_->readError.has_value();
@@ -29,7 +30,7 @@ folly::coro::Task<size_t> TestCoroTransport::read(
     // cancel without data read handled later
     if (hasError && !isCancelErr) {
       auto readError = *state_->readError;
-      XLOG(DBG8) << "::read(); readError=" << readError;
+      PRX_VLOG(8) << "::read(); readError=" << readError;
       if (readError == TransportErrorCode::TIMED_OUT) {
         // Timeouts reset after being read out
         state_->readError = folly::none;
@@ -49,13 +50,13 @@ folly::coro::Task<size_t> TestCoroTransport::read(
       if (readEvent.empty()) {
         state_->readEvents.pop_front();
       }
-      XLOG(DBG8) << "::read(); rc=" << rc;
+      PRX_VLOG(8) << "::read(); rc=" << rc;
       co_return rc;
     } else if (state_->readEOF) {
-      XLOG(DBG8) << "::read(); state_->readEOF";
+      PRX_VLOG(8) << "::read(); state_->readEOF";
       co_return 0;
     } else if (isCancelErr) {
-      XLOG(DBG8) << "::read(); readError=" << *state_->readError;
+      PRX_VLOG(8) << "::read(); readError=" << *state_->readError;
       co_yield folly::coro::co_stopped_may_throw;
     } else {
       readEvent_.reset();
@@ -66,7 +67,7 @@ folly::coro::Task<size_t> TestCoroTransport::read(
                  !state_->readError) {
         state_->readError = TransportErrorCode::CANCELED;
       }
-      XLOG(DBG8) << "::read(); readEvent_.wait() status=" << int(status);
+      PRX_VLOG(8) << "::read(); readEvent_.wait() status=" << int(status);
     }
   }
   // unreachable
@@ -79,7 +80,7 @@ folly::coro::Task<size_t> TestCoroTransport::read(
     size_t minReadSize,
     size_t newAllocationSize,
     std::chrono::milliseconds timeout) noexcept {
-  XLOG(DBG8) << __func__;
+  PRX_VLOG(8) << __func__;
   static const size_t kMaxReadsPerEvent = 16;
   size_t numReads = 0;
   size_t totalRead = 0;
@@ -179,12 +180,12 @@ folly::coro::Task<folly::Unit> TestCoroTransport::write(
 }
 
 void TestCoroTransport::shutdownWrite() {
-  XLOG(DBG8) << __func__;
+  PRX_VLOG(8) << __func__;
   state_->writesClosed = true;
 }
 
 void TestCoroTransport::close() {
-  XLOG(DBG8) << __func__;
+  PRX_VLOG(8) << __func__;
   state_->writesClosed = true;
   if (!state_->closedWithReset) {
     state_->readEOF = true;
@@ -193,7 +194,7 @@ void TestCoroTransport::close() {
 }
 
 void TestCoroTransport::closeWithReset() {
-  XLOG(DBG8) << __func__;
+  PRX_VLOG(8) << __func__;
   state_->writesClosed = true;
   state_->readError = TransportErrorCode::NETWORK_ERROR;
   state_->closedWithReset = true;
@@ -202,7 +203,7 @@ void TestCoroTransport::closeWithReset() {
 
 void TestCoroTransport::addReadEvent(std::unique_ptr<folly::IOBuf> ev,
                                      bool eof) {
-  XLOG(DBG8) << __func__ << "; ev=" << ev.get() << "; eof=" << int(eof);
+  PRX_VLOG(8) << __func__ << "; ev=" << ev.get() << "; eof=" << int(eof);
   folly::IOBufQueue bufQueue{folly::IOBufQueue::cacheChainLength()};
   if (ev) {
     bufQueue.append(std::move(ev));
@@ -215,18 +216,18 @@ void TestCoroTransport::addReadEvent(std::unique_ptr<folly::IOBuf> ev,
 }
 
 void TestCoroTransport::pauseWrites() {
-  XLOG(DBG8) << __func__;
+  PRX_VLOG(8) << __func__;
   writesPaused_ = true;
 }
 
 void TestCoroTransport::resumeWrites() {
-  XLOG(DBG8) << __func__;
+  PRX_VLOG(8) << __func__;
   writesPaused_ = false;
   writeEvent_.signal();
 }
 
 void TestCoroTransport::addReadError(TransportErrorCode err) {
-  XLOG(DBG8) << __func__ << "; err=" << err;
+  PRX_VLOG(8) << __func__ << "; err=" << err;
   state_->readError = err;
   readEvent_.signal();
 }

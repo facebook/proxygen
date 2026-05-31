@@ -15,6 +15,7 @@
 #include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <vector>
 
 namespace folly::io {
@@ -73,7 +74,7 @@ class QPACKCodec : public HeaderCodec {
   //
   // Returns false if it was previously called with a different non-zero value.
   bool setEncoderHeaderTableSize(uint32_t size, bool updateMax = true) {
-    VLOG(4) << __func__ << " size=" << size;
+    PRX_VLOG(4) << __func__ << " size=" << size;
     return encoder_.setHeaderTableSize(size, updateMax);
   }
 

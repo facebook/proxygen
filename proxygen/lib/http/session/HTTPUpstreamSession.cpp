@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
 #include <folly/io/async/AsyncSSLSocket.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
 namespace proxygen {
@@ -35,7 +36,7 @@ HTTPUpstreamSession::HTTPUpstreamSession(
       asyncSocket->setBufferCallback(this);
     }
   }
-  CHECK_EQ(codec_->getTransportDirection(), TransportDirection::UPSTREAM);
+  PRX_CHECK_EQ(codec_->getTransportDirection(), TransportDirection::UPSTREAM);
 }
 
 // uses folly::HHWheelTimer instance which is used on client side & thrift
@@ -63,18 +64,18 @@ bool HTTPUpstreamSession::isReplaySafe() const {
 }
 
 bool HTTPUpstreamSession::isReusable() const {
-  VLOG(4) << "isReusable: " << *this
-          << ", liveTransactions_=" << liveTransactions_
-          << ", isClosing()=" << isClosing()
-          << ", sock_->connecting()=" << sock_->connecting()
-          << ", codec_->isReusable()=" << codec_->isReusable()
-          << ", codec_->isBusy()=" << codec_->isBusy()
-          << ", numActiveWrites_=" << numActiveWrites_
-          << ", writeTimeout_.isScheduled()=" << writeTimeout_.isScheduled()
-          << ", ingressError_=" << ingressError_
-          << ", hasMoreWrites()=" << hasMoreWrites()
-          << ", codec_->supportsParallelRequests()="
-          << codec_->supportsParallelRequests();
+  PRX_VLOG(4) << "isReusable: " << *this
+              << ", liveTransactions_=" << liveTransactions_
+              << ", isClosing()=" << isClosing()
+              << ", sock_->connecting()=" << sock_->connecting()
+              << ", codec_->isReusable()=" << codec_->isReusable()
+              << ", codec_->isBusy()=" << codec_->isBusy()
+              << ", numActiveWrites_=" << numActiveWrites_
+              << ", writeTimeout_.isScheduled()=" << writeTimeout_.isScheduled()
+              << ", ingressError_=" << ingressError_
+              << ", hasMoreWrites()=" << hasMoreWrites()
+              << ", codec_->supportsParallelRequests()="
+              << codec_->supportsParallelRequests();
   return !isClosing() && !sock_->connecting() && codec_->isReusable() &&
          !codec_->isBusy() && !ingressError_ &&
          (codec_->supportsParallelRequests() ||
@@ -85,12 +86,12 @@ bool HTTPUpstreamSession::isReusable() const {
 }
 
 bool HTTPUpstreamSession::isClosing() const {
-  VLOG(5) << "isClosing: " << *this << ", sock_->good()=" << sock_->good()
-          << ", draining_=" << draining_
-          << ", readsShutdown()=" << readsShutdown()
-          << ", writesShutdown()=" << writesShutdown()
-          << ", writesDraining_=" << writesDraining_
-          << ", resetAfterDrainingWrites_=" << resetAfterDrainingWrites_;
+  PRX_VLOG(5) << "isClosing: " << *this << ", sock_->good()=" << sock_->good()
+              << ", draining_=" << draining_
+              << ", readsShutdown()=" << readsShutdown()
+              << ", writesShutdown()=" << writesShutdown()
+              << ", writesDraining_=" << writesDraining_
+              << ", resetAfterDrainingWrites_=" << resetAfterDrainingWrites_;
   return !sock_->good() || draining_ || readsShutdown() || writesShutdown() ||
          writesDraining_ || resetAfterDrainingWrites_;
 }
@@ -142,7 +143,7 @@ HTTPUpstreamSession::newTransactionWithError(
   }
 
   DestructorGuard dg(this);
-  txn->setHandler(CHECK_NOTNULL(handler));
+  txn->setHandler(PRX_CHECK_NOTNULL(handler));
   return txn;
 }
 
@@ -197,7 +198,7 @@ void HTTPUpstreamSession::maybeAttachSSLContext(
 }
 
 void HTTPUpstreamSession::detachThreadLocals(bool detachSSLContext) {
-  CHECK(transactions_.empty());
+  PRX_CHECK(transactions_.empty());
   cancelLoopCallbacks();
   pauseReadsImpl();
   if (sock_) {

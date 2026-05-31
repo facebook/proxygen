@@ -10,6 +10,7 @@ proxygen_add_library(proxygen_hq_devious_baton
   DEPS
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_message
     proxygen_webtransport

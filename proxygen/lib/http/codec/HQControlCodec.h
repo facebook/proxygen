@@ -17,6 +17,7 @@
 
 #include <folly/io/IOBuf.h>
 #include <folly/lang/Assume.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::hq {
 
@@ -34,8 +35,8 @@ class HQControlCodec
       : HQUnidirectionalCodec(streamType, streamDir),
         HQFramedCodec(streamId, direction),
         settings_(settings) {
-    VLOG(4) << "creating " << getTransportDirectionString(direction)
-            << " HQ Control codec for stream " << streamId_;
+    PRX_VLOG(4) << "creating " << getTransportDirectionString(direction)
+                << " HQ Control codec for stream " << streamId_;
     egressGoawayAck_ = direction == TransportDirection::UPSTREAM
                            ? kMaxPushId + 1
                            : kMaxClientBidiStreamId;
@@ -46,7 +47,7 @@ class HQControlCodec
   // HQ Unidirectional Codec API
   std::unique_ptr<folly::IOBuf> onUnidirectionalIngress(
       std::unique_ptr<folly::IOBuf> buf) override {
-    CHECK(buf);
+    PRX_CHECK(buf);
     auto consumed = onFramedIngress(*buf);
     folly::IOBufQueue q;
     q.append(std::move(buf));
@@ -55,7 +56,7 @@ class HQControlCodec
   }
 
   void onUnidirectionalIngressEOF() override {
-    LOG(ERROR) << "Unexpected control stream EOF";
+    PRX_LOG(ERROR) << "Unexpected control stream EOF";
     if (callback_) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                        "Control stream EOF");
@@ -72,7 +73,7 @@ class HQControlCodec
   }
 
   size_t onIngress(const folly::IOBuf& /*buf*/) override {
-    LOG(FATAL) << __func__ << " not supported";
+    PRX_LOG(FATAL) << __func__ << " not supported";
     folly::assume_unreachable();
   }
 
@@ -97,17 +98,17 @@ class HQControlCodec
                               HTTPPriority priority) override;
 
   const HTTPSettings* getIngressSettings() const override {
-    CHECK(isIngress());
+    PRX_CHECK(isIngress());
     return &settings_;
   }
 
   HTTPSettings* getEgressSettings() override {
-    CHECK(isEgress());
+    PRX_CHECK(isEgress());
     return &settings_;
   }
 
   const HTTPSettings* getEgressSettings() const {
-    CHECK(isEgress());
+    PRX_CHECK(isEgress());
     return &settings_;
   }
 
@@ -120,16 +121,16 @@ class HQControlCodec
   }
 
   uint32_t getDefaultWindowSize() const override {
-    CHECK(false) << __func__ << " not supported";
+    PRX_CHECK(false) << __func__ << " not supported";
     folly::assume_unreachable();
   }
 
   void setHeaderCodecStats(HeaderCodec::Stats* /*hcStats*/) override {
-    CHECK(false) << __func__ << " not supported";
+    PRX_CHECK(false) << __func__ << " not supported";
   }
 
   CompressionInfo getCompressionInfo() const override {
-    CHECK(false) << __func__ << " not supported";
+    PRX_CHECK(false) << __func__ << " not supported";
     folly::assume_unreachable();
   }
 

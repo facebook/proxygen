@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/stats/HeaderCodecStats.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using facebook::fb303::AVG;
 using facebook::fb303::SUM;
@@ -82,34 +83,34 @@ TLHeaderCodecStats::TLHeaderCodecStats(const string& prefix) {
 void TLHeaderCodecStats::recordEncode(HeaderCodec::Type type,
                                       HTTPHeaderSize& size) {
   auto i = (uint32_t)type;
-  CHECK(i < encodes_.size());
+  PRX_CHECK(i < encodes_.size());
   encodes_[i].add(1);
-  CHECK(i < encodeCompr_.size());
+  PRX_CHECK(i < encodeCompr_.size());
   encodeCompr_[i]->add(size.compressed);
-  CHECK(i < encodeUncompr_.size());
+  PRX_CHECK(i < encodeUncompr_.size());
   encodeUncompr_[i]->add(size.uncompressed);
 }
 
 void TLHeaderCodecStats::recordDecode(HeaderCodec::Type type,
                                       HTTPHeaderSize& size) {
   auto i = (uint32_t)type;
-  CHECK(i < decodes_.size());
+  PRX_CHECK(i < decodes_.size());
   decodes_[i].add(1);
-  CHECK(i < decodeCompr_.size());
+  PRX_CHECK(i < decodeCompr_.size());
   decodeCompr_[i]->add(size.compressed);
-  CHECK(i < decodeUncompr_.size());
+  PRX_CHECK(i < decodeUncompr_.size());
   decodeUncompr_[i]->add(size.uncompressed);
 }
 
 void TLHeaderCodecStats::recordDecodeError(HeaderCodec::Type type) {
   auto i = (uint32_t)type;
-  CHECK(i < decodeErrors_.size());
+  PRX_CHECK(i < decodeErrors_.size());
   decodeErrors_[i].add(1);
 }
 
 void TLHeaderCodecStats::recordDecodeTooLarge(HeaderCodec::Type type) {
   auto i = (uint32_t)type;
-  CHECK(i < decodeTooLarge_.size());
+  PRX_CHECK(i < decodeTooLarge_.size());
   decodeTooLarge_[i].add(1);
 }
 

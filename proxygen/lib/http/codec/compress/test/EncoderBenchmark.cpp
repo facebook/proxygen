@@ -11,6 +11,7 @@
 #include <iostream>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <string>
 
 using namespace proxygen;
@@ -24,12 +25,12 @@ const HTTPHeaders& getHeaders() {
 
       std::vector<folly::StringPiece> pieces;
       folly::split(' ', line, pieces);
-      CHECK_EQ(pieces[3][0], 'n');
+      PRX_CHECK_EQ(pieces[3][0], 'n');
       std::string name(pieces[3].begin() + 2, pieces[3].size() - 2);
       auto valueOff = pieces[3].end() + 1 - line.data();
       folly::StringPiece valuePiece(line.data() + valueOff,
                                     line.size() - valueOff);
-      CHECK_EQ(valuePiece[0], 'v');
+      PRX_CHECK_EQ(valuePiece[0], 'v');
       std::string value(valuePiece.begin() + 2, valuePiece.size() - 2);
       headers.add(name, value);
     }
@@ -70,7 +71,7 @@ void encoderBenchmark(uint32_t iters, bool huffman, uint32_t tableSize) {
     compressed += writeBuf.chainLength();
     encoder.completeEncode();
   }
-  LOG(INFO) << "compressed=" << compressed / iters;
+  PRX_LOG(INFO) << "compressed=" << compressed / iters;
 }
 
 BENCHMARK(EncoderHuffman4096, iters) {

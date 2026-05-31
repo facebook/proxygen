@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace testing;
 using WTFCState = proxygen::WebTransport::FCState;
@@ -107,9 +108,9 @@ class HTTPTransactionWebTransportTest : public testing::Test {
       size_t expectedLength,
       bool expectFin,
       folly::Optional<uint32_t> expectedErrorCode = folly::none) {
-    VLOG(4) << __func__ << " expectException=" << uint64_t(expectException)
-            << " expectedLength=" << expectedLength
-            << " expectFin=" << expectFin;
+    PRX_VLOG(4) << __func__ << " expectException=" << uint64_t(expectException)
+                << " expectedLength=" << expectedLength
+                << " expectFin=" << expectFin;
     EXPECT_EQ(streamData.hasException(), expectException);
     if (expectException || streamData.hasException()) {
       if (expectedErrorCode) {
@@ -564,14 +565,14 @@ TEST_F(HTTPTransactionWebTransportTest, StreamDetachWithOpenStreams) {
             .thenValue([](auto) {})
             .thenError(folly::tag_t<const WebTransport::Exception&>{},
                        [](auto const& ex) {
-                         VLOG(4) << "readCancelled";
+                         PRX_VLOG(4) << "readCancelled";
                          EXPECT_EQ(ex.error, WebTransport::kInternalError);
                        });
         readCancelled = true;
       });
   folly::CancellationCallback writeCancel(res->writeHandle->getCancelToken(),
                                           [&] {
-                                            VLOG(4) << "writeCancelled";
+                                            PRX_VLOG(4) << "writeCancelled";
                                             writeCancelled = true;
                                           });
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, "aborted");

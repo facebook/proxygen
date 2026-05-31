@@ -14,6 +14,7 @@
 #include <folly/MoveWrapper.h>
 #include <folly/coro/BlockingWait.h>
 #include <folly/coro/Sleep.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen::coro;
 using namespace testing;
@@ -73,7 +74,7 @@ CO_TEST_P_X(HTTPClientTests, FailSendUpstreamReq) {
 
   // get request before drain
   auto reservation = sess->reserveRequest();
-  XCHECK(reservation.hasValue());
+  PRX_CHECK(reservation.hasValue());
   // initiateDrain will cause next HTTPCoroSession::sendRequest to yield an
   // exception
   sess->initiateDrain();

@@ -16,6 +16,7 @@
 
 #include <deque>
 #include <list>
+#include <proxygen/lib/utils/LogShim.h>
 #include <unordered_map>
 
 namespace proxygen {
@@ -201,8 +202,8 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
   void scheduleNodeExpiration(Node* node) {
     if (timeout_) {
-      VLOG(5) << "scheduling expiration for node=" << node->getID();
-      DCHECK_GT(kNodeLifetime_.count(), 0);
+      PRX_VLOG(5) << "scheduling expiration for node=" << node->getID();
+      PRX_DCHECK_GT(kNodeLifetime_.count(), 0);
       timeout_.scheduleTimeout(node, kNodeLifetime_);
     }
   }
@@ -377,8 +378,8 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
     static void propagatePendingEgressClear(Node* node);
 
     void timeoutExpired() noexcept override {
-      VLOG(5) << "Node=" << id_ << " expired";
-      CHECK(txn_ == nullptr);
+      PRX_VLOG(5) << "Node=" << id_ << " expired";
+      PRX_CHECK(txn_ == nullptr);
       queue_.pendingWeightChange_ = true;
       removeFromTree();
     }

@@ -11,8 +11,8 @@ proxygen_add_library(proxygen_dns_dns_base
     DNSResolver.cpp
     NaiveResolutionCallback.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_conv
-    glog::glog
   EXPORTED_DEPS
     proxygen_utils_trace
     Folly::folly_exception_wrapper
@@ -58,11 +58,11 @@ proxygen_add_library(proxygen_dns_cares_dns
   SRCS
     CAresResolver.cpp
   DEPS
+    proxygen_utils_log_shim
     proxygen_utils_time_util
     Folly::folly_conv
     Folly::folly_portability_sockets
     cares
-    glog::glog
   EXPORTED_DEPS
     proxygen_dns_dns_base
     Folly::folly_expected
@@ -75,6 +75,8 @@ proxygen_add_library(proxygen_dns_cares_dns
 proxygen_add_library(proxygen_dns_future_dns
   SRCS
     FutureDNSResolver.cpp
+  DEPS
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_dns_dns_base
     Folly::folly_futures_core

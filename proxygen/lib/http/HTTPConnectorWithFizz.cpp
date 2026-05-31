@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/HTTPConnectorWithFizz.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace fizz::client;
 
@@ -24,7 +25,7 @@ void HTTPConnectorWithFizz::connectFizz(
     const folly::SocketAddress& bindAddr,
     folly::Optional<std::string> sni,
     folly::Optional<std::string> pskIdentity) {
-  DCHECK(!isBusy());
+  PRX_DCHECK(!isBusy());
   transportInfo_ = wangle::TransportInfo();
   transportInfo_.secure = true;
 

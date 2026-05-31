@@ -7,8 +7,8 @@
  */
 
 #include "proxygen/lib/http/coro/client/HTTPCoroConnector.h"
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/H3EarlyDataHandler.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include "proxygen/lib/http/coro/transport/CoroSSLTransport.h"
 #include "proxygen/lib/http/coro/transport/HTTPConnectAsyncTransport.h"
@@ -532,8 +532,8 @@ folly::coro::Task<HTTPCoroSession*> connectImpl(
   }
   co_await folly::coro::co_safe_point;
   if (socket.hasException()) {
-    XLOG(DBG4) << "Failed to connect to: " << serverAddr.describe()
-               << " err=" << socket.exception().what();
+    PRX_VLOG(4) << "Failed to connect to: " << serverAddr.describe()
+                << " err=" << socket.exception().what();
     if (isSecure && connParams.tlsStats) {
       bool verifyError = false; // TODO?
       // TOOD: exclude OperationCancelled?
@@ -603,8 +603,8 @@ folly::coro::Task<HTTPCoroSession*> HTTPCoroConnector::happyEyeballsConnect(
         co_await folly::coro::co_awaitTry(HTTPCoroConnector::connect(
             evb, std::move(primaryAddr), timeout, connParams, sessionParams));
     if (sessionTry.hasException()) {
-      XLOG(DBG4) << "Happy eyeballs primary connect failed: "
-                 << sessionTry.exception().what();
+      PRX_VLOG(4) << "Happy eyeballs primary connect failed: "
+                  << sessionTry.exception().what();
       failedConnection.setValue();
     }
     co_return sessionTry;
@@ -625,7 +625,7 @@ folly::coro::Task<HTTPCoroSession*> HTTPCoroConnector::happyEyeballsConnect(
         folly::coro::sleepReturnEarlyOnCancel(happyEyeballsDelay),
         failedConnection.getFuture());
     co_await folly::coro::co_safe_point;
-    XLOG(DBG4) << "Happy eyeballs fallback attempt to " << fallbackAddr;
+    PRX_VLOG(4) << "Happy eyeballs fallback attempt to " << fallbackAddr;
     co_return co_await co_nothrow(HTTPCoroConnector::connect(
         evb, fallbackAddr, timeout, connParams, sessionParams));
   };
@@ -657,7 +657,7 @@ folly::coro::Task<HTTPCoroSession*> HTTPCoroConnector::proxyConnect(
     const SessionParams& sessionParams) {
 
   // egress bufer option?
-  XLOG(DBG2) << "Sending CONNECT to " << authority;
+  PRX_VLOG(2) << "Sending CONNECT to " << authority;
   std::unique_ptr<HTTPConnectStream> connectStream;
   if (connectUnique) {
     connectStream = co_await co_nothrow(HTTPConnectStream::connectUnique(

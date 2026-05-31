@@ -9,8 +9,8 @@
 proxygen_add_library(proxygen_http_codec_compress_fast_header_name
   EXPORTED_DEPS
     proxygen_http_http_headers
+    proxygen_utils_log_shim
     Folly::folly_string
-    glog::glog
 )
 
 proxygen_add_library(proxygen_http_codec_compress_hpack
@@ -46,12 +46,12 @@ proxygen_add_library(proxygen_http_codec_compress_hpack
     proxygen_http_codec_compress_header_codec
     proxygen_http_codec_direction
     proxygen_http_http_headers
+    proxygen_utils_log_shim
     Folly::folly_container_f14_hash
     Folly::folly_conv
     Folly::folly_fbstring
     Folly::folly_io_iobuf
     Folly::folly_small_vector
-    glog::glog
 )
 
 proxygen_add_library(proxygen_http_codec_compress_qpack
@@ -72,9 +72,9 @@ proxygen_add_library(proxygen_http_codec_compress_qpack
     proxygen_http_codec_compress_hpack
     proxygen_http_codec_direction
     proxygen_http_http_headers
+    proxygen_utils_log_shim
     Folly::folly_io_async_destructor_check
     Folly::folly_io_iobuf
-    glog::glog
 )
 
 proxygen_add_library(proxygen_http_codec_compress_compression_info)
@@ -83,10 +83,10 @@ proxygen_add_library(proxygen_http_codec_compress_header_codec
   EXPORTED_DEPS
     proxygen_http_http_header_size
     proxygen_http_http_headers
+    proxygen_utils_log_shim
     Folly::folly_expected
     Folly::folly_fbstring
     Folly::folly_range
-    glog::glog
 )
 
 if(BUILD_TESTS)

@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/codec/compress/HPACKDecoderBase.h>
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -58,7 +59,7 @@ void HPACKDecoderBase::setHeaderTableMaxSize(HeaderTable& table,
                                              uint32_t maxSize) {
   maxTableSize_ = maxSize;
   if (maxTableSize_ < table.capacity()) {
-    CHECK(table.setCapacity(maxTableSize_));
+    PRX_CHECK(table.setCapacity(maxTableSize_));
   }
 }
 
@@ -69,18 +70,18 @@ void HPACKDecoderBase::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf,
   err_ = dbuf.decodeInteger(HPACK::TABLE_SIZE_UPDATE.prefixLength, arg);
   if (err_ != HPACK::DecodeError::NONE) {
     if (!isQpack || err_ != HPACK::DecodeError::BUFFER_UNDERFLOW) {
-      LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;
+      PRX_LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;
     }
     return;
   }
 
   if (arg > maxTableSize_) {
-    LOG(ERROR) << "Tried to increase size of the header table to " << arg
-               << " maxTableSize_=" << maxTableSize_;
+    PRX_LOG(ERROR) << "Tried to increase size of the header table to " << arg
+                   << " maxTableSize_=" << maxTableSize_;
     err_ = HPACK::DecodeError::INVALID_TABLE_SIZE;
     return;
   }
-  VLOG(5) << "Received table size update, new size=" << arg;
+  PRX_VLOG(5) << "Received table size update, new size=" << arg;
   table.setCapacity(arg);
 }
 

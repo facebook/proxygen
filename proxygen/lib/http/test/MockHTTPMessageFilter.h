@@ -12,6 +12,7 @@
 
 #include "proxygen/facebook/revproxy/caching/filter/FilterNames.h"
 #include <proxygen/lib/http/HTTPMessageFilters.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -71,8 +72,8 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
   }
 
   [[noreturn]] std::unique_ptr<HTTPMessageFilter> clone() noexcept override {
-    LOG(FATAL) << "clone() not implemented for filter: "
-               << this->getFilterName();
+    PRX_LOG(FATAL) << "clone() not implemented for filter: "
+                   << this->getFilterName();
   };
 
   void nextOnEOMPublic() {
@@ -121,7 +122,7 @@ class MockWritebackFilter : public HTTPMessageFilter {
   }
 
   [[noreturn]] std::unique_ptr<HTTPMessageFilter> clone() noexcept override {
-    LOG(FATAL) << "clone() not implemented for MockWritebackFilter";
+    PRX_LOG(FATAL) << "clone() not implemented for MockWritebackFilter";
   }
 };
 

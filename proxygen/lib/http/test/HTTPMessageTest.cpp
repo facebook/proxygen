@@ -10,6 +10,7 @@
 
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/TestUtils.h>
 
 using namespace proxygen;
@@ -297,7 +298,7 @@ TEST(HTTPMessage, TestCombine) {
   headers.add("Combine", "third value");
   EXPECT_EQ(headers.combine("Combine"),
             "first value, second value, third value");
-  VLOG(4) << msg;
+  PRX_VLOG(4) << msg;
 }
 
 TEST(HTTPMessage, TestProxification) {
@@ -863,7 +864,7 @@ TEST(HTTPHeaders, MoveFromTest) {
   HTTPHeaders h2(std::move(h1));
   EXPECT_FALSE(h1.exists(HTTP_HEADER_CONNECTION));
   h1.forEachValueOfHeader(HTTP_HEADER_HOST, [](const std::string&) -> bool {
-    CHECK(false) << "Unreachable";
+    PRX_CHECK(false) << "Unreachable";
   });
   h1.add(HTTP_HEADER_CONNECTION, "close");
 

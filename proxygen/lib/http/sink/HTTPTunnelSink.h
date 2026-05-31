@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/sink/HTTPSink.h>
 #include <proxygen/lib/utils/ConditionalGate.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -29,7 +30,7 @@ class HTTPTunnelSink
   explicit HTTPTunnelSink(folly::AsyncTransport::UniquePtr socket,
                           HTTPTransactionHandler* handler)
       : sock_(std::move(socket)), handler_(handler) {
-    CHECK(sock_);
+    PRX_CHECK(sock_);
     sock_->getLocalAddress(&localAddress_);
     sock_->getPeerAddress(&peerAddress_);
   }
@@ -64,7 +65,8 @@ class HTTPTunnelSink
   }
 
   [[nodiscard]] int getTCPTransportFD() const override {
-    return CHECK_NOTNULL(sock_->getUnderlyingTransport<folly::AsyncSocket>())
+    return PRX_CHECK_NOTNULL(
+               sock_->getUnderlyingTransport<folly::AsyncSocket>())
         ->getNetworkSocket()
         .toFd();
   }

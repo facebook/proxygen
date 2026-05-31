@@ -10,7 +10,7 @@
 
 #include <folly/coro/Baton.h>
 #include <folly/coro/Task.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro::detail {
 
@@ -40,12 +40,12 @@ struct KeepAliveState {
   void keepAliveAcquired() {
     uint64_t prevCount = refCount_.fetch_add(1, std::memory_order_relaxed);
     // 0->1 refcount is a logical uaf; abort
-    XCHECK_GE(prevCount, 1ull) << "use after free";
+    PRX_CHECK_GE(prevCount, 1ull) << "use after free";
   }
 
   void keepAliveReleased() {
     uint64_t prevCount = refCount_.fetch_sub(1, std::memory_order_relaxed);
-    XCHECK_GE(prevCount, 1ull) << "underflow";
+    PRX_CHECK_GE(prevCount, 1ull) << "underflow";
     if (prevCount == 1) {
       refsBaton_.post();
     }
@@ -148,7 +148,7 @@ class KeepAlivePtr {
  private:
   friend class EnableAwaitableKeepAlive<T>;
   explicit KeepAlivePtr(KeepAliveState<T>* keepAliveState)
-      : keepAliveState_(CHECK_NOTNULL(keepAliveState)) {
+      : keepAliveState_(PRX_CHECK_NOTNULL(keepAliveState)) {
     // increment refcount
     keepAliveState_->keepAliveAcquired();
   }

@@ -10,10 +10,10 @@ proxygen_add_library(proxygen_http_structuredheaders_structured_headers
   SRCS
     StructuredHeadersBuffer.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_base64
     Folly::folly_conv
     Folly::folly_try
-    glog::glog
   EXPORTED_DEPS
     proxygen_http_structuredheaders_utils
     Folly::folly_range
@@ -23,8 +23,8 @@ proxygen_add_library(proxygen_http_structuredheaders_encoder
   SRCS
     StructuredHeadersEncoder.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_base64
-    glog::glog
   EXPORTED_DEPS
     proxygen_http_structuredheaders_utils
 )

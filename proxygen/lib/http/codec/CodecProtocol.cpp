@@ -12,7 +12,7 @@
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -65,7 +65,7 @@ extern const std::string& getCodecProtocolString(CodecProtocol proto) {
     case CodecProtocol::TUNNEL_LITE:
       return tunnel_lite;
   }
-  LOG(FATAL) << "Unreachable";
+  PRX_LOG(FATAL) << "Unreachable";
 }
 
 extern bool isValidCodecProtocolStr(folly::StringPiece protocolStr) {

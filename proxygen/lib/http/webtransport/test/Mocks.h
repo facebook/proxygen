@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/http/webtransport/WebTransport.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::test {
 
@@ -173,7 +174,7 @@ struct DummyWtHandler : public WebTransportHandler {
   }
   void onWebTransportSession(
       std::shared_ptr<WebTransport> wtSession) noexcept override {
-    CHECK(wtSession);
+    PRX_CHECK(wtSession);
     ctx->wtSession = std::move(wtSession);
   }
 

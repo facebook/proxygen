@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
 #include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -35,7 +36,7 @@ class HPACKEncoderBase {
 
   void setHeaderTableSize(HeaderTable& table, uint32_t size) {
     if (size != table.capacity()) {
-      CHECK(table.setCapacity(size));
+      PRX_CHECK(table.setCapacity(size));
       pendingContextUpdate_ = true;
     }
   }

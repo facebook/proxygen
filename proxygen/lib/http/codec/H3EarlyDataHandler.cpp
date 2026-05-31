@@ -10,8 +10,8 @@
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
@@ -28,7 +28,7 @@ void writeVarint(folly::IOBufQueue& buf, uint64_t val) {
     appender.writeBE(folly::tag<decltype(v)>, v);
   };
   auto res = quic::encodeQuicInteger(val, appenderOp);
-  DCHECK(res.has_value());
+  PRX_DCHECK(res.has_value());
 }
 
 auto readVarint(folly::io::Cursor& cursor) {
@@ -85,7 +85,7 @@ quic::BufPtr H3EarlyDataHandler::get() {
     }
   }
 
-  XLOG(DBG4) << "H3EarlyDataHandler::get called, numSettings=" << count;
+  PRX_VLOG(4) << "H3EarlyDataHandler::get called, numSettings=" << count;
 
   folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
 
@@ -103,9 +103,9 @@ quic::BufPtr H3EarlyDataHandler::get() {
 
 bool H3EarlyDataHandler::validate(const quic::Optional<std::string>& /*alpn*/,
                                   const quic::BufPtr& appParams) {
-  XLOG(DBG4) << "H3EarlyDataHandler::validate called, appParams="
-             << (appParams ? "non-null" : "null")
-             << " settingsInitialized=" << settingsInitialized_;
+  PRX_VLOG(4) << "H3EarlyDataHandler::validate called, appParams="
+              << (appParams ? "non-null" : "null")
+              << " settingsInitialized=" << settingsInitialized_;
   if (!appParams) {
     return false;
   }
@@ -114,7 +114,7 @@ bool H3EarlyDataHandler::validate(const quic::Optional<std::string>& /*alpn*/,
 
   auto countResult = readVarint(cursor);
   if (!countResult) {
-    XLOG(DBG2) << "Failed to decode settings count";
+    PRX_VLOG(2) << "Failed to decode settings count";
     return false;
   }
   auto count = countResult->first;
@@ -126,12 +126,12 @@ bool H3EarlyDataHandler::validate(const quic::Optional<std::string>& /*alpn*/,
   for (uint64_t i = 0; i < count; ++i) {
     auto idResult = readVarint(cursor);
     if (!idResult) {
-      XLOG(DBG2) << "Failed to decode setting id at index " << i;
+      PRX_VLOG(2) << "Failed to decode setting id at index " << i;
       return false;
     }
     auto valResult = readVarint(cursor);
     if (!valResult) {
-      XLOG(DBG2) << "Failed to decode setting value at index " << i;
+      PRX_VLOG(2) << "Failed to decode setting value at index " << i;
       return false;
     }
 
@@ -162,9 +162,9 @@ bool H3EarlyDataHandler::validate(const quic::Optional<std::string>& /*alpn*/,
       // Per RFC 9114, if the cached value is non-default (non-zero for H3
       // settings), this is incompatible.
       if (cachedValue != 0) {
-        XLOG(DBG2) << "Cached setting " << idResult->first
-                   << " has non-default value " << cachedValue
-                   << " but is absent from current settings";
+        PRX_VLOG(2) << "Cached setting " << idResult->first
+                    << " has non-default value " << cachedValue
+                    << " but is absent from current settings";
         return false;
       }
       continue;
@@ -173,15 +173,15 @@ bool H3EarlyDataHandler::validate(const quic::Optional<std::string>& /*alpn*/,
     if (isLimitSetting(cachedHqId)) {
       // For limits: cached must be <= current
       if (cachedValue > currentSetting->value) {
-        XLOG(DBG2) << "Cached setting " << idResult->first << " value "
-                   << cachedValue << " > current " << currentSetting->value;
+        PRX_VLOG(2) << "Cached setting " << idResult->first << " value "
+                    << cachedValue << " > current " << currentSetting->value;
         return false;
       }
     } else {
       // For boolean/enable: if cached was enabled, current must also be enabled
       if (cachedValue != 0 && currentSetting->value == 0) {
-        XLOG(DBG2) << "Cached setting " << idResult->first
-                   << " was enabled but current is disabled";
+        PRX_VLOG(2) << "Cached setting " << idResult->first
+                    << " was enabled but current is disabled";
         return false;
       }
     }

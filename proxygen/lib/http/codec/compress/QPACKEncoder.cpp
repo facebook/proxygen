@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
 
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using std::vector;
 
@@ -89,7 +90,7 @@ std::unique_ptr<folly::IOBuf> QPACKEncoder::completeEncode(
   if (curOutstanding_.minInUseIndex != std::numeric_limits<uint32_t>::max()) {
     outstandingMins_.push_back(curOutstanding_.minInUseIndex);
     if (curOutstanding_.vulnerable) {
-      DCHECK(allowVulnerable());
+      PRX_DCHECK(allowVulnerable());
       numVulnerable_++;
     }
     numOutstandingBlocks_++;
@@ -146,7 +147,7 @@ size_t QPACKEncoder::encodeHeaderQ(HPACKHeaderName name,
     if (indexable) {
       if (table_.canIndex(name, value)) {
         encodeInsertQ(name, value, isStaticName, nameIndex);
-        CHECK(table_.add(HPACKHeader(std::move(name), value)));
+        PRX_CHECK(table_.add(HPACKHeader(std::move(name), value)));
         if (allowVulnerable() && lastEntryAvailable()) {
           index = table_.getInsertCount();
           // name is invalid on this branch, but index must be non-zero since
@@ -182,7 +183,7 @@ size_t QPACKEncoder::encodeHeaderQ(HPACKHeaderName name,
   }
 
   // Encoding a dynamic index reference
-  DCHECK_NE(index, 0);
+  PRX_DCHECK_NE(index, 0);
   trackReference(index, requiredInsertCount);
   if (index > baseIndex) {
     streamBuffer_.encodeInteger(index - baseIndex - 1, HPACK::Q_INDEXED_POST);
@@ -206,14 +207,14 @@ bool QPACKEncoder::dynamicReferenceAllowed() const {
 std::pair<bool, uint32_t> QPACKEncoder::maybeDuplicate(uint32_t relativeIndex) {
   auto res = table_.maybeDuplicate(relativeIndex, allowVulnerable());
   if (res.first) {
-    VLOG(4) << "Encoded duplicate index=" << relativeIndex;
+    PRX_VLOG(4) << "Encoded duplicate index=" << relativeIndex;
     duplications_++;
     encodeDuplicate(relativeIndex);
     // Note we will emit duplications even when we are out of flow control,
     // but we won't reference them (eg: like we were at vulnerable max).
     if (!lastEntryAvailable()) {
-      VLOG(4) << "Duplicate is not usable because it overran encoder flow "
-                 "control";
+      PRX_VLOG(4) << "Duplicate is not usable because it overran encoder flow "
+                     "control";
       return {true, 0};
     }
   }
@@ -252,7 +253,7 @@ size_t QPACKEncoder::encodeStreamLiteralQ(const HPACKHeaderName& name,
                                           uint32_t& requiredInsertCount) {
   if (absoluteNameIndex > 0) {
     // Dynamic name reference, vulnerability checks already done
-    CHECK(absoluteNameIndex <= baseIndex || allowVulnerable());
+    PRX_CHECK(absoluteNameIndex <= baseIndex || allowVulnerable());
     trackReference(absoluteNameIndex, requiredInsertCount);
   }
   if (absoluteNameIndex > baseIndex) {
@@ -275,7 +276,7 @@ size_t QPACKEncoder::encodeStreamLiteralQ(const HPACKHeaderName& name,
 
 void QPACKEncoder::trackReference(uint32_t absoluteIndex,
                                   uint32_t& requiredInsertCount) {
-  CHECK_NE(absoluteIndex, 0);
+  PRX_CHECK_NE(absoluteIndex, 0);
   if (absoluteIndex > requiredInsertCount) {
     requiredInsertCount = absoluteIndex;
     curOutstanding_.maxInUseIndex = requiredInsertCount;
@@ -293,7 +294,7 @@ void QPACKEncoder::trackReference(uint32_t absoluteIndex,
 }
 
 void QPACKEncoder::encodeDuplicate(uint32_t index) {
-  DCHECK_GT(index, 0);
+  PRX_DCHECK_GT(index, 0);
   maxEncoderStreamBytes_ -=
       controlBuffer_.encodeInteger(index - 1, HPACK::Q_DUPLICATE);
 }
@@ -319,7 +320,7 @@ size_t QPACKEncoder::encodeLiteralQ(const HPACKHeaderName& name,
                                     bool postBase,
                                     uint32_t nameIndex,
                                     const HPACK::Instruction& idxInstr) {
-  DCHECK(!isStaticName || !postBase);
+  PRX_DCHECK(!isStaticName || !postBase);
   return encodeLiteralQHelper(streamBuffer_,
                               name,
                               value,
@@ -342,8 +343,8 @@ uint32_t QPACKEncoder::encodeLiteralQHelper(
   uint32_t encoded = 0;
   // name
   if (nameIndex) {
-    VLOG(10) << "encoding name index=" << nameIndex;
-    DCHECK_NE(nameIndex, QPACKHeaderTable::UNACKED);
+    PRX_VLOG(10) << "encoding name index=" << nameIndex;
+    PRX_DCHECK_NE(nameIndex, QPACKHeaderTable::UNACKED);
     nameIndex -= 1; // we already know it's not 0
     uint8_t byte = idxInstr.code;
     if (isStaticName) {
@@ -385,7 +386,7 @@ HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
       if (err == HPACK::DecodeError::NONE) {
         err = onInsertCountIncrement(numInserts);
       } else if (err != HPACK::DecodeError::BUFFER_UNDERFLOW) {
-        LOG(ERROR) << "Failed to decode numInserts, err=" << err;
+        PRX_LOG(ERROR) << "Failed to decode numInserts, err=" << err;
       }
     }
   } // while
@@ -413,7 +414,7 @@ HPACK::DecodeError QPACKEncoder::decodeHeaderAck(HPACKDecodeBuffer& dbuf,
   if (err == HPACK::DecodeError::NONE) {
     err = onHeaderAck(streamId, all);
   } else if (err != HPACK::DecodeError::BUFFER_UNDERFLOW) {
-    LOG(ERROR) << "Failed to decode streamId, err=" << err;
+    PRX_LOG(ERROR) << "Failed to decode streamId, err=" << err;
   }
   return err;
 }
@@ -429,8 +430,9 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
   auto it = outstanding_.find(streamId);
   if (it == outstanding_.end()) {
     if (!all) {
-      LOG(ERROR) << "Received an ack with no outstanding header blocks stream="
-                 << streamId;
+      PRX_LOG(ERROR)
+          << "Received an ack with no outstanding header blocks stream="
+          << streamId;
       return HPACK::DecodeError::INVALID_ACK;
     } else {
       // all implies a reset, meaning it's not an error if there are no
@@ -438,10 +440,10 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
       return HPACK::DecodeError::NONE;
     }
   }
-  DCHECK(!it->second.empty()) << "Invariant violation: no blocks in stream "
-                                 "record";
-  VLOG(5) << ((all) ? "onCancelStream" : "onHeaderAck")
-          << " streamId=" << streamId;
+  PRX_DCHECK(!it->second.empty()) << "Invariant violation: no blocks in stream "
+                                     "record";
+  PRX_VLOG(5) << ((all) ? "onCancelStream" : "onHeaderAck")
+              << " streamId=" << streamId;
   if (all) {
     // Happens when a stream is reset (should be rare)
     for (auto& block : it->second) {
@@ -459,24 +461,24 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
     if (block.vulnerable) {
       numVulnerable_--;
     }
-    CHECK_NE(block.minInUseIndex, std::numeric_limits<uint32_t>::max());
+    PRX_CHECK_NE(block.minInUseIndex, std::numeric_limits<uint32_t>::max());
     removeFromMinOutstanding(block.minInUseIndex);
     // Up through maxInUseIndex is implicitly acknowledged
-    VLOG(5) << "Implicitly acknowledging requiredInsertCount="
-            << block.maxInUseIndex;
+    PRX_VLOG(5) << "Implicitly acknowledging requiredInsertCount="
+                << block.maxInUseIndex;
     table_.setAcknowledgedInsertCount(block.maxInUseIndex);
   }
   if (it->second.empty()) {
     outstanding_.erase(it);
   }
-  VLOG(6) << "New min use index=" << minOutstandingMin_;
+  PRX_VLOG(6) << "New min use index=" << minOutstandingMin_;
   table_.setMinInUseIndex(minOutstandingMin_);
   return HPACK::DecodeError::NONE;
 }
 
 void QPACKEncoder::removeFromMinOutstanding(uint32_t valToRemove) {
-  CHECK(!outstandingMins_.empty());
-  VLOG(10) << "mins remove val=" << valToRemove;
+  PRX_CHECK(!outstandingMins_.empty());
+  PRX_VLOG(10) << "mins remove val=" << valToRemove;
   bool recomputeMin = (valToRemove == minOutstandingMin_);
   uint32_t newMin = std::numeric_limits<uint32_t>::max();
   size_t i = 0;

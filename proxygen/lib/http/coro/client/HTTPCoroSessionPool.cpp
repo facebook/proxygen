@@ -10,7 +10,7 @@
 #include "proxygen/lib/http/coro/client/HTTPCoroConnector.h"
 #include <chrono>
 #include <folly/Random.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/Time.h>
 
 using folly::coro::co_error;
@@ -52,9 +52,9 @@ HTTPCoroSessionPool::Holder::~Holder() {
 
 void HTTPCoroSessionPool::Holder::onTransactionAttached(
     const HTTPCoroSession& sess) {
-  XCHECK_EQ(&sess, &session);
+  PRX_CHECK_EQ(&sess, &session);
   // Shouldn't happen, but maybe there's a race and we should keep going
-  XLOG_IF(DFATAL, state_ == Full)
+  PRX_LOG_IF(DFATAL, state_ == Full)
       << "onTransactionAttached to unavailable session";
   if (!session.supportsMoreTransactions()) {
     pool_.moveToFull(*this);
@@ -65,7 +65,7 @@ void HTTPCoroSessionPool::Holder::onTransactionAttached(
 
 void HTTPCoroSessionPool::Holder::onTransactionDetached(
     const HTTPCoroSession& sess) {
-  XCHECK_EQ(&sess, &session);
+  PRX_CHECK_EQ(&sess, &session);
   if (!pool_.poolingEnabled_) {
     session.initiateDrain();
   } else if (state_ == Full && session.supportsMoreTransactions()) {
@@ -74,7 +74,7 @@ void HTTPCoroSessionPool::Holder::onTransactionDetached(
 }
 void HTTPCoroSessionPool::Holder::onSettingsOutgoingStreamsFull(
     const HTTPCoroSession& sess) {
-  XCHECK_EQ(&sess, &session);
+  PRX_CHECK_EQ(&sess, &session);
   pool_.moveToFull(*this);
 }
 
@@ -84,21 +84,21 @@ void HTTPCoroSessionPool::Holder::onSettingsOutgoingStreamsNotFull(
 }
 
 void HTTPCoroSessionPool::Holder::onDrainStarted(const HTTPCoroSession& sess) {
-  XLOG(DBG4) << "onDrainStarted pool=" << pool_ << " session=" << session;
+  PRX_VLOG(4) << "onDrainStarted pool=" << pool_ << " session=" << session;
   onDestroy(sess);
 }
 
 void HTTPCoroSessionPool::Holder::onDestroy(const HTTPCoroSession& sess) {
-  XLOG(DBG4) << "Destroying session holder in pool=" << pool_
-             << " session=" << session;
-  XCHECK_EQ(&sess, &session);
+  PRX_VLOG(4) << "Destroying session holder in pool=" << pool_
+              << " session=" << session;
+  PRX_CHECK_EQ(&sess, &session);
   delete this;
 }
 
 void HTTPCoroSessionPool::Holder::onDeactivateConnection(
     const HTTPCoroSession& sess) {
-  XLOG(DBG4) << "onDeactivateConnection pool=" << pool_
-             << " session=" << session;
+  PRX_VLOG(4) << "onDeactivateConnection pool=" << pool_
+              << " session=" << session;
   if (sess.supportsMoreTransactions()) {
     pool_.moveToIdle(*this);
   }
@@ -137,9 +137,9 @@ HTTPCoroSessionPool::HTTPCoroSessionPool(
       sessionParams_(std::move(sessionParams)) {
   setMaxConnections(poolParams.maxConnections);
   setMaxConnectionAttempts(poolParams.maxConnectionAttempts);
-  XLOG(DBG4) << "Creating pool for " << *this
-             << " maxConnections_=" << poolParams_.maxConnections
-             << " observer=" << observer_;
+  PRX_VLOG(4) << "Creating pool for " << *this
+              << " maxConnections_=" << poolParams_.maxConnections
+              << " observer=" << observer_;
   setSslManager();
 }
 
@@ -161,9 +161,9 @@ HTTPCoroSessionPool::HTTPCoroSessionPool(
       sessionParams_(std::move(sessionParams)) {
   setMaxConnections(poolParams.maxConnections);
   setMaxConnectionAttempts(poolParams.maxConnectionAttempts);
-  XLOG(DBG4) << "Creating pool for " << *this
-             << " maxConnections_=" << poolParams_.maxConnections
-             << " observer=" << observer_;
+  PRX_VLOG(4) << "Creating pool for " << *this
+              << " maxConnections_=" << poolParams_.maxConnections
+              << " observer=" << observer_;
   setSslManager();
 }
 
@@ -185,9 +185,9 @@ HTTPCoroSessionPool::HTTPCoroSessionPool(
       sessionParams_(std::move(sessionParams)) {
   setMaxConnections(poolParams.maxConnections);
   setMaxConnectionAttempts(poolParams.maxConnectionAttempts);
-  XLOG(DBG4) << "Creating pool for " << *this
-             << " maxConnections_=" << poolParams_.maxConnections
-             << " observer=" << observer_;
+  PRX_VLOG(4) << "Creating pool for " << *this
+              << " maxConnections_=" << poolParams_.maxConnections
+              << " observer=" << observer_;
 }
 
 void HTTPCoroSessionPool::setSslManager() {
@@ -211,8 +211,8 @@ HTTPCoroSessionPool::SessionList& HTTPCoroSessionPool::getSessionList(
 }
 
 void HTTPCoroSessionPool::moveToFull(HTTPCoroSessionPool::Holder& holder) {
-  XLOG(DBG4) << "Session now full, pool=" << *this
-             << " session=" << holder.session;
+  PRX_VLOG(4) << "Session now full, pool=" << *this
+              << " session=" << holder.session;
   removeSession(holder, /*checkForWaiters=*/false);
   addSession(holder, Holder::State::Full);
 }
@@ -222,16 +222,16 @@ void HTTPCoroSessionPool::moveToFull(HTTPCoroSessionPool::Holder& holder) {
  * slow servers from being excessively re-used and drawing load to themselves.
  */
 void HTTPCoroSessionPool::moveToAvailable(HTTPCoroSessionPool::Holder& holder) {
-  XLOG(DBG4) << "Session now available, pool=" << *this
-             << " session=" << holder.session;
+  PRX_VLOG(4) << "Session now available, pool=" << *this
+              << " session=" << holder.session;
   // TODO: consider leaving in fullSessions if the pool is over-full somehow?
   removeSession(holder, /*checkForWaiters=*/false);
   addSession(holder, Holder::State::Available);
 }
 
 void HTTPCoroSessionPool::moveToIdle(HTTPCoroSessionPool::Holder& holder) {
-  XLOG(DBG4) << "Session now idle, pool=" << *this
-             << " session=" << holder.session;
+  PRX_VLOG(4) << "Session now idle, pool=" << *this
+              << " session=" << holder.session;
   // TODO: consider leaving in fullSessions if the pool is over-full somehow?
   removeSession(holder, /*checkForWaiters=*/false);
   addSession(holder, Holder::State::Idle);
@@ -258,10 +258,10 @@ void HTTPCoroSessionPool::removeSession(HTTPCoroSessionPool::Holder& holder,
   sessionList.erase(sessionList.iterator_to(holder));
 
   if (checkForWaiters && !isDraining() && !waiters_.empty() && !full()) {
-    XLOG(DBG5) << "Initiating new connection attempt, pool=" << *this;
+    PRX_VLOG(5) << "Initiating new connection attempt, pool=" << *this;
     connectsInProgress_++;
-    XLOG(DBG4) << *this << ":" << serverAddress_
-               << " ++connectsInProgress_ = " << connectsInProgress_;
+    PRX_VLOG(4) << *this << ":" << serverAddress_
+                << " ++connectsInProgress_ = " << connectsInProgress_;
     co_withExecutor(
         eventBase_,
         co_withCancellation(cancellationSource_.getToken(), addNewConnection()))
@@ -298,8 +298,8 @@ HTTPCoroSessionPool::getSessionWithReservation() {
                                                 : availableSessions_.front();
       bool supportsMoreTransactions = holder.session.supportsMoreTransactions();
       if (supportsMoreTransactions && !shouldAgeOut(holder)) {
-        XLOG(DBG4) << "Session available, pool=" << *this
-                   << " returning session=" << holder.session;
+        PRX_VLOG(4) << "Session available, pool=" << *this
+                    << " returning session=" << holder.session;
         auto& session = holder.session;
         auto maybeReservation = session.reserveRequest();
         if (maybeReservation.hasException()) {
@@ -307,17 +307,17 @@ HTTPCoroSessionPool::getSessionWithReservation() {
         }
         co_return GetSessionResult(std::move(*maybeReservation), &session);
       } else if (!supportsMoreTransactions) {
-        XLOG(ERR) << "Full session in available!, pool=" << *this
-                  << " sess=" << holder.session;
+        PRX_LOG(ERROR) << "Full session in available!, pool=" << *this
+                       << " sess=" << holder.session;
         moveToFull(holder);
       } else {
-        XLOG(DBG4) << "Draining too-old session, pool=" << *this
-                   << " session=" << holder.session;
+        PRX_VLOG(4) << "Draining too-old session, pool=" << *this
+                    << " session=" << holder.session;
         holder.session.initiateDrain();
       }
     }
     if (millisecondsSince(start) > poolParams_.connectTimeout) {
-      XLOG(ERR) << "Timed out waiting for session, pool=" << *this;
+      PRX_LOG(ERROR) << "Timed out waiting for session, pool=" << *this;
       co_yield co_error(
           Exception(Exception::Type::Timeout, "Timed out waiting for session"));
     }
@@ -328,10 +328,10 @@ HTTPCoroSessionPool::getSessionWithReservation() {
       // of them.
       // TODO: keep an average of the last N max_streams per conn, and delay
       // creating a new connection if a pending one is likely to satisfy this
-      XLOG(DBG5) << "Initiating new connection attempt, pool=" << *this;
+      PRX_VLOG(5) << "Initiating new connection attempt, pool=" << *this;
       connectsInProgress_++;
-      XLOG(DBG4) << *this << ":" << serverAddress_
-                 << " ++connectsInProgress_ = " << connectsInProgress_;
+      PRX_VLOG(4) << *this << ":" << serverAddress_
+                  << " ++connectsInProgress_ = " << connectsInProgress_;
       co_withExecutor(eventBase_,
                       co_withCancellation(cancellationSource_.getToken(),
                                           addNewConnection()))
@@ -341,12 +341,12 @@ HTTPCoroSessionPool::getSessionWithReservation() {
     waiters_.push_back(waiter);
     // we may be exceeding the max waiters
     signalWaiters(0);
-    XLOG(DBG4) << "No sessions available, waiting, pool=" << *this;
+    PRX_VLOG(4) << "No sessions available, waiting, pool=" << *this;
     auto res = co_await co_withCancellation(
         waiter.cancellationSource.getToken(),
         waiter.baton.timedWait(eventBase_, poolParams_.connectTimeout));
     if (res == TimedBaton::Status::cancelled) {
-      XLOG_IF(DBG4, !poolToken.isCancellationRequested())
+      PRX_VLOG_IF(4, !poolToken.isCancellationRequested())
           << "getSession cancelled, pool=" << *this;
       if (waiter.exception) {
         co_yield co_error(std::move(*waiter.exception));
@@ -373,23 +373,23 @@ folly::coro::Task<void> HTTPCoroSessionPool::addNewConnection() {
   co_await folly::coro::co_safe_point;
   auto g = folly::makeGuard([&, observer = observer_] {
     if (observer) {
-      XLOG(DBG4) << "--pendingUpstreamConnections";
+      PRX_VLOG(4) << "--pendingUpstreamConnections";
       observer->incrementPendingUpstreamConnections(-1);
     }
     if (!cancelToken.isCancellationRequested()) {
       connectsInProgress_--;
-      XLOG(DBG4) << *this << ":" << serverAddress_
-                 << " --connectsInProgress_ = " << connectsInProgress_;
+      PRX_VLOG(4) << *this << ":" << serverAddress_
+                  << " --connectsInProgress_ = " << connectsInProgress_;
     }
   });
   if (observer_) {
-    XLOG(DBG4) << "++pendingUpstreamConnections, pool=" << *this;
+    PRX_VLOG(4) << "++pendingUpstreamConnections, pool=" << *this;
     observer_->incrementPendingUpstreamConnections(1);
   } else {
-    XLOG(DBG4) << "observer not set, pool=" << *this;
+    PRX_VLOG(4) << "observer not set, pool=" << *this;
   }
   folly::exception_wrapper exceptionWrapper;
-  XLOG(DBG4) << "Getting session, pool=" << *this;
+  PRX_VLOG(4) << "Getting session, pool=" << *this;
   for (uint16_t attempt = 0; attempt < poolParams_.maxConnectionAttempts;
        attempt++) {
     folly::Try<HTTPCoroSession*> sessionTry;
@@ -431,26 +431,27 @@ folly::coro::Task<void> HTTPCoroSessionPool::addNewConnection() {
       co_yield folly::coro::co_stopped_may_throw;
     }
     if (sessionTry.hasException()) {
-      XLOG(DBG3) << "Failed to get connection for pool=" << *this
-                 << " err=" << sessionTry.exception().what()
-                 << ", server=" << serverAddress_;
+      PRX_VLOG(3) << "Failed to get connection for pool=" << *this
+                  << " err=" << sessionTry.exception().what()
+                  << ", server=" << serverAddress_;
       exceptionWrapper = sessionTry.exception();
       if (overflowed()) {
-        XLOG(ERR) << "Too many connections in progress=" << " pending="
-                  << connectsInProgress_ << ", idle=" << idleSessions_.size()
-                  << ", available=" << availableSessions_.size()
-                  << ", full=" << fullSessions_.size();
+        PRX_LOG(ERROR) << "Too many connections in progress=" << " pending="
+                       << connectsInProgress_
+                       << ", idle=" << idleSessions_.size()
+                       << ", available=" << availableSessions_.size()
+                       << ", full=" << fullSessions_.size();
       }
       if (waiters_.empty()) {
         // No one is waiting
-        XLOG(INFO) << "Giving up on a connection attempt, no waiters";
+        PRX_LOG(INFO) << "Giving up on a connection attempt, no waiters";
         break;
       }
-      XLOG(DBG4) << *this << ":" << serverAddress_
-                 << " ++connectsInProgress_ = " << connectsInProgress_;
+      PRX_VLOG(4) << *this << ":" << serverAddress_
+                  << " ++connectsInProgress_ = " << connectsInProgress_;
     } else {
       auto session = *sessionTry;
-      XLOG(DBG4) << "Got upstream, pool=" << *this << " session=" << *session;
+      PRX_VLOG(4) << "Got upstream, pool=" << *this << " session=" << *session;
       auto* holder = new Holder(*session, *this);
       // defaulted available since immediate local use is expected
       addSession(*holder, holder->state_);
@@ -458,7 +459,7 @@ folly::coro::Task<void> HTTPCoroSessionPool::addNewConnection() {
     }
   }
   if (!waiters_.empty() && !hasSession() && connectsInProgress_ == 1) {
-    XLOG(DBG4) << "Cancelling waiters in pool=" << *this;
+    PRX_VLOG(4) << "Cancelling waiters in pool=" << *this;
     // The last running connect exited in failure, but there are getSession
     // calls waiting.  Cancel them so they return.
     cancelWaiters(Exception(Exception::Type::ConnectFailed,
@@ -468,8 +469,8 @@ folly::coro::Task<void> HTTPCoroSessionPool::addNewConnection() {
 }
 
 void HTTPCoroSessionPool::signalWaiters(uint32_t n) {
-  XLOG(DBG4) << "signalWaiters n=" << n
-             << ", waiters_.size()=" << waiters_.size();
+  PRX_VLOG(4) << "signalWaiters n=" << n
+              << ", waiters_.size()=" << waiters_.size();
   while (!waiters_.empty() && n-- > 0) {
     // Remove waiters as they are signalled
     waiters_.front().baton.signal();
@@ -497,10 +498,11 @@ void HTTPCoroSessionPool::cancelWaiters(Exception ex) {
 }
 
 void HTTPCoroSessionPool::drain() {
-  XCHECK(!eventBase_->isRunning() || eventBase_->isInEventBaseThread());
+  PRX_CHECK(!eventBase_->isRunning() || eventBase_->isInEventBaseThread());
   cancellationSource_.requestCancellation();
-  XLOG(DBG4) << *this << ":" << serverAddress_
-             << " connectsInProgress_ = " << connectsInProgress_ << " at drain";
+  PRX_VLOG(4) << *this << ":" << serverAddress_
+              << " connectsInProgress_ = " << connectsInProgress_
+              << " at drain";
   connectsInProgress_ = 0;
   cancelWaiters(Exception(Exception::Type::Draining, "Draining"));
   flush();
@@ -528,7 +530,7 @@ void HTTPCoroSessionPool::flush() {
 }
 
 HTTPSessionContextPtr HTTPCoroSessionPool::detachIdleSession() noexcept {
-  XLOG(DBG6) << "pool=" << *this;
+  PRX_VLOG(6) << "pool=" << *this;
   if (!hasIdleSessions() || !waiters_.empty()) {
     return {};
   }
@@ -536,12 +538,12 @@ HTTPSessionContextPtr HTTPCoroSessionPool::detachIdleSession() noexcept {
   for (auto& holder : idleSessions_) {
     auto& session = holder.session;
     if (session.isDetachable()) {
-      XLOG(DBG6) << __func__ << "; found detachable sess=" << session;
+      PRX_VLOG(6) << __func__ << "; found detachable sess=" << session;
       session.detachEvb();
       delete &holder;
       return session.acquireKeepAlive();
     } else {
-      XLOG(ERR) << __func__ << "idle session not detachable";
+      PRX_LOG(ERROR) << __func__ << "idle session not detachable";
     }
   }
 
@@ -550,9 +552,9 @@ HTTPSessionContextPtr HTTPCoroSessionPool::detachIdleSession() noexcept {
 
 void HTTPCoroSessionPool::insertIdleSession(
     HTTPSessionContextPtr&& sess) noexcept {
-  XLOG(DBG6) << __func__ << "; sess=" << sess.get();
+  PRX_VLOG(6) << __func__ << "; sess=" << sess.get();
   auto* session = static_cast<HTTPCoroSession*>(sess.get());
-  XCHECK_EQ(sess->getEventBase(), eventBase_);
+  PRX_CHECK_EQ(sess->getEventBase(), eventBase_);
   auto* holder = std::make_unique<Holder>(*session, *this).release();
   // set as available since immediate local use is expected
   addSession(*holder, Holder::State::Available);

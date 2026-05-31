@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
 
 #include <folly/CPortability.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using std::vector;
 
@@ -47,7 +48,7 @@ void HPACKEncoder::completeEncode() {
 
 size_t HPACKEncoder::encodeHeader(HTTPHeaderCode code,
                                   const std::string& value) {
-  DCHECK_NE(code, HTTP_HEADER_OTHER);
+  PRX_DCHECK_NE(code, HTTP_HEADER_OTHER);
   HPACKHeaderName name(code);
   size_t uncompressed = name.size() + value.size() + 2;
   encodeHeader(name, value); // const, string piece
@@ -56,7 +57,7 @@ size_t HPACKEncoder::encodeHeader(HTTPHeaderCode code,
 
 size_t HPACKEncoder::encodeHeader(HTTPHeaderCode code,
                                   folly::fbstring&& value) {
-  DCHECK_NE(code, HTTP_HEADER_OTHER);
+  PRX_DCHECK_NE(code, HTTP_HEADER_OTHER);
   HPACKHeaderName name(code);
   size_t uncompressed = name.size() + value.size() + 2;
   encodeHeader(std::move(name), std::move(value));
@@ -98,7 +99,7 @@ FOLLY_ALWAYS_INLINE bool HPACKEncoder::encodeAsLiteral(
   encodeAsLiteralImpl(name, nameIndex, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
-    CHECK(table_.add(HPACKHeader(name, value)));
+    PRX_CHECK(table_.add(HPACKHeader(name, value)));
   }
   return true;
 }
@@ -110,7 +111,7 @@ FOLLY_ALWAYS_INLINE bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
   encodeAsLiteralImpl(name, nameIndex, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
-    CHECK(table_.add(HPACKHeader(std::move(name), std::move(value))));
+    PRX_CHECK(table_.add(HPACKHeader(std::move(name), std::move(value))));
   }
   return true;
 }
@@ -122,7 +123,7 @@ FOLLY_ALWAYS_INLINE bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
   encodeAsLiteralImpl(name, nameIndex, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
-    CHECK(table_.add(HPACKHeader(std::move(name), value)));
+    PRX_CHECK(table_.add(HPACKHeader(std::move(name), value)));
   }
   return true;
 }
@@ -134,7 +135,7 @@ FOLLY_ALWAYS_INLINE void HPACKEncoder::encodeLiteral(
     const HPACK::Instruction& instruction) {
   // name
   if (nameIndex) {
-    VLOG(10) << "encoding name index=" << nameIndex;
+    PRX_VLOG(10) << "encoding name index=" << nameIndex;
     streamBuffer_.encodeInteger(nameIndex, instruction);
   } else {
     streamBuffer_.encodeInteger(0, instruction);
@@ -145,7 +146,7 @@ FOLLY_ALWAYS_INLINE void HPACKEncoder::encodeLiteral(
 }
 
 FOLLY_ALWAYS_INLINE void HPACKEncoder::encodeAsIndex(uint32_t index) {
-  VLOG(10) << "encoding index=" << index;
+  PRX_VLOG(10) << "encoding index=" << index;
   streamBuffer_.encodeInteger(index, HPACK::INDEX_REF);
 }
 

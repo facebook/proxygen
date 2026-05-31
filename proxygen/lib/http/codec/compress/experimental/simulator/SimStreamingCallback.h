@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::compress {
 class SimStreamingCallback : public HPACK::StreamingCallback {
@@ -48,7 +49,7 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
       } else if (name == headers::kStatus) {
         msg.setStatusCode(folly::to<uint16_t>(value.toStdString()));
       } else {
-        DCHECK(false) << "Bad header name=" << name << " value=" << value;
+        PRX_DCHECK(false) << "Bad header name=" << name << " value=" << value;
       }
     } else {
       msg.getHeaders().add(name, value.toStdString());
@@ -73,7 +74,7 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
 
   void onDecodeError(HPACK::DecodeError decodeError) override {
     error = decodeError;
-    DCHECK(false) << "Unexpected error in simulator";
+    PRX_DCHECK(false) << "Unexpected error in simulator";
   }
 
   folly::Expected<proxygen::HTTPMessage*, HPACK::DecodeError> getResult() {

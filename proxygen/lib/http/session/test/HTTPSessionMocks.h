@@ -19,6 +19,7 @@
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/test/MockHTTPSessionStats.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -162,7 +163,7 @@ class MockHTTPHandler
   void setupInvariantViolation() {
     ON_CALL(*this, _onInvariantViolation(testing::_))
         .WillByDefault(testing::Invoke(
-            [](const HTTPException& ex) { LOG(FATAL) << ex.what(); }));
+            [](const HTTPException& ex) { PRX_LOG(FATAL) << ex.what(); }));
   }
 
   void setTransaction(HTTPTransaction* txn) noexcept override {

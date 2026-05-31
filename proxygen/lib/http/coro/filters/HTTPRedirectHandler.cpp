@@ -8,7 +8,7 @@
 
 #include "proxygen/lib/http/coro/filters/HTTPRedirectHandler.h"
 #include "proxygen/lib/http/coro/HTTPFixedSource.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 bool isRedirectable(uint16_t code,

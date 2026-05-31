@@ -7,8 +7,8 @@
  */
 
 #include <folly/io/coro/Transport.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/coro/util/CoroWtSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 
@@ -70,7 +70,7 @@ folly::coro::Task<void> CoroWtSession::readLoop(Ptr self) {
                                               /*newAllocationSize=*/4000,
                                               /*timeout=*/config_.readTimeout));
     if (readRes.hasException()) {
-      XLOG(DBG4) << __func__ << "; ex=" << readRes.exception();
+      PRX_VLOG(4) << __func__ << "; ex=" << readRes.exception();
       break;
     }
 
@@ -90,7 +90,7 @@ folly::coro::Task<void> CoroWtSession::readLoop(Ptr self) {
       break;
     }
   }
-  XLOG(DBG4) << "CoroWtSession::readLoop exiting";
+  PRX_VLOG(4) << "CoroWtSession::readLoop exiting";
   sm.shutdown(WtStreamManager::CloseSession{.err = 0x00,
                                             .msg = "stream ingress closed"});
   readLoopFinished();
@@ -103,11 +103,11 @@ folly::coro::Task<void> CoroWtSession::writeLoop(Ptr self) {
 
   while (!eventVisitor.sessionClosed) {
     // wait for WtStreamManager control events or writable streams
-    XLOG(DBG6) << "waiting for WtStreamManager event";
+    PRX_VLOG(6) << "waiting for WtStreamManager event";
     co_await waitForEventBaton.wait();
     waitForEventBaton.reset();
 
-    XLOG(DBG6) << "received WtStreamManager event";
+    PRX_VLOG(6) << "received WtStreamManager event";
     // always write control frames first
     auto ctrl = sm.moveEvents();
     for (auto& ev : ctrl) {
@@ -138,13 +138,13 @@ folly::coro::Task<void> CoroWtSession::writeLoop(Ptr self) {
       auto writeRes = co_await co_awaitTry(
           transport_->write(egressBuf, config_.writeTimeout));
       if (writeRes.hasException()) {
-        XLOG(DBG4) << __func__ << "; ex=" << writeRes.exception();
+        PRX_VLOG(4) << __func__ << "; ex=" << writeRes.exception();
         break;
       }
     }
   }
 
-  XLOG(DBG4) << "CoroWtSession::writeLoop exiting";
+  PRX_VLOG(4) << "CoroWtSession::writeLoop exiting";
   transport_->shutdownWrite();
   writeLoopFinished();
   co_return;
@@ -283,23 +283,23 @@ class HttpSourceTransport : public folly::coro::TransportIf {
                                        folly::WriteFlags,
                                        WriteInfo* info) noexcept override {
     if (callback_.ex) {
-      XLOG(DBG4) << "id=" << getId() << "; ex=" << callback_.ex.what();
+      PRX_VLOG(4) << "id=" << getId() << "; ex=" << callback_.ex.what();
       co_yield co_error(makeSocketEx(AsyncSocketExceptionType::NOT_OPEN,
                                      callback_.ex.what()));
     }
     auto bytesAvailable = egressSource_->window().getNonNegativeSize();
-    XLOG(DBG4) << "id=" << getId() << "; bytesAvailable=" << bytesAvailable;
+    PRX_VLOG(4) << "id=" << getId() << "; bytesAvailable=" << bytesAvailable;
     if (bytesAvailable == 0) {
-      XLOG(DBG5) << __func__ << " egress blocked";
+      PRX_VLOG(5) << __func__ << " egress blocked";
       callback_.waitForEgress.reset(); // suspend until egress drained
     }
     auto res = co_await callback_.waitForEgress.timedWait(evb_, timeout);
     if (res == TimedBaton::Status::timedout) {
-      XLOG(DBG6) << "id=" << getId() << "; ingress timeout";
+      PRX_VLOG(6) << "id=" << getId() << "; ingress timeout";
       co_yield co_error(makeSocketEx(AsyncSocketExceptionType::TIMED_OUT));
     }
     if (res == TimedBaton::Status::cancelled) {
-      XLOG(DBG6) << "id=" << getId() << "; cancelled";
+      PRX_VLOG(6) << "id=" << getId() << "; cancelled";
       co_yield co_error(makeSocketEx(AsyncSocketExceptionType::CANCELED));
     }
     auto len = ioBufQueue.chainLength();
@@ -329,17 +329,17 @@ class HttpSourceTransport : public folly::coro::TransportIf {
                                        std::chrono::milliseconds,
                                        folly::WriteFlags,
                                        WriteInfo*) noexcept override {
-    XLOG(FATAL) << "not implemented";
+    PRX_LOG(FATAL) << "not implemented";
   }
   folly::coro::Task<size_t> read(folly::MutableByteRange,
                                  std::chrono::milliseconds) noexcept override {
-    XLOG(FATAL) << "not implemented";
+    PRX_LOG(FATAL) << "not implemented";
   }
   folly::SocketAddress getLocalAddress() const noexcept override {
-    XLOG(FATAL) << "not implemented";
+    PRX_LOG(FATAL) << "not implemented";
   }
   folly::SocketAddress getPeerAddress() const noexcept override {
-    XLOG(FATAL) << "not implemented";
+    PRX_LOG(FATAL) << "not implemented";
   }
 
  private:

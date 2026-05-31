@@ -19,6 +19,7 @@
 #include <wangle/acceptor/ConnectionManager.h>
 
 #include <proxygen/lib/http/session/test/HQSessionMocks.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace std;
@@ -147,7 +148,7 @@ TEST_F(SessionPoolFixture, ParallelPoolLists) {
   auto sess2 = makeParallelSession();
   p.putSession(sess1);
   p.putSession(sess2);
-  txnsSess1.push_back(CHECK_NOTNULL(p.getTransaction(this)));
+  txnsSess1.push_back(PRX_CHECK_NOTNULL(p.getTransaction(this)));
   // Since these two sessions are equally old, it's ok for either one to
   // be selected to become "active"
   if (sess2->getNumOutgoingStreams() > sess1->getNumOutgoingStreams()) {
@@ -161,7 +162,7 @@ TEST_F(SessionPoolFixture, ParallelPoolLists) {
 
   // sess1 should be filled completely before we add any transactions to sess2
   while (sess1->supportsMoreTransactions()) {
-    txnsSess1.push_back(CHECK_NOTNULL(p.getTransaction(this)));
+    txnsSess1.push_back(PRX_CHECK_NOTNULL(p.getTransaction(this)));
   }
   ASSERT_EQ(sess1->getNumOutgoingStreams(),
             sess1->getMaxConcurrentOutgoingStreams());
@@ -172,7 +173,7 @@ TEST_F(SessionPoolFixture, ParallelPoolLists) {
 
   // Now fill sess2
   while (sess2->supportsMoreTransactions()) {
-    txnsSess2.push_back(CHECK_NOTNULL(p.getTransaction(this)));
+    txnsSess2.push_back(PRX_CHECK_NOTNULL(p.getTransaction(this)));
   }
   // The two sessions should be completely full
   ASSERT_EQ(sess1->getNumOutgoingStreams(),
@@ -184,7 +185,7 @@ TEST_F(SessionPoolFixture, ParallelPoolLists) {
   ASSERT_EQ(closed_, 0);
 
   // Adding 1 more txn should fail since both sessions are full
-  CHECK(nullptr == p.getTransaction(this));
+  PRX_CHECK(nullptr == p.getTransaction(this));
 
   evb_.loop();
   ASSERT_EQ(sess1->getNumOutgoingStreams(),
@@ -219,7 +220,7 @@ TEST_F(SessionPoolFixture, ParallelPoolLists) {
   txnsSess2.back()->sendAbort();
   txnsSess2.pop_back();
   ASSERT_EQ(deactivated_, 1);
-  txnsSess2.push_back(CHECK_NOTNULL(p.getTransaction(this)));
+  txnsSess2.push_back(PRX_CHECK_NOTNULL(p.getTransaction(this)));
 
   // Set the max pooled sessions to zero and drop all txns from
   // sess2. The session should be automatically closed when it hits
@@ -254,7 +255,7 @@ TEST_F(SessionPoolFixture, OutstandingWrites) {
   p.putSession(sess);
   ASSERT_FALSE(attached_);
   ASSERT_FALSE(sess->isClosing());
-  auto txn = CHECK_NOTNULL(p.getTransaction(this));
+  auto txn = PRX_CHECK_NOTNULL(p.getTransaction(this));
   ASSERT_TRUE(attached_);
   txn->sendHeaders(HTTPMessage());
   txn->sendAbort();
@@ -280,7 +281,7 @@ TEST_F(SessionPoolFixture, OutstandingTransaction) {
     p.putSession(sess);
     ASSERT_FALSE(attached_);
     txn = p.getTransaction(this);
-    CHECK_NOTNULL(txn);
+    PRX_CHECK_NOTNULL(txn);
     ASSERT_TRUE(attached_);
     ASSERT_EQ(deactivated_, 0);
     ASSERT_EQ(closed_, 0);
@@ -327,7 +328,7 @@ TEST_F(SessionPoolFixture, DroppedRequestNotPooled) {
   evb_.loop();
   // Writes have now succeeded. We should still be attached since we
   // terminated the loop before the timeouts fired
-  CHECK(!timeout_);
+  PRX_CHECK(!timeout_);
   ASSERT_TRUE(attached_);
 
   // Now drop the txn before the response comes back
@@ -350,7 +351,7 @@ TEST_F(SessionPoolFixture, InsertIntoZeroSizePool) {
   // Let the session pool have 0 max sessions
   SessionPool p(this, 0, std::chrono::seconds(4));
   p.putSession(makeSerialSession());
-  CHECK(nullptr == p.getTransaction(this));
+  PRX_CHECK(nullptr == p.getTransaction(this));
   evb_.loop();
 }
 
@@ -360,11 +361,11 @@ TEST_F(SessionPoolFixture, DrainSessionLater) {
   auto session = makeParallelSession();
   p.putSession(session);
 
-  auto txn1 = CHECK_NOTNULL(p.getTransaction(this));
-  auto txn2 = CHECK_NOTNULL(p.getTransaction(this));
+  auto txn1 = PRX_CHECK_NOTNULL(p.getTransaction(this));
+  auto txn2 = PRX_CHECK_NOTNULL(p.getTransaction(this));
   session->drain();
   ASSERT_EQ(p.getNumSessions(), 1); // don't detect until getTransaction()
-  CHECK(nullptr == p.getTransaction(this));
+  PRX_CHECK(nullptr == p.getTransaction(this));
   ASSERT_EQ(p.getNumSessions(), 0);
   // now let the session be destroyed
   txn1->sendAbort();
@@ -374,7 +375,7 @@ TEST_F(SessionPoolFixture, DrainSessionLater) {
 TEST_F(SessionPoolFixture, InsertDrainedSession) {
   // Put a draining session into the pool. Make sure the pool ignores it.
   auto session = makeParallelSession();
-  CHECK_NOTNULL(session->newTransaction(this));
+  PRX_CHECK_NOTNULL(session->newTransaction(this));
   session->drain();
 
   auto cm = wangle::ConnectionManager::makeUnique(
@@ -383,7 +384,7 @@ TEST_F(SessionPoolFixture, InsertDrainedSession) {
   cm->addConnection(session);
   p.putSession(session);
   ASSERT_EQ(p.getNumSessions(), 0);
-  CHECK(nullptr == p.getTransaction(this));
+  PRX_CHECK(nullptr == p.getTransaction(this));
 
   // this session needs to be owned by the cm
   cm->dropAllConnections();
@@ -408,7 +409,7 @@ TEST_F(SessionPoolFixture, CloseNotReusable) {
 
   p.putSession(makeSession(std::move(codec)));
   ASSERT_EQ(p.getNumSessions(), 1);
-  auto txn = CHECK_NOTNULL(p.getTransaction(this));
+  auto txn = PRX_CHECK_NOTNULL(p.getTransaction(this));
   reusable = false; // Mark the session as not reusable, e.g. if it got
                     // Connection: close
   txn->sendAbort();
@@ -425,7 +426,7 @@ TEST_F(SessionPoolFixture, InsertOldSession) {
   usleep(70000); // exceeds max jitter (currently 65ms)
   p.putSession(session);
   ASSERT_EQ(p.getNumSessions(), 0);
-  CHECK(nullptr == p.getTransaction(this));
+  PRX_CHECK(nullptr == p.getTransaction(this));
 }
 
 TEST_F(SessionPoolFixture, IdleTmeout) {
@@ -437,10 +438,10 @@ TEST_F(SessionPoolFixture, IdleTmeout) {
       this, 10, std::chrono::milliseconds(250), std::chrono::seconds(4));
   p.putSession(session);
   ASSERT_TRUE(p.getNumSessions() == 1);
-  auto txn = CHECK_NOTNULL(p.getTransaction(this));
+  auto txn = PRX_CHECK_NOTNULL(p.getTransaction(this));
   txn->sendAbort();
   /* sleep override */ usleep(260000); // > 250ms
-  CHECK(nullptr == p.getTransaction(this));
+  PRX_CHECK(nullptr == p.getTransaction(this));
   ASSERT_EQ(p.getNumSessions(), 0);
 }
 
@@ -454,10 +455,10 @@ TEST_F(SessionPoolFixture, AgeOut) {
   p.putSession(session);
   // possible flake if this process takes a dirtnap for >= 175ms
   ASSERT_TRUE(p.getNumSessions() == 1);
-  auto txn = CHECK_NOTNULL(p.getTransaction(this));
+  auto txn = PRX_CHECK_NOTNULL(p.getTransaction(this));
   txn->sendAbort();
   usleep(350000); // over max jitter (325 ms)
-  CHECK(nullptr == p.getTransaction(this));
+  PRX_CHECK(nullptr == p.getTransaction(this));
   ASSERT_EQ(p.getNumSessions(), 0);
 }
 
@@ -729,7 +730,7 @@ TEST_F(SessionPoolFixture, DescribeWithNullTransport) {
   SessionHolder sessionHolder(&session, &cb);
 
   // This should not crash.
-  LOG(INFO) << sessionHolder;
+  PRX_LOG(INFO) << sessionHolder;
   // This is to appease mock session destructor.
   session.setInfoCallback(nullptr);
 }

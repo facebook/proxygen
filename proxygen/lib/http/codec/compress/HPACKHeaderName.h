@@ -11,9 +11,9 @@
 #include <cstdint>
 #include <folly/String.h>
 #include <functional>
-#include <glog/logging.h>
 #include <iostream>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <string>
 #include <string_view>
 
@@ -32,8 +32,8 @@ class HPACKHeaderName {
     storeAddress(name);
   }
   explicit HPACKHeaderName(HTTPHeaderCode headerCode) {
-    CHECK_NE(headerCode, HTTPHeaderCode::HTTP_HEADER_NONE);
-    CHECK_NE(headerCode, HTTPHeaderCode::HTTP_HEADER_OTHER);
+    PRX_CHECK_NE(headerCode, HTTPHeaderCode::HTTP_HEADER_NONE);
+    PRX_CHECK_NE(headerCode, HTTPHeaderCode::HTTP_HEADER_OTHER);
     address_ = HTTPCommonHeaders::getPointerToName(
         headerCode, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
   }

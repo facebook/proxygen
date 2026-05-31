@@ -17,6 +17,7 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/H3EarlyDataHandler.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/common/events/HighResQuicTimer.h>
 
 namespace quic {
@@ -71,7 +72,7 @@ class HQClient
     }
 
     void onReplaySafe() override {
-      VLOG(4) << "Connect Callback Replay Safe";
+      PRX_VLOG(4) << "Connect Callback Replay Safe";
       client_.onReplaySafe();
     }
 

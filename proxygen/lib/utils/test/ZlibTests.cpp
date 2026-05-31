@@ -13,7 +13,7 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 #include <folly/portability/GTest.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/ZlibStreamCompressor.h>
 #include <proxygen/lib/utils/ZlibStreamDecompressor.h>
 

@@ -34,6 +34,7 @@ proxygen_add_library(proxygen_http_session_session
     proxygen_http_session_http_session_activity_tracker
     proxygen_http_session_http_transaction
     proxygen_http_session_transaction_byte_events
+    proxygen_utils_log_shim
     proxygen_utils_shared_wheel_timer
     proxygen_utils_time_util
     wangle::wangle_acceptor_acceptor_core
@@ -48,7 +49,6 @@ proxygen_add_library(proxygen_http_session_session
     Folly::folly_io_async_ssl_context
     Folly::folly_io_iobuf
     Folly::folly_optional
-    glog::glog
 )
 
 proxygen_add_library(proxygen_http_session_server
@@ -63,7 +63,6 @@ proxygen_add_library(proxygen_http_session_server
     proxygen_http_session_http_session_codec_factory
     Folly::folly_conv
     Folly::folly_io_iobuf
-    glog::glog
   EXPORTED_DEPS
     proxygen_error
     proxygen_http_codec_codec_factory
@@ -71,6 +70,7 @@ proxygen_add_library(proxygen_http_session_server
     proxygen_http_session_http_transaction
     proxygen_http_session_session
     proxygen_services_http_acceptor
+    proxygen_utils_log_shim
     proxygen_utils_shared_wheel_timer
     Folly::folly_io_async_async_ssl_socket
 )
@@ -98,6 +98,8 @@ proxygen_add_library(proxygen_http_session_byte_events
 proxygen_add_library(proxygen_http_session_transaction_byte_events
   SRCS
     ByteEventTracker.cpp
+  DEPS
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_session_byte_events
     proxygen_http_session_http_transaction
@@ -118,6 +120,7 @@ proxygen_add_library(proxygen_http_session_http2_priority_queue
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
     proxygen_http_codec_http2_codec
+    proxygen_utils_log_shim
     proxygen_utils_shared_wheel_timer
     Folly::folly_intrusive_list
     Folly::folly_io_async_async_base
@@ -129,7 +132,7 @@ proxygen_add_library(proxygen_http_session_http_event
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
     proxygen_http_http_utils
-    glog::glog
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_session_http_state_machine_lib
@@ -137,6 +140,7 @@ proxygen_add_library(proxygen_http_session_http_state_machine_lib
     HTTPTransactionEgressSM.cpp
     HTTPTransactionIngressSM.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_indestructible
   EXPORTED_DEPS
     proxygen_utils_state_machine
@@ -153,7 +157,6 @@ proxygen_add_library(proxygen_http_session_http_transaction
     Folly::folly_conv
     Folly::folly_io_async_event_base_manager
     Folly::folly_tracing_scoped_trace_section
-    glog::glog
   EXPORTED_DEPS
     proxygen_error
     proxygen_http_codec_codec_common
@@ -170,6 +173,7 @@ proxygen_add_library(proxygen_http_session_http_transaction
     proxygen_http_webtransport
     proxygen_http_webtransport_webtransportimpl
     proxygen_http_window
+    proxygen_utils_log_shim
     proxygen_utils_shared_wheel_timer
     proxygen_utils_time_util
     proxygen_utils_trace
@@ -186,6 +190,7 @@ proxygen_add_library(proxygen_http_session_http_upstream_session
   SRCS
     HTTPUpstreamSession.cpp
   DEPS
+    proxygen_utils_log_shim
     wangle::wangle_acceptor_managed
     Folly::folly_io_async_async_ssl_socket
   EXPORTED_DEPS
@@ -210,6 +215,7 @@ proxygen_add_library(proxygen_http_session_stream_dispatcher
     HQStreamDispatcher.cpp
   EXPORTED_DEPS
     proxygen_http_codec_hq_codec
+    proxygen_utils_log_shim
     mvfst::mvfst_api_transport
     Folly::folly_io_async_async_base
 )
@@ -245,6 +251,7 @@ proxygen_add_library(proxygen_http_session_hq_session
     proxygen_http_session_stream_dispatcher
     proxygen_http_session_webtransport_filter
     proxygen_utils_conditional_gate
+    proxygen_utils_log_shim
     mvfst::mvfst_api_transport
     mvfst::mvfst_codec_types
     mvfst::mvfst_common_buf_util
@@ -268,6 +275,7 @@ proxygen_add_library(proxygen_http_session_hq_upstream_session
     wangle::wangle_acceptor_managed
   EXPORTED_DEPS
     proxygen_http_session_hq_session
+    proxygen_utils_log_shim
     mvfst::mvfst_common_events_folly_eventbase
     Folly::folly_io_async_async_base
 )
@@ -277,6 +285,7 @@ proxygen_add_library(proxygen_http_session_hq_downstream_session
     HQDownstreamSession.cpp
   EXPORTED_DEPS
     proxygen_http_session_hq_session
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_session_quic_protocol_info
@@ -293,7 +302,7 @@ proxygen_add_library(proxygen_http_session_webtransport_filter
     proxygen_http_http_message_filters
     proxygen_http_session_http_transaction
     proxygen_http_webtransport
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
 )
 
 if(BUILD_TESTS)

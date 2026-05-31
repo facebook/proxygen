@@ -10,7 +10,7 @@
 #include "proxygen/lib/http/coro/client/HTTPClient.h"
 #include "proxygen/lib/http/coro/transport/HTTPConnectAsyncTransport.h"
 #include <fizz/protocol/DefaultCertificateVerifier.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/URL.h>
 
 #include <folly/String.h>
@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
   ::gflags::ParseCommandLineFlags(&argc, &argv, false);
 
   if (argc < 2) {
-    XLOG(ERR) << "Usage: cocurl <url>";
+    PRX_LOG(ERROR) << "Usage: cocurl <url>";
     return 1;
   }
 
@@ -197,7 +197,7 @@ folly::coro::Task<void> getWithCoro(folly::EventBase* evb,
                                           FLAGS_client_cert_path,
                                           FLAGS_client_key_path);
 
-  XLOG(INFO) << "Sending GET for " << urlStr;
+  PRX_LOG(INFO) << "Sending GET for " << urlStr;
   co_await HTTPClient::get(session,
                            std::move(url),
                            std::move(reader),
@@ -236,7 +236,7 @@ folly::coro::Task<void> postWithCoro(folly::EventBase* evb,
                                           FLAGS_client_cert_path,
                                           FLAGS_client_key_path);
 
-  XLOG(INFO) << "Sending POST for " << urlStr;
+  PRX_LOG(INFO) << "Sending POST for " << urlStr;
   co_await HTTPClient::post(session,
                             std::move(url),
                             ss.str(),
@@ -252,8 +252,8 @@ folly::coro::Task<void> getViaProxy(folly::EventBase* evb,
                                     HTTPSourceReader reader) {
   folly::SocketAddress proxyAddr;
   proxyAddr.setFromHostPort(FLAGS_proxy);
-  XLOG(INFO) << "Establishing HTTP connection to proxy: "
-             << proxyAddr.describe();
+  PRX_LOG(INFO) << "Establishing HTTP connection to proxy: "
+                << proxyAddr.describe();
   std::chrono::milliseconds timeout(FLAGS_timeout_ms);
   auto proxySession =
       co_await HTTPClient::getHTTPSession(evb,
@@ -265,7 +265,7 @@ folly::coro::Task<void> getViaProxy(folly::EventBase* evb,
                                           timeout,
                                           FLAGS_client_cert_path,
                                           FLAGS_client_key_path);
-  XLOG(INFO) << "Got HTTP connection to proxy: " << proxyAddr.describe();
+  PRX_LOG(INFO) << "Got HTTP connection to proxy: " << proxyAddr.describe();
 
   URL url(urlStr);
   if (!url.isValid() || !url.hasHost()) {
@@ -284,7 +284,7 @@ folly::coro::Task<void> getViaProxy(folly::EventBase* evb,
       /*clientCertPath=*/"",
       /*clientKeyPath=*/"");
 
-  XLOG(INFO) << "Sending GET for " << urlStr;
+  PRX_LOG(INFO) << "Sending GET for " << urlStr;
   co_await HTTPClient::get(endpointSession,
                            std::move(url),
                            std::move(reader),

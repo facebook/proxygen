@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/coro/HTTPSource.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/URL.h>
 
 namespace proxygen::coro {
@@ -164,7 +164,7 @@ class HTTPErrorSource : public HTTPSource {
 
   folly::coro::Task<HTTPBodyEvent> readBodyEvent(
       uint32_t /*max = std::numeric_limits<uint32_t>::max()*/) override {
-    XLOG(FATAL) << "Unreachable";
+    PRX_LOG(FATAL) << "Unreachable";
   }
 
   void stopReading(

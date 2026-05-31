@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/coro/HTTPStreamSource.h>
 #include <proxygen/lib/http/coro/filters/VisitorFilter.h>
 #include <proxygen/lib/http/coro/util/test/TestHelpers.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace testing;
 
@@ -43,7 +44,7 @@ CO_TEST_F_X(VisitorFilterTest, SimpleTest) {
   size_t numHeaderCallbacks{0}, numBodyCallbacks{0};
   VisitorFilter::HeaderHookFn headerHook =
       [&numHeaderCallbacks](const folly::Try<HTTPHeaderEvent>& headerEvent) {
-        CHECK(!headerEvent.hasException());
+        PRX_CHECK(!headerEvent.hasException());
         // validate message is the same
         numHeaderCallbacks++;
         const auto& headers = headerEvent->headers->getHeaders();
@@ -52,7 +53,7 @@ CO_TEST_F_X(VisitorFilterTest, SimpleTest) {
       };
   VisitorFilter::BodyHookFn bodyHook =
       [&numBodyCallbacks](const folly::Try<HTTPBodyEvent>& bodyEvent) {
-        CHECK(!bodyEvent.hasException());
+        PRX_CHECK(!bodyEvent.hasException());
         if (bodyEvent->eventType == HTTPBodyEvent::SUSPEND) {
           return;
         }
@@ -94,11 +95,11 @@ CO_TEST_F_X(VisitorFilterTest, VisitorInvokedOnError) {
   VisitorFilter::HeaderHookFn headerHook =
       [&expectHeaderHook](const folly::Try<HTTPHeaderEvent>& headerEvent) {
         expectHeaderHook = true;
-        CHECK(headerEvent.hasException());
+        PRX_CHECK(headerEvent.hasException());
       };
   VisitorFilter::BodyHookFn bodyHook =
       [](const folly::Try<HTTPBodyEvent>& /*bodyEvent*/) {
-        XLOG(FATAL) << "body hook called";
+        PRX_LOG(FATAL) << "body hook called";
       };
 
   // create visitor source
@@ -129,12 +130,12 @@ CO_TEST_F_X(VisitorFilterTest, PassThruObserver) {
   // sanity check headers and body
   HTTPSourceReader reader(visitorSource);
   reader.onHeaders([](std::unique_ptr<HTTPMessage> msg, bool final, bool eom) {
-    CHECK(final && !eom);
+    PRX_CHECK(final && !eom);
     EXPECT_EQ(msg->getStatusCode(), 200);
     return true;
   });
   reader.onBody([](BufQueue body, bool eom) {
-    CHECK(!body.empty() && eom);
+    PRX_CHECK(!body.empty() && eom);
     EXPECT_EQ(body.move()->to<std::string>(), "hello");
     return true;
   });

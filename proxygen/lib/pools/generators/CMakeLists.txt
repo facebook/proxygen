@@ -20,15 +20,16 @@ proxygen_add_library(proxygen_pools_generators_server_list_generator
   EXPORTED_DEPS
     proxygen_pools_generators_member_group_config
     proxygen_pools_generators_server_config
+    proxygen_utils_log_shim
     Folly::folly_io_async_async_base
     Folly::folly_network_address
-    glog::glog
 )
 
 proxygen_add_library(proxygen_pools_generators_file_server_list_generator
   SRCS
     FileServerListGenerator.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_file_util
     Folly::folly_json_dynamic
     Folly::folly_network_address

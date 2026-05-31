@@ -7,11 +7,12 @@
  */
 
 #include "proxygen/lib/http/coro/util/CancellableBaton.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro::detail {
 
 void CancellableBaton::signal(TimedBaton::Status status) noexcept {
-  XLOG(DBG8) << __func__ << " signalled; status=" << int(status);
+  PRX_VLOG(8) << __func__ << " signalled; status=" << int(status);
   // only resolve status for the first signaller
   auto* pStatus = std::exchange(status_, nullptr);
   if (pStatus && *pStatus == TimedBaton::Status::notReady) {
@@ -21,7 +22,7 @@ void CancellableBaton::signal(TimedBaton::Status status) noexcept {
 }
 
 folly::coro::Task<TimedBaton::Status> CancellableBaton::wait() noexcept {
-  XCHECK_EQ(status_, nullptr) << "supports only one awaiting coro";
+  PRX_CHECK_EQ(status_, nullptr) << "supports only one awaiting coro";
 
   TimedBaton::Status status = TimedBaton::Status::notReady;
   status_ = &status;
@@ -47,8 +48,8 @@ folly::coro::Task<TimedBaton::Status> CancellableBaton::wait() noexcept {
     status = TimedBaton::Status::signalled;
   }
 
-  XCHECK(status == TimedBaton::Status::cancelled ||
-         status == TimedBaton::Status::signalled);
+  PRX_CHECK(status == TimedBaton::Status::cancelled ||
+            status == TimedBaton::Status::signalled);
 
   co_return ct.isCancellationRequested() ? TimedBaton::Status::cancelled
                                          : status;
@@ -57,8 +58,8 @@ folly::coro::Task<TimedBaton::Status> CancellableBaton::wait() noexcept {
 folly::coro::Task<TimedBaton::Status> CancellableBaton::timedWaitImpl(
     folly::EventBase* evb, std::chrono::milliseconds timeout) {
   // > 0ms timeout must have evb
-  XCHECK(evb && timeout.count() > 0);
-  XCHECK_EQ(status_, nullptr) << "supports only one awaiting coro";
+  PRX_CHECK(evb && timeout.count() > 0);
+  PRX_CHECK_EQ(status_, nullptr) << "supports only one awaiting coro";
 
   TimedBaton::Status status{TimedBaton::Status::notReady};
   status_ = &status;

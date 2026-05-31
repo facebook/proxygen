@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/HTTPHeaders.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using std::bitset;
 using std::string;
@@ -312,8 +312,8 @@ void HTTPHeaders::stripPerHopHeaders(HTTPHeaders& strippedHeaders,
             if (len > 0) {
               string hdr(str, len);
               if (transferHeaderIfPresent(hdr, strippedHeaders)) {
-                VLOG(3) << "Stripped connection-named hop-by-hop header "
-                        << hdr;
+                PRX_VLOG(3)
+                    << "Stripped connection-named hop-by-hop header " << hdr;
               }
             }
             break;
@@ -327,7 +327,8 @@ void HTTPHeaders::stripPerHopHeaders(HTTPHeaders& strippedHeaders,
             // non-empty token
             string hdr(str, len);
             if (transferHeaderIfPresent(hdr, strippedHeaders)) {
-              VLOG(3) << "Stripped connection-named hop-by-hop header " << hdr;
+              PRX_VLOG(3) << "Stripped connection-named hop-by-hop header "
+                          << hdr;
             }
           } // else empty token, no-op
           str = pos + 1;
@@ -357,7 +358,7 @@ void HTTPHeaders::stripPerHopHeaders(HTTPHeaders& strippedHeaders,
       strippedHeaders.emplace_back(code, names()[i], std::move(values()[i]));
       code = HTTP_HEADER_NONE;
       ++deletedCount_;
-      VLOG(5) << "Stripped hop-by-hop header " << *names()[i];
+      PRX_VLOG(5) << "Stripped hop-by-hop header " << *names()[i];
     }
   }
 }

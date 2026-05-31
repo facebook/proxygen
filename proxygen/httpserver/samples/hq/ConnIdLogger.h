@@ -8,7 +8,7 @@
 
 #pragma once
 #include <gflags/gflags.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <cctype>
 #include <folly/Conv.h>

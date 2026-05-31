@@ -17,6 +17,7 @@
 
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace proxygen::compress;
@@ -2586,7 +2587,8 @@ TEST_F(HTTP2CodecTest, GenerateHeadersWithEmptyRequest) {
 }
 
 TEST_F(HTTP2CodecTest, SetIfNotPresent) {
-  auto* egressSettings = CHECK_NOTNULL(downstreamCodec_.getEgressSettings());
+  auto* egressSettings =
+      PRX_CHECK_NOTNULL(downstreamCodec_.getEgressSettings());
   // WT_MAX_SESSIONS not currently present
   EXPECT_TRUE(egressSettings->setIfNotPresent(SettingsId::WT_MAX_SESSIONS, 1));
   // no-op since added above

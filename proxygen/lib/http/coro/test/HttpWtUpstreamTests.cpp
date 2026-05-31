@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/coro/util/CoroWtSession.h>
 #include <proxygen/lib/http/webtransport/WtStreamManager.h>
 #include <proxygen/lib/http/webtransport/test/Mocks.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace proxygen::test;
@@ -39,7 +40,7 @@ struct WtCapsuleCodecCallback : public WebTransportCapsuleCodec::Callback {
     baton.post();
   }
   void onStream(WTStreamCapsule capsule) noexcept override {
-    XLOG(DBG4)
+    PRX_VLOG(4)
         << __func__ << "; id=" << capsule.streamId << "; len="
         << (capsule.streamData ? capsule.streamData->computeChainDataLength()
                                : 0);
@@ -83,12 +84,12 @@ struct WtCapsuleCodecCallback : public WebTransportCapsuleCodec::Callback {
   }
   void onConnectionError(
       WebTransportCapsuleCodec::ErrorCode) noexcept override {
-    XLOG(FATAL) << "conn error";
+    PRX_LOG(FATAL) << "conn error";
   }
   void onCapsule(uint64_t capsuleType,
                  uint64_t capsuleLength) noexcept override {
-    XLOG(DBG4) << __func__ << "; capsuleType=" << capsuleType
-               << "; capsuleLength=" << capsuleLength;
+    PRX_VLOG(4) << __func__ << "; capsuleType=" << capsuleType
+                << "; capsuleLength=" << capsuleLength;
   }
 
   folly::coro::Task<void> waitForEvent() {
@@ -290,14 +291,14 @@ class WtTest : public H2WtUpstreamSessionTest {
     });
     EXPECT_CALL(callbacks_, onBody(1, _, _))
         .WillRepeatedly([this](auto id, auto buf, auto padding) {
-          XLOG(DBG5) << "::onBody len=" << buf->computeChainDataLength();
+          PRX_VLOG(5) << "::onBody len=" << buf->computeChainDataLength();
           wtCodec.onIngress(buf->clone(), false);
         });
     EXPECT_CALL(callbacks_, onMessageComplete(1, _)).WillRepeatedly([this]() {
-      XLOG(DBG5) << "::onMessageComplete";
+      PRX_VLOG(5) << "::onMessageComplete";
       wtCodec.onIngress(nullptr, true);
     });
-    coroTp = CHECK_NOTNULL(dynamic_cast<TestCoroTransport*>(transport_));
+    coroTp = PRX_CHECK_NOTNULL(dynamic_cast<TestCoroTransport*>(transport_));
   }
 
   void TearDown() override {
@@ -387,7 +388,7 @@ class WtTest : public H2WtUpstreamSessionTest {
  *    the http/2 loop has dequeued from WtStreamManager
  */
 CO_TEST_P_X(WtTest, SimpleUniEgress) {
-  XCHECK(wt);
+  PRX_CHECK(wt);
 
   // no available uni/bidi streams
   auto createStream = wt->createUniStream();
@@ -406,7 +407,7 @@ CO_TEST_P_X(WtTest, SimpleUniEgress) {
 
   // peer advertised uni credit => ::createUniStream now yields handle
   createStream = wt->createUniStream();
-  CHECK(createStream.hasValue());
+  PRX_CHECK(createStream.hasValue());
   auto* wh = createStream.value();
   auto id = wh->getID();
 
@@ -434,7 +435,7 @@ CO_TEST_P_X(WtTest, SimpleUniEgress) {
 
   // validate we've rx'd a wt_stream capsule with expected values
   auto streamEvent = std::exchange(wtCodecCb.stream, {});
-  XCHECK(streamEvent.has_value());
+  PRX_CHECK(streamEvent.has_value());
   EXPECT_EQ(streamEvent->streamId, id);
   EXPECT_EQ(streamEvent->streamData->computeChainDataLength(), kBufLen);
 
@@ -462,7 +463,7 @@ CO_TEST_P_X(WtTest, SimpleUniEgress) {
   co_await wtCodecCb.waitForEvent(); // ouch, this needs 5 loops otherwise
                                      // (i.e. co_await rescheduleN(5))
   streamEvent = std::exchange(wtCodecCb.stream, {});
-  XCHECK(streamEvent.has_value());
+  PRX_CHECK(streamEvent.has_value());
   EXPECT_EQ(streamEvent->streamId, id);
   EXPECT_EQ(streamEvent->streamData->computeChainDataLength(), 1);
 
@@ -472,7 +473,7 @@ CO_TEST_P_X(WtTest, SimpleUniEgress) {
 
   co_await wtCodecCb.waitForEvent();
   streamEvent = std::exchange(wtCodecCb.stream, {});
-  XCHECK(streamEvent.has_value());
+  PRX_CHECK(streamEvent.has_value());
   EXPECT_EQ(streamEvent->streamId, id);
   EXPECT_EQ(streamEvent->streamData->computeChainDataLength(), 0);
   EXPECT_EQ(streamEvent->fin, true);
@@ -489,7 +490,7 @@ CO_TEST_P_X(WtTest, SimpleUniEgress) {
  *    frame respectively
  */
 CO_TEST_P_X(WtTest, SimpleUniIngress) {
-  XCHECK(wt);
+  PRX_CHECK(wt);
   constexpr uint16_t kBufLen = 65'535;
   constexpr uint16_t kIngressId = 3;
 
@@ -539,7 +540,7 @@ CO_TEST_P_X(WtTest, SimpleUniIngress) {
 }
 
 CO_TEST_P_X(WtTest, SimpleBidiEcho) {
-  XCHECK(wt);
+  PRX_CHECK(wt);
   constexpr uint16_t kBufLen = 65'535;
 
   // no available bidi streams
@@ -559,7 +560,7 @@ CO_TEST_P_X(WtTest, SimpleBidiEcho) {
 
   // peer advertised bidi credit => ::createBidiStream now yields handle
   createStream = wt->createBidiStream();
-  CHECK(createStream.hasValue());
+  PRX_CHECK(createStream.hasValue());
   auto handle = createStream.value();
   auto id = handle.readHandle->getID();
 
@@ -596,7 +597,7 @@ CO_TEST_P_X(WtTest, SimpleBidiEcho) {
 
     // validate we've rx'd a wt_stream capsule with val idx
     auto streamEvent = std::exchange(wtCodecCb.stream, {});
-    XCHECK(streamEvent.has_value());
+    PRX_CHECK(streamEvent.has_value());
     EXPECT_EQ(streamEvent->streamId, id);
     EXPECT_EQ(streamEvent->streamData->length(), 1);
     EXPECT_EQ(*streamEvent->streamData->data(), idx);
@@ -643,7 +644,7 @@ CO_TEST_P_X(WtTest, TestReadTimeout) {
 }
 
 TEST_P(WtTest, TestErrConditions) {
-  XCHECK(wt);
+  PRX_CHECK(wt);
 
   // default no uni credit
   auto uniRes = wt->createUniStream();
@@ -685,7 +686,7 @@ TEST_P(WtTest, TestErrConditions) {
 CO_TEST_P_X(WtTest, PeerBidiAndTransportEom) {
   // Deliver a peer-initiated bidi stream, followed by a transport eom (http/2
   // stream eom). This should trigger shutdown of WebTransport
-  XCHECK(wt);
+  PRX_CHECK(wt);
 
   constexpr uint16_t kBufLen = 65'535;
   constexpr uint16_t kIngressId = 1;
@@ -730,7 +731,7 @@ CO_TEST_P_X(WtTest, MaxStreamsBidiUni) {
   // open 5 of each peer-initiated uni streams and peer-initiated bidi streams;
   // close them to verify that advertising MaxStreamsBidi/MaxStreamsUni is
   // working as expected (when 50% of the limit is reached)
-  XCHECK(wt);
+  PRX_CHECK(wt);
   uint64_t nextServerBidi = 0x01, nextServerUni = 0x03;
 
   // send 1 byte of data on the first five server bidi and server uni streams
@@ -777,12 +778,12 @@ CO_TEST_P_X(WtTest, MaxStreamsBidiUni) {
 }
 
 CO_TEST_P_X(WtTest, Datagrams) {
-  XCHECK(wt);
+  PRX_CHECK(wt);
   // tx datagram to peer
   wt->sendDatagram(folly::IOBuf::copyBuffer("datagram1"));
   // wait for peer codec to receive event
   co_await wtCodecCb.waitForEvent();
-  CHECK_EQ(wtCodecCb.dgrams.size(), 1);
+  PRX_CHECK_EQ(wtCodecCb.dgrams.size(), 1);
   EXPECT_EQ(wtCodecCb.dgrams.front()->toString(), "datagram1");
 
   // rx datagram from peer

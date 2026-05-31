@@ -18,7 +18,7 @@
 
 #include "folly/coro/GmockHelpers.h"
 #include <folly/coro/Sleep.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/priority/HTTPPriorityQueue.h>
 
 using namespace proxygen;
@@ -64,7 +64,7 @@ class HTTPDownstreamSessionTest : public HTTPCoroSessionTest {
                               HTTPSessionContextPtr ctx,
                               HTTPSourceHolder source)
                 -> folly::coro::Task<HTTPSourceHolder> {
-              CHECK_EQ(ctx->getEventBase(), evb);
+              PRX_CHECK_EQ(ctx->getEventBase(), evb);
               return (*sharedHandlerFn)(evb, ctx, std::move(source));
             }))
         .RetiresOnSaturation();
@@ -95,7 +95,7 @@ class HTTPDownstreamSessionTest : public HTTPCoroSessionTest {
         !stream.second.writeBuf.empty()) {
       folly::io::Cursor cursor(stream.second.writeBuf.front());
       auto preface = quic::follyutils::decodeQuicInteger(cursor);
-      XCHECK(preface);
+      PRX_CHECK(preface);
       size_t toTrim = preface->second;
       auto g = folly::makeGuard(
           [&toTrim, &stream] { stream.second.writeBuf.trimStart(toTrim); });
@@ -112,18 +112,18 @@ class HTTPDownstreamSessionTest : public HTTPCoroSessionTest {
         case hq::UnidirectionalStreamType::PUSH: {
           auto pushID = quic::follyutils::decodeQuicInteger(cursor);
           multiCodec_->addCodec(stream.first);
-          XCHECK(pushID);
+          PRX_CHECK(pushID);
           pushMap_.emplace(pushID->first, stream.first);
           toTrim += pushID->second;
           // Parse the rest of the push later
           return;
         }
         default:
-          XLOG(FATAL) << "Bad uni stream type";
+          PRX_LOG(FATAL) << "Bad uni stream type";
       }
     }
     if (!stream.second.writeBuf.empty()) {
-      XLOG(DBG4) << "Decoding stream id=" << stream.first;
+      PRX_VLOG(4) << "Decoding stream id=" << stream.first;
       if (controlCodec) {
         if (!stream.second.writeBuf.empty()) {
           controlCodec->onUnidirectionalIngress(stream.second.writeBuf.move());
@@ -680,8 +680,8 @@ TEST_P(HTTPDownstreamSessionTest, ByteEventsCancelOnWriteError) {
       .Times(2)
       .WillRepeatedly(
           Invoke([](const HTTPByteEvent &event, const HTTPError &err) {
-            XLOG(DBG4) << "onByteEventCanceled t=" << uint8_t(event.type)
-                       << " off=" << event.transportOffset;
+            PRX_VLOG(4) << "onByteEventCanceled t=" << uint8_t(event.type)
+                        << " off=" << event.transportOffset;
             EXPECT_EQ(event.type, HTTPByteEvent::Type::KERNEL_WRITE);
             EXPECT_EQ(err.code, HTTPErrorCode::TRANSPORT_WRITE_ERROR);
           }));
@@ -880,7 +880,7 @@ TEST_P(H1DownstreamSessionTest, ReadDataAfterCancel) {
   expectResponse(id, 200);
   parseOutput();
   // expect graceful shutdown (i.e. eof & not rst)
-  XCHECK(!transportState_.closedWithReset && transportState_.writesClosed);
+  PRX_CHECK(!transportState_.closedWithReset && transportState_.writesClosed);
 }
 
 TEST_P(H2DownstreamSessionTest, ByteEventsCancelOnProtocolError) {
@@ -1618,7 +1618,7 @@ CO_TEST_P(H2DownstreamSessionTest, ResetRateLimit) {
       &evb_,
       [](HTTPSourceHolder reqSource) -> folly::coro::Task<void> {
         auto bodyEvent = co_await co_awaitTry(reqSource.readBodyEvent());
-        CHECK(bodyEvent.hasException());
+        PRX_CHECK(bodyEvent.hasException());
         auto *ex = bodyEvent.tryGetExceptionObject<HTTPError>();
         EXPECT_TRUE(ex && ex->code == HTTPErrorCode::CANCEL);
       }(std::move(keepaliveReqSource)))
@@ -1692,7 +1692,7 @@ TEST_P(HTTPDownstreamSessionTest, InvalidPeerCertificate) {
                                     HTTPSourceHolder requestSource)
                                  -> folly::coro::Task<HTTPSourceHolder> {
         co_await expectRequest(requestSource, HTTPMethod::GET, "/");
-        CHECK(ctx);
+        PRX_CHECK(ctx);
         auto peerIdentity = ctx->getPeerCertificate()->getIdentity();
         co_return peerIdentity == "good_actor"
             ? HTTPFixedSource::makeFixedResponse(200, "ok!")
@@ -2100,13 +2100,13 @@ TEST_P(H2QDownstreamSessionTest, ResetStreamAwaitingHeaders) {
     }
 
     folly::coro::Task<HTTPBodyEvent> readBodyEvent(uint32_t) override {
-      XCHECK(false);
+      PRX_CHECK(false);
     }
 
     void stopReading(
         folly::Optional<const proxygen::coro::HTTPErrorCode>) noexcept
         override {
-      XCHECK(false);
+      PRX_CHECK(false);
     }
   };
 
@@ -2316,7 +2316,7 @@ TEST_P(H2QDownstreamSessionTest, StateMachineError) {
                                  -> folly::coro::Task<HTTPSourceHolder> {
         auto err = co_await expectHeaderError(
             requestSource, HTTPErrorCode::INVALID_STATE_TRANSITION);
-        XCHECK(err.httpMessage);
+        PRX_CHECK(err.httpMessage);
         EXPECT_EQ(
             err.httpMessage->getHeaders().getSingleOrEmpty("cache-control"),
             "max-age=0");
@@ -2523,7 +2523,8 @@ TEST_P(H2QDownstreamSessionTest, EgressPushStreamLimitExceeded) {
                                  -> folly::coro::Task<HTTPSourceHolder> {
         co_await expectRequest(requestSource, HTTPMethod::GET, "/");
         co_return makeResponseWithPush([]() -> OnEOMSource::CallbackReturn {
-          XLOG(FATAL) << "EOM is never read, because session calls stopSending";
+          PRX_LOG(FATAL)
+              << "EOM is never read, because session calls stopSending";
           co_return folly::none;
         });
       });
@@ -2552,7 +2553,8 @@ TEST_P(H2DownstreamSessionTest, EgressPushNotSupported) {
                                  -> folly::coro::Task<HTTPSourceHolder> {
         co_await expectRequest(requestSource, HTTPMethod::GET, "/");
         co_return makeResponseWithPush([]() -> OnEOMSource::CallbackReturn {
-          XLOG(FATAL) << "EOM is never read, because session calls stopSending";
+          PRX_LOG(FATAL)
+              << "EOM is never read, because session calls stopSending";
           co_return folly::none;
         });
       });
@@ -3467,7 +3469,7 @@ CO_TEST_P_X(HTTPDownstreamSessionTest, IngressErrorCustomResponse) {
                                  -> folly::coro::Task<HTTPSourceHolder> {
         auto headers = co_await co_awaitTry(
             expectRequest(requestSource, HTTPMethod::POST, "/", false));
-        CHECK(headers.hasValue());
+        PRX_CHECK(headers.hasValue());
 
         auto res = co_await co_awaitTry(readBodyEventNoSuspend(requestSource));
         auto err = res.tryGetExceptionObject<HTTPError>();
@@ -3509,7 +3511,7 @@ CO_TEST_P_X(HTTPDownstreamSessionTest, IngressErrorCustomResponseMismatch) {
                                  -> folly::coro::Task<HTTPSourceHolder> {
         auto headers = co_await co_awaitTry(
             expectRequest(requestSource, HTTPMethod::POST, "/", false));
-        CHECK(headers.hasValue());
+        PRX_CHECK(headers.hasValue());
 
         auto res = co_await co_awaitTry(readBodyEventNoSuspend(requestSource));
         auto err = res.tryGetExceptionObject<HTTPError>();
@@ -4317,7 +4319,7 @@ CO_TEST_P_X(H2DownstreamWtTest, BypassWebTransportTermination) {
   co_await waitForHandler;
   // expected ingress eventType=BODY, equal to kBody, and eom=true
   auto ingressBody = co_await co_nothrow(reqSource->readBodyEvent());
-  CHECK_EQ(ingressBody.eventType, HTTPBodyEvent::BODY);
+  PRX_CHECK_EQ(ingressBody.eventType, HTTPBodyEvent::BODY);
   EXPECT_EQ(ingressBody.event.body.move()->toString(), kBody);
   EXPECT_TRUE(ingressBody.eom);
 

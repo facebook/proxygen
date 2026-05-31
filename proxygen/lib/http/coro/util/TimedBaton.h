@@ -13,7 +13,7 @@
 #include <folly/coro/Task.h>
 #include <folly/io/async/DestructorCheck.h>
 #include <folly/io/async/EventBase.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -41,14 +41,14 @@ class TimedBaton
   enum class Status : uint8_t { notReady, signalled, timedout, cancelled };
 
   void signal(Status status = Status::signalled) {
-    XCHECK(!eventBase_ || eventBase_->isInEventBaseThread());
+    PRX_CHECK(!eventBase_ || eventBase_->isInEventBaseThread());
     if (status == status_) {
       return;
     }
     cancelTimeout();
     if (status_ != Status::notReady && status_ != Status::signalled) {
-      XLOG(DBG4) << "Ignoring TimedBaton signal while in error state="
-                 << uint32_t(status_);
+      PRX_VLOG(4) << "Ignoring TimedBaton signal while in error state="
+                  << uint32_t(status_);
     } else {
       status_ = status;
     }
@@ -64,7 +64,7 @@ class TimedBaton
   }
 
   void reset() {
-    XCHECK(!eventBase_ || eventBase_->isInEventBaseThread());
+    PRX_CHECK(!eventBase_ || eventBase_->isInEventBaseThread());
     status_ = Status::notReady;
     baton_.reset();
   }
@@ -74,11 +74,12 @@ class TimedBaton
   }
 
   void setTimeout(std::chrono::milliseconds timeout) {
-    XCHECK(!eventBase_ || eventBase_->isInEventBaseThread());
+    PRX_CHECK(!eventBase_ || eventBase_->isInEventBaseThread());
     timeout_ = timeout;
     if (waiting_ > 0) {
       if (timeout_.count() > 0) {
-        XCHECK(eventBase_) << "Must provide an event base when timeout is set";
+        PRX_CHECK(eventBase_)
+            << "Must provide an event base when timeout is set";
         eventBase_->timer().scheduleTimeout(this, timeout_);
       } else {
         cancelTimeout();
@@ -87,7 +88,7 @@ class TimedBaton
   }
 
   folly::coro::Task<Status> wait() noexcept {
-    XCHECK(!eventBase_ || eventBase_->isInEventBaseThread());
+    PRX_CHECK(!eventBase_ || eventBase_->isInEventBaseThread());
     const auto& cancelToken =
         co_await folly::coro::co_current_cancellation_token;
     if (cancelToken.isCancellationRequested()) {
@@ -108,7 +109,7 @@ class TimedBaton
           });
         }};
     if (timeout_.count() > 0 && !baton_.ready()) {
-      XCHECK(eventBase_) << "Must provide an event base when timeout is set";
+      PRX_CHECK(eventBase_) << "Must provide an event base when timeout is set";
       eventBase_->timer().scheduleTimeout(this, timeout_);
     }
     waiting_++;
@@ -123,7 +124,7 @@ class TimedBaton
 
   ~TimedBaton() override {
     // must be destructed in evb thread
-    XCHECK(!eventBase_ || eventBase_->isInEventBaseThread());
+    PRX_CHECK(!eventBase_ || eventBase_->isInEventBaseThread());
     *destroyed_ = true;
     if (status_ == Status::notReady) {
       signal(Status::cancelled);
@@ -132,7 +133,7 @@ class TimedBaton
 
  protected:
   void timeoutExpired() noexcept override {
-    XLOG(DBG6) << "in TimedBaton timeout expired";
+    PRX_VLOG(6) << "in TimedBaton timeout expired";
     status_ = Status::timedout;
     baton_.post();
   }

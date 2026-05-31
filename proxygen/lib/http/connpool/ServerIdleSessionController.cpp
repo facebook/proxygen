@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/connpool/ServerIdleSessionController.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -24,7 +25,7 @@ folly::Future<HTTPSessionBase*> ServerIdleSessionController::getIdleSession() {
   }
 
   if (maxPool->getEventBase()->isInEventBaseThread()) {
-    LOG(ERROR) << "Idle session already belongs to current thread!";
+    PRX_LOG(ERROR) << "Idle session already belongs to current thread!";
     return folly::makeFuture<HTTPSessionBase*>(nullptr);
   }
 
@@ -47,7 +48,7 @@ void ServerIdleSessionController::addIdleSession(const HTTPSessionBase* session,
   std::lock_guard<std::mutex> lock(lock_);
   if (sessionMap_.find(session) != sessionMap_.end()) {
     // removeIdleSession should've been called before re-adding
-    LOG(ERROR) << "Session " << session << " already exists!";
+    PRX_LOG(ERROR) << "Session " << session << " already exists!";
     return;
   }
   if (sessionsByIdleAge_.size() < maxIdleCount_) {

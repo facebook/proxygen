@@ -15,6 +15,7 @@
 #include <fstream>
 #include <memory>
 #include <ostream>
+#include <proxygen/lib/utils/LogShim.h>
 #include <sstream>
 #include <sys/stat.h>
 #include <vector>
@@ -98,7 +99,7 @@ string IOBufPrinter::printChain(const IOBuf* buf,
                                 bool coalesce) {
   auto index = (uint8_t)format;
   if (printers.size() <= index) {
-    LOG(ERROR) << "invalid format: " << index;
+    PRX_LOG(ERROR) << "invalid format: " << index;
     return "";
   }
   auto printer = printers[index];
@@ -131,7 +132,7 @@ void dumpBinToFile(const string& filename, const IOBuf* buf) {
   }
   std::ofstream file(filename, std::ofstream::binary);
   if (!file.is_open()) {
-    LOG(ERROR) << "cannot open file " << filename;
+    PRX_LOG(ERROR) << "cannot open file " << filename;
     return;
   }
   if (!buf) {
@@ -144,7 +145,7 @@ void dumpBinToFile(const string& filename, const IOBuf* buf) {
     buf = buf->next();
   } while (buf != first);
   file.close();
-  LOG(INFO) << "wrote chain " << IOBufPrinter::printChainInfo(buf) << " to "
-            << filename;
+  PRX_LOG(INFO) << "wrote chain " << IOBufPrinter::printChainInfo(buf) << " to "
+                << filename;
 }
 } // namespace proxygen

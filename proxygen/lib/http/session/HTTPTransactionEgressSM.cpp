@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 
 #include <folly/Indestructible.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -104,7 +105,7 @@ std::ostream& operator<<(std::ostream& os,
       os << "SendingDone";
       break;
     case HTTPTransactionEgressSMData::State::NumStates:
-      CHECK(false) << "Bad state";
+      PRX_CHECK(false) << "Bad state";
   }
 
   return os;
@@ -138,7 +139,7 @@ std::ostream& operator<<(std::ostream& os,
       os << "eomFlushed";
       break;
     case HTTPTransactionEgressSMData::Event::NumEvents:
-      CHECK(false) << "Bad event";
+      PRX_CHECK(false) << "Bad event";
   }
 
   return os;

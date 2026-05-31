@@ -40,6 +40,7 @@ proxygen_add_library(proxygen_http_http_message_filters
   EXPORTED_DEPS
     proxygen_http_session_http_transaction
     proxygen_http_sink_client_sink_interface
+    proxygen_utils_log_shim
     Folly::folly_io_async_destructor_check
     Folly::folly_memory
 )
@@ -52,9 +53,9 @@ proxygen_add_library(proxygen_http_client
     proxygen_http_codec_http2_codec
     proxygen_http_session_http_transaction
     proxygen_http_session_http_upstream_session
+    proxygen_utils_log_shim
     wangle::wangle_ssl_ssl_util
     Folly::folly_io_async_async_ssl_socket
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
     proxygen_http_codec_codec_factory
@@ -78,6 +79,7 @@ proxygen_add_library(proxygen_http_http_connector_with_fizz
     HTTPConnectorWithFizz.cpp
   DEPS
     proxygen_http_session_http_upstream_session
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_client
     fizz::fizz
@@ -90,10 +92,10 @@ proxygen_add_library(proxygen_http_hq_connector
   DEPS
     proxygen_http_codec_h3_early_data_handler
     proxygen_http_session_hq_session
+    proxygen_utils_log_shim
     mvfst::mvfst_common_udpsocket_folly_async_udp_socket
     mvfst::mvfst_congestion_control_congestion_controller_factory
     mvfst::mvfst_fizz_client_handshake
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_http_session_hq_upstream_session
     mvfst::mvfst_api_loop_detector_callback
@@ -110,7 +112,7 @@ proxygen_add_library(proxygen_http_window
   SRCS
     Window.cpp
   DEPS
-    glog::glog
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_http_common
@@ -139,6 +141,7 @@ proxygen_add_library(proxygen_http_http_utils
     proxygen_http_h3_errors
     proxygen_http_message
     proxygen_utils_exception
+    proxygen_utils_log_shim
     Folly::folly_memory
 )
 
@@ -149,9 +152,9 @@ proxygen_add_library(proxygen_http_http_headers
     RFC2616.cpp
   DEPS
     proxygen_http_http_common_headers
+    proxygen_utils_log_shim
     Folly::folly_indestructible
     Folly::folly_thread_local
-    glog::glog
   EXPORTED_DEPS
     proxygen_utils_export
     proxygen_utils_util_inl
@@ -182,13 +185,13 @@ proxygen_add_library(proxygen_http_message
     proxygen_http_http_header_size
     proxygen_http_http_headers
     proxygen_http_types
+    proxygen_utils_log_shim
     proxygen_utils_parse_url
     proxygen_utils_time_util
     Folly::folly_conv
     Folly::folly_io_iobuf
     Folly::folly_network_address
     Folly::folly_optional
-    glog::glog
 )
 
 proxygen_add_library(proxygen_http_priority_functions
@@ -196,6 +199,7 @@ proxygen_add_library(proxygen_http_priority_functions
     HTTPPriorityFunctions.cpp
   DEPS
     proxygen_http_structuredheaders_decoder
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_message
     Folly::folly_optional
@@ -206,12 +210,14 @@ proxygen_add_library(proxygen_http_h3_errors
   SRCS
     HTTP3ErrorCode.cpp
   DEPS
-    glog::glog
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_synchronized_quic_lrucache
   SRCS
     SynchronizedLruQuicPskCache.cpp
+  DEPS
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     mvfst::mvfst_fizz_client_handshake_psk_cache
     Folly::folly_container_evicting_cache_map
@@ -222,7 +228,7 @@ proxygen_add_library(proxygen_http_proxy_status
   SRCS
     ProxyStatus.cpp
   DEPS
-    glog::glog
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_status_type
     proxygen_http_structuredheaders_encoder

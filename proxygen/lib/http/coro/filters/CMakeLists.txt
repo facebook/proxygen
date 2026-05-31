@@ -22,6 +22,7 @@ proxygen_add_library(proxygen_http_coro_filters_compression_filter
   EXPORTED_DEPS
     proxygen_coro_source
     proxygen_utils_compression_filter_utils
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_coro_filters_decompression_filter
@@ -47,6 +48,7 @@ proxygen_add_library(proxygen_http_coro_filters_decompression_filter_factory
     DecompressionFilterFactory.cpp
   DEPS
     proxygen_http_coro_filters_decompression_filter
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_coro_filters_FilterFactory
     proxygen_http_coro_filters_ServerFilterFactory
@@ -56,7 +58,7 @@ proxygen_add_library(proxygen_http_coro_filters_status_1xx_filter
   SRCS
     Status1xxFilter.cpp
   DEPS
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_coro_source
 )
@@ -80,16 +82,16 @@ proxygen_add_library(proxygen_http_coro_filters_logger
     proxygen_coro
     proxygen_coro_source
     proxygen_sampling_sampled
+    proxygen_utils_log_shim
     Folly::folly_coro_collect
     Folly::folly_coro_promise
-    Folly::folly_logging_logging
 )
 
 proxygen_add_library(proxygen_http_coro_filters_redirect_handler
   SRCS
     HTTPRedirectHandler.cpp
   DEPS
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_coro
     proxygen_coro_source

@@ -7,8 +7,8 @@
  */
 
 #include <folly/portability/GTest.h>
-#include <glog/logging.h>
 #include <proxygen/lib/http/codec/compress/HeaderPiece.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen::compress;
 

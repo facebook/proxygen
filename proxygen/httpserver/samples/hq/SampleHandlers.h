@@ -34,6 +34,7 @@
 #include <proxygen/httpserver/samples/hq/HQServer.h>
 #include <proxygen/httpserver/samples/hq/devious/DeviousBaton.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/SafePathUtils.h>
 
 namespace quic::samples {
@@ -195,7 +196,7 @@ class ChunkedHandler
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    VLOG(10) << "ChunkedHandler::onHeadersComplete";
+    PRX_VLOG(10) << "ChunkedHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
@@ -214,7 +215,7 @@ class ChunkedHandler
   }
 
   void onEOM() noexcept override {
-    VLOG(10) << "ChunkedHandler::onEOM";
+    PRX_VLOG(10) << "ChunkedHandler::onEOM";
     sleepFutureCallback();
   }
 
@@ -287,9 +288,9 @@ class EchoHandler : public BaseSampleHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    VLOG(10) << "EchoHandler::onHeadersComplete";
+    PRX_VLOG(10) << "EchoHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     sendFooter_ =
         (msg->getHTTPVersion() == proxygen::HTTPMessage::kHTTPVersion09);
     resp.setVersionString(getHttpVersion());
@@ -305,12 +306,12 @@ class EchoHandler : public BaseSampleHandler {
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
-    VLOG(10) << "EchoHandler::onBody";
+    PRX_VLOG(10) << "EchoHandler::onBody";
     txn_->sendBody(std::move(chain));
   }
 
   void onEOM() noexcept override {
-    VLOG(10) << "EchoHandler::onEOM";
+    PRX_VLOG(10) << "EchoHandler::onEOM";
     if (sendFooter_) {
       auto& footer = getH1QFooter();
       txn_->sendBody(folly::IOBuf::copyBuffer(footer.data(), footer.length()));
@@ -368,9 +369,9 @@ class ContinueHandler : public EchoHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    VLOG(10) << "ContinueHandler::onHeadersComplete";
+    PRX_VLOG(10) << "ContinueHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     if (msg->getHeaders().getSingleOrEmpty(proxygen::HTTP_HEADER_EXPECT) ==
         "100-continue") {
@@ -394,9 +395,9 @@ class RandBytesGenHandler : public BaseSampleHandler {
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
     auto path = msg->getPathAsStringPiece();
-    VLOG(10) << "RandBytesGenHandler::onHeadersComplete";
-    VLOG(1) << "Request path: " << path;
-    CHECK_GE(path.size(), 1);
+    PRX_VLOG(10) << "RandBytesGenHandler::onHeadersComplete";
+    PRX_VLOG(1) << "Request path: " << path;
+    PRX_CHECK_GE(path.size(), 1);
     try {
       respBodyLen_ = folly::to<uint64_t>(path.subpiece(1));
     } catch (const folly::ConversionError&) {
@@ -404,7 +405,7 @@ class RandBytesGenHandler : public BaseSampleHandler {
           "Invalid URL: cannot extract requested response-length from url "
           "path: ",
           path);
-      LOG(ERROR) << errorMsg;
+      PRX_LOG(ERROR) << errorMsg;
       sendError(errorMsg);
       return;
     }
@@ -414,7 +415,7 @@ class RandBytesGenHandler : public BaseSampleHandler {
     }
 
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
@@ -426,16 +427,16 @@ class RandBytesGenHandler : public BaseSampleHandler {
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> /*chain*/) noexcept override {
-    VLOG(10) << "RandBytesGenHandler::onBody";
+    PRX_VLOG(10) << "RandBytesGenHandler::onBody";
     sendBodyInChunks();
   }
 
   void onEOM() noexcept override {
-    VLOG(10) << "RandBytesGenHandler::onEOM";
+    PRX_VLOG(10) << "RandBytesGenHandler::onEOM";
   }
 
   void onError(const proxygen::HTTPException& /*error*/) noexcept override {
-    VLOG(10) << "RandBytesGenHandler::onERROR";
+    PRX_VLOG(10) << "RandBytesGenHandler::onERROR";
     txn_->sendAbort();
   }
 
@@ -451,7 +452,7 @@ class RandBytesGenHandler : public BaseSampleHandler {
  private:
   void sendBodyInChunks() {
     if (error_) {
-      LOG(ERROR) << "sendBodyInChunks no-op, error_=true";
+      PRX_LOG(ERROR) << "sendBodyInChunks no-op, error_=true";
       txn_->sendAbort();
       return;
     }
@@ -459,15 +460,15 @@ class RandBytesGenHandler : public BaseSampleHandler {
     if (respBodyLen_ % kMaxChunkSize != 0) {
       ++iter;
     }
-    VLOG(10) << "Sending response in " << iter << " chunks";
+    PRX_VLOG(10) << "Sending response in " << iter << " chunks";
     for (uint64_t i = 0; i < iter && !paused_; i++) {
       uint64_t chunkSize = std::fmin(kMaxChunkSize, respBodyLen_);
-      VLOG(10) << "Sending " << chunkSize << " bytes of data";
+      PRX_VLOG(10) << "Sending " << chunkSize << " bytes of data";
       txn_->sendBody(genRandBytes(chunkSize));
       respBodyLen_ -= chunkSize;
     }
     if (!paused_ && !eomSent_ && respBodyLen_ == 0) {
-      VLOG(10) << "Sending response EOM";
+      PRX_VLOG(10) << "Sending response EOM";
       txn_->sendEOM();
       eomSent_ = true;
     }
@@ -524,9 +525,9 @@ class DummyHandler : public BaseSampleHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    VLOG(10) << "DummyHandler::onHeadersComplete";
+    PRX_VLOG(10) << "DummyHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
@@ -539,12 +540,12 @@ class DummyHandler : public BaseSampleHandler {
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> /*chain*/) noexcept override {
-    VLOG(10) << "DummyHandler::onBody";
+    PRX_VLOG(10) << "DummyHandler::onBody";
     txn_->sendBody(folly::IOBuf::copyBuffer(kDummyMessage));
   }
 
   void onEOM() noexcept override {
-    VLOG(10) << "DummyHandler::onEOM";
+    PRX_VLOG(10) << "DummyHandler::onEOM";
     txn_->sendEOM();
   }
 
@@ -572,15 +573,15 @@ class DelayHandler
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    VLOG(10) << "DelayHandler::onHeadersComplete";
+    PRX_VLOG(10) << "DelayHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
     resp.setWantsKeepalive(true);
     maybeAddAltSvcHeader(resp);
-    VLOG(10) << "DelayHandler::onHeadersComplete calling sendHeaders";
+    PRX_VLOG(10) << "DelayHandler::onHeadersComplete calling sendHeaders";
     txn_->sendHeaders(resp);
 
     auto duration = getQueryParamAsNumber(msg, "duration", 0);
@@ -590,11 +591,11 @@ class DelayHandler
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> /*chain*/) noexcept override {
-    VLOG(10) << "DelayHandler::onBody";
+    PRX_VLOG(10) << "DelayHandler::onBody";
   }
 
   void onEOM() noexcept override {
-    VLOG(10) << "DelayHandler::onEOM";
+    PRX_VLOG(10) << "DelayHandler::onEOM";
   }
 
   void onError(const proxygen::HTTPException& /*error*/) noexcept override {
@@ -618,9 +619,9 @@ class HealthCheckHandler : public BaseSampleHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    VLOG(10) << "HealthCheckHandler::onHeadersComplete";
+    PRX_VLOG(10) << "HealthCheckHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     if (msg->getMethod() == proxygen::HTTPMethod::GET) {
       resp.setStatusCode(healthy_ ? 200 : 400);
@@ -638,12 +639,12 @@ class HealthCheckHandler : public BaseSampleHandler {
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> /*chain*/) noexcept override {
-    VLOG(10) << "HealthCheckHandler::onBody";
+    PRX_VLOG(10) << "HealthCheckHandler::onBody";
     assert(false);
   }
 
   void onEOM() noexcept override {
-    VLOG(10) << "HealthCheckHandler::onEOM";
+    PRX_VLOG(10) << "HealthCheckHandler::onEOM";
     txn_->sendEOM();
   }
 
@@ -663,9 +664,9 @@ class SimplePostHandler : public BaseSampleHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    VLOG(10) << "SimplePostHandler::onHeadersComplete";
+    PRX_VLOG(10) << "SimplePostHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     if (msg->getMethod() != proxygen::HTTPMethod::POST) {
       resp.setStatusCode(400);
@@ -676,14 +677,14 @@ class SimplePostHandler : public BaseSampleHandler {
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
-    VLOG(10) << "SimplePostHandler::onBody";
+    PRX_VLOG(10) << "SimplePostHandler::onBody";
     numBodyBytesReceived_ += chain->computeChainDataLength();
   }
 
   void onEOM() noexcept override {
-    VLOG(10) << "SimplePostHandler::onEOM";
+    PRX_VLOG(10) << "SimplePostHandler::onEOM";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
@@ -715,7 +716,7 @@ class WaitReleaseHandler : public BaseSampleHandler {
 
   void sendErrorResponse(const std::string& body) {
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(400);
     resp.setStatusMessage("ERROR");
@@ -728,7 +729,7 @@ class WaitReleaseHandler : public BaseSampleHandler {
 
   void sendOkResponse(const std::string& body, bool eom) {
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    PRX_VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("OK");
@@ -752,11 +753,11 @@ class WaitReleaseHandler : public BaseSampleHandler {
   void maybeCleanup();
 
   void onBody(std::unique_ptr<folly::IOBuf> /*chain*/) noexcept override {
-    VLOG(10) << "WaitReleaseHandler::onBody - ignoring";
+    PRX_VLOG(10) << "WaitReleaseHandler::onBody - ignoring";
   }
 
   void onEOM() noexcept override {
-    VLOG(10) << "WaitReleaseHandler::onEOM";
+    PRX_VLOG(10) << "WaitReleaseHandler::onEOM";
   }
 
   void onError(const proxygen::HTTPException& /*error*/) noexcept override {
@@ -877,7 +878,7 @@ class StaticFileHandler : public BaseSampleHandler {
   }
 
   folly::EventBase* evb() {
-    return CHECK_NOTNULL(folly::EventBaseManager::get()->getEventBase());
+    return PRX_CHECK_NOTNULL(folly::EventBaseManager::get()->getEventBase());
   }
 
  public:
@@ -895,8 +896,8 @@ class StaticFileHandler : public BaseSampleHandler {
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
     auto path = msg->getPathAsStringPiece();
-    VLOG(10) << "StaticFileHandler::onHeadersComplete";
-    VLOG(4) << "Request path: " << path;
+    PRX_VLOG(10) << "StaticFileHandler::onHeadersComplete";
+    PRX_VLOG(4) << "Request path: " << path;
     if (path.contains("..")) {
       sendError("Path cannot contain ..");
       return;
@@ -912,7 +913,7 @@ class StaticFileHandler : public BaseSampleHandler {
           "path: '",
           path,
           "'");
-      LOG(ERROR) << errorMsg << " file: '" << filepath << "'";
+      PRX_LOG(ERROR) << errorMsg << " file: '" << filepath << "'";
       sendError(errorMsg);
       return;
     }
@@ -931,17 +932,17 @@ class StaticFileHandler : public BaseSampleHandler {
   }
 
   void onError(const proxygen::HTTPException& /*error*/) noexcept override {
-    VLOG(10) << "StaticFileHandler::onError";
+    PRX_VLOG(10) << "StaticFileHandler::onError";
     txn_->sendAbort();
   }
 
   void onEgressPaused() noexcept override {
-    VLOG(10) << "StaticFileHandler::onEgressPaused";
+    PRX_VLOG(10) << "StaticFileHandler::onEgressPaused";
     paused_ = true;
   }
 
   void onEgressResumed() noexcept override {
-    VLOG(10) << "StaticFileHandler::onEgressResumed";
+    PRX_VLOG(10) << "StaticFileHandler::onEgressResumed";
     paused_ = false;
     folly::getUnsafeMutableGlobalCPUExecutor()->add(
         [this, evb = evb(), self = self_]() { readFile(evb, self); });
@@ -978,14 +979,14 @@ class StaticFileHandler : public BaseSampleHandler {
       auto rc = folly::readNoInt(file_->fd(), data.first, data.second);
       if (rc < 0) {
         // error
-        LOG(ERROR) << "Read error=" << rc;
+        PRX_LOG(ERROR) << "Read error=" << rc;
         file_.reset();
         evb->runInEventBaseThread([this] { sendAbort(); });
         break;
       } else if (rc == 0) {
         // done
         file_.reset();
-        VLOG(4) << "Read EOF";
+        PRX_VLOG(4) << "Read EOF";
         evb->runInEventBaseThread([this] { sendEom(); });
         break;
       } else {

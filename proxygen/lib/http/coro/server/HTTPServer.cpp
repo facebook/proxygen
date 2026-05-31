@@ -16,8 +16,8 @@
 
 #include <folly/fibers/BatchSemaphore.h>
 #include <folly/io/async/EventBaseManager.h>
-#include <folly/logging/xlog.h>
 #include <folly/system/HardwareConcurrency.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -76,7 +76,7 @@ class HTTPServerHandler : public proxygen::coro::HTTPFilterFactoryHandler {
   HTTPServerHandler(std::shared_ptr<HTTPHandler> userHandler,
                     HTTPServer::ServerFilterFactoryList filterFactories) {
     // user supplied handler must exist
-    CHECK(userHandler);
+    PRX_CHECK(userHandler);
     setNextHandler(std::move(userHandler));
     for (auto& factory : filterFactories) {
       addFilterFactory(std::move(factory));
@@ -89,7 +89,7 @@ class HTTPServerHandler : public proxygen::coro::HTTPFilterFactoryHandler {
 } // namespace
 
 HTTPServer::~HTTPServer() {
-  XCHECK(!eventBase_.isRunning());
+  PRX_CHECK(!eventBase_.isRunning());
 }
 
 void HTTPServer::start(
@@ -130,7 +130,7 @@ void HTTPServer::start(
       startTcp(evbs);
     }
   } catch (const std::exception& ex) {
-    XLOG(ERR) << "Initialization encountered an error=" << ex.what();
+    PRX_LOG(ERROR) << "Initialization encountered an error=" << ex.what();
     if (onError) {
       onError(std::current_exception());
     } else {
@@ -194,14 +194,14 @@ HTTPServer::getQuicAcceptor(folly::EventBase* evb) {
     return nullptr;
   }
   // For now, the quic implementation can still only support one acceptor.
-  XCHECK_EQ(it->second.size(), 1UL);
+  PRX_CHECK_EQ(it->second.size(), 1UL);
   return &it->second.front();
 }
 
 void HTTPServer::startTcp(const KeepAliveEventBaseVec& keepAliveEvbs) {
   std::vector<SocketAcceptorConfig> socketAcceptorConfigs;
   if (socketAcceptorConfigFactoryFn_) {
-    XLOG(DBG4) << "Using custom socket acceptor config factory";
+    PRX_VLOG(4) << "Using custom socket acceptor config factory";
     socketAcceptorConfigs = socketAcceptorConfigFactoryFn_(eventBase_, config_);
     for (auto& socketAcceptorConfig : socketAcceptorConfigs) {
       socketAcceptorConfig.socket->startAccepting();
@@ -223,7 +223,7 @@ void HTTPServer::startTcp(const KeepAliveEventBaseVec& keepAliveEvbs) {
       serverSocket->listen(config_.socketConfig.acceptBacklog);
       serverSocket->startAccepting();
     } catch (const std::exception& ex) {
-      XLOG(ERR) << "Failed to setup server socket ex=" << ex.what();
+      PRX_LOG(ERROR) << "Failed to setup server socket ex=" << ex.what();
       throw;
     }
     socketAcceptorConfigs.push_back({
@@ -241,8 +241,8 @@ void HTTPServer::startTcp(const KeepAliveEventBaseVec& keepAliveEvbs) {
 }
 
 void HTTPServer::run(std::function<void()> onSuccess) {
-  XLOG(DBG4) << __func__;
-  XCHECK_EQ(state_, State::UNINIT);
+  PRX_VLOG(4) << __func__;
+  PRX_CHECK_EQ(state_, State::UNINIT);
   state_ = State::RUNNING;
   for (auto sig : config_.shutdownOnSignals) {
     signalHandler_.registerSignalHandler(sig);
@@ -251,7 +251,7 @@ void HTTPServer::run(std::function<void()> onSuccess) {
     eventBase_.runInLoop([onSuccess = std::move(onSuccess)] { onSuccess(); });
   }
   eventBase_.loop();
-  XLOG(DBG4) << __func__ << " exit";
+  PRX_VLOG(4) << __func__ << " exit";
 }
 
 void HTTPServer::createQuicServer(const std::vector<folly::EventBase*>& evbs) {
@@ -272,7 +272,7 @@ void HTTPServer::createQuicServer(const std::vector<folly::EventBase*>& evbs) {
       fizzCtx = acceptor->recreateFizzContext();
     }
   }
-  CHECK(config_.quicConfig) << "QuicConfig must be set";
+  PRX_CHECK(config_.quicConfig) << "QuicConfig must be set";
   quicServer_ =
       quic::QuicServer::createQuicServer(config_.quicConfig->transportSettings);
   quicServer_->setBindV6Only(false);
@@ -338,12 +338,12 @@ void HTTPServer::onQuicTransportReady(
       getQuicAcceptor(quicSocket->getEventBase()
                           ->getTypedEventBase<quic::FollyQuicEventBase>()
                           ->getBackingEventBase());
-  XCHECK(acceptor) << "QuicSocket in foreign EventBase";
+  PRX_CHECK(acceptor) << "QuicSocket in foreign EventBase";
   acceptor->onNewConnection(std::move(quicSocket), std::move(tinfo));
 }
 
 void HTTPServer::drain() {
-  XLOG(DBG4) << __func__;
+  PRX_VLOG(4) << __func__;
   if (state_ == State::RUNNING) {
     state_ = State::DRAINING;
     eventBase_.runImmediatelyOrRunInEventBaseThread(
@@ -363,9 +363,9 @@ void HTTPServer::drain() {
 }
 
 void HTTPServer::globalDrainImpl() {
-  XLOG(DBG4) << __func__;
+  PRX_VLOG(4) << __func__;
   for (const auto& serverSocket : serverSockets_) {
-    XCHECK(serverSocket);
+    PRX_CHECK(serverSocket);
     serverSocket->stopAccepting();
   }
   if (quicServer_) {
@@ -374,28 +374,28 @@ void HTTPServer::globalDrainImpl() {
 }
 
 void HTTPServer::unregisterSignalHandlers() {
-  XLOG(DBG4) << __func__;
+  PRX_VLOG(4) << __func__;
   for (auto sig : config_.shutdownOnSignals) {
     signalHandler_.unregisterSignalHandler(sig);
   }
 }
 
 void HTTPServer::drainImpl(HTTPCoroAcceptor& acceptor) {
-  XLOG(DBG4) << __func__;
+  PRX_VLOG(4) << __func__;
   if (quicServer_) {
     acceptor.stopAcceptingQuic();
   }
 }
 
 void HTTPServer::forceStop() {
-  XLOG(DBG4) << __func__;
+  PRX_VLOG(4) << __func__;
   auto state = state_.load();
   if (state == State::RUNNING) {
     state_ = state = State::DRAINING;
     folly::ExecutorKeepAlive keepAlive(&eventBase_);
     eventBase_.runImmediatelyOrRunInEventBaseThread([this] {
       for (const auto& serverSocket : serverSockets_) {
-        XCHECK(serverSocket);
+        PRX_CHECK(serverSocket);
         serverSocket->stopAccepting();
       }
     });

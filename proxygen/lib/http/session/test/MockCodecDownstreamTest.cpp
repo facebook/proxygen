@@ -19,6 +19,7 @@
 #include <proxygen/lib/http/session/test/HTTPSessionTest.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::test::MockAsyncTransport;
 
@@ -93,7 +94,7 @@ class MockCodecDownstreamTest : public testing::Test {
                                       HTTPCodec::StreamID /*lastStream*/,
                                       ErrorCode,
                                       std::shared_ptr<folly::IOBuf>) {
-          LOG(INFO) << "MOCK GENERATE GOAWAY";
+          PRX_LOG(INFO) << "MOCK GENERATE GOAWAY";
           if (reusable_) {
             reusable_ = false;
             drainPending_ = doubleGoaway_;
@@ -151,7 +152,7 @@ class MockCodecDownstreamTest : public testing::Test {
   template <class T>
   void onIngressImpl(T f) {
     EXPECT_CALL(*codec_, onIngress(_)).WillOnce(Invoke([&f](const IOBuf& buf) {
-      CHECK_GT(buf.computeChainDataLength(), 0);
+      PRX_CHECK_GT(buf.computeChainDataLength(), 0);
       // The test should be independent of the dummy buffer,
       // so don't pass it in.
       f();
@@ -333,13 +334,13 @@ TEST_F(MockCodecDownstreamTest, ServerPushAfterGoaway) {
       .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage>) {
         // Initiate server push transactions.
         pushTxn = handler.txn_->newPushedTransaction(&pushHandler1);
-        CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(2));
+        PRX_CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(2));
         pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
         pushHandler1.sendBody(100);
         pushTxn->sendEOM();
         // Initiate the second push transaction which will be aborted
         pushTxn = handler.txn_->newPushedTransaction(&pushHandler2);
-        CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
+        PRX_CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
         pushHandler2.sendPushHeaders("/foo", "www.foo.com", 100);
         pushHandler2.sendBody(100);
         pushTxn->sendEOM();
@@ -410,12 +411,12 @@ TEST_F(MockCodecDownstreamTest, ServerPushAbort) {
       .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage>) {
         // Initiate server push transactions
         pushTxn1 = handler.txn_->newPushedTransaction(&pushHandler1);
-        CHECK_EQ(pushTxn1->getID(), HTTPCodec::StreamID(2));
+        PRX_CHECK_EQ(pushTxn1->getID(), HTTPCodec::StreamID(2));
         pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
         pushHandler1.sendBody(100);
 
         pushTxn2 = handler.txn_->newPushedTransaction(&pushHandler2);
-        CHECK_EQ(pushTxn2->getID(), HTTPCodec::StreamID(4));
+        PRX_CHECK_EQ(pushTxn2->getID(), HTTPCodec::StreamID(4));
         pushHandler2.sendPushHeaders("/bar", "www.bar.com", 200);
         pushHandler2.sendBody(200);
         pushTxn2->sendEOM();
@@ -479,12 +480,12 @@ TEST_F(MockCodecDownstreamTest, ServerPushAbortAssoc) {
       .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage>) {
         // Initiate server push transactions
         auto pushTxn = handler.txn_->newPushedTransaction(&pushHandler1);
-        CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(2));
+        PRX_CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(2));
         pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
         pushHandler1.sendBody(100);
 
         pushTxn = handler.txn_->newPushedTransaction(&pushHandler2);
-        CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
+        PRX_CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
         pushHandler2.sendPushHeaders("/foo", "www.foo.com", 100);
         pushHandler2.sendBody(100);
       }));
@@ -947,8 +948,9 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   handler1.txn_->sendHeaders(*resp1);
   handler1.txn_->sendBody(makeBuf(wantToWrite)); // conn blocked, stream open
   handler1.txn_->sendEOM();
-  eventBase_.loopOnce();                    // actually send (most of) the body
-  CHECK_EQ(bodyLen, http2::kInitialWindow); // should have written a full window
+  eventBase_.loopOnce(); // actually send (most of) the body
+  PRX_CHECK_EQ(bodyLen,
+               http2::kInitialWindow); // should have written a full window
 
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
       .WillOnce(Return(&handler2));

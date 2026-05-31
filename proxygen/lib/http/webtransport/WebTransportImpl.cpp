@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/webtransport/WebTransportImpl.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 
@@ -39,8 +39,8 @@ void WebTransportImpl::terminateSessionStreams(uint32_t errorCode,
   auto wtIngressStreams = std::move(wtIngressStreams_);
   for (auto& [id, stream] : wtIngressStreams) {
     // Deliver an error to the application if needed
-    VLOG(4) << "aborting wt ingress id=" << id << " err=" << errorCode
-            << "; open=" << int(stream.open());
+    PRX_VLOG(4) << "aborting wt ingress id=" << id << " err=" << errorCode
+                << "; open=" << int(stream.open());
     if (stream.open()) {
       stream.deliverReadError(WebTransport::Exception(errorCode, reason));
       stopReadingWebTransportIngress(id, errorCode);
@@ -67,7 +67,7 @@ void WebTransportImpl::onMaxData(uint64_t maxData) noexcept {
       currIt->second.flushBufferedWrites();
     }
   } else {
-    VLOG(4) << __func__ << " failed to grant maxData=" << maxData;
+    PRX_VLOG(4) << __func__ << " failed to grant maxData=" << maxData;
   }
 }
 
@@ -85,8 +85,8 @@ void WebTransportImpl::onMaxStreams(uint64_t maxStreams, bool isBidi) noexcept {
 void WebTransportImpl::onStreamsBlocked(uint64_t maxStreams,
                                         bool isBidi) noexcept {
   if (shouldGrantStreamCredit(isBidi)) {
-    LOG(ERROR) << __func__ << " maxStreams=" << maxStreams
-               << "; shouldGrantStreamCredit";
+    PRX_LOG(ERROR) << __func__ << " maxStreams=" << maxStreams
+                   << "; shouldGrantStreamCredit";
     auto& flowControl =
         isBidi ? peerBidiStreamFlowControl_ : peerUniStreamFlowControl_;
     flowControl.maxStreamID += flowControl.targetConcurrentStreams / 2;
@@ -99,8 +99,8 @@ void WebTransportImpl::onDataBlocked(uint64_t maxData) noexcept {
     return;
   }
   if (shouldGrantFlowControl()) {
-    LOG(ERROR) << __func__ << " maxData=" << maxData
-               << "; shouldGrantFlowControl";
+    PRX_LOG(ERROR) << __func__ << " maxData=" << maxData
+                   << "; shouldGrantFlowControl";
     auto newMaxData =
         recvFlowController_.getMaxOffset() + kDefaultWTReceiveWindow;
     recvFlowController_.grant(newMaxData);
@@ -235,58 +235,58 @@ WebTransportImpl::StreamWriteHandle::writeStreamData(
     std::unique_ptr<folly::IOBuf> data,
     bool fin,
     ByteEventCallback* deliveryCallback) {
-  VLOG(4) << __func__ << " data=" << data.get() << " fin=" << fin
-          << " deliveryCallback=" << deliveryCallback << " ex=" << bool(ex_)
-          << " bufferedWrites_.size()=" << bufferedWrites_.size();
+  PRX_VLOG(4) << __func__ << " data=" << data.get() << " fin=" << fin
+              << " deliveryCallback=" << deliveryCallback << " ex=" << bool(ex_)
+              << " bufferedWrites_.size()=" << bufferedWrites_.size();
 
   if (ex_) {
     return folly::makeUnexpected(WebTransport::ErrorCode::STOP_SENDING);
   }
   if (!data && !fin) {
-    LOG(ERROR) << "Empty write with no FIN";
+    PRX_LOG(ERROR) << "Empty write with no FIN";
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
   }
 
   impl_.sp_.refreshTimeout();
 
   if (bufferedWrites_.empty()) {
-    VLOG(4) << __func__ << " Emplacing new buffered write (empty queue)";
+    PRX_VLOG(4) << __func__ << " Emplacing new buffered write (empty queue)";
     bufferedWrites_.emplace_back(std::move(data), deliveryCallback, fin);
   } else {
     auto& last = bufferedWrites_.back();
     if (last.fin) {
-      LOG(ERROR) << __func__
-                 << " Last buffered write has FIN, ret=GENERIC_ERROR";
+      PRX_LOG(ERROR) << __func__
+                     << " Last buffered write has FIN, ret=GENERIC_ERROR";
       return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
     }
     if (last.deliveryCallback == nullptr) {
-      VLOG(4) << __func__ << " Updating last buffered write";
+      PRX_VLOG(4) << __func__ << " Updating last buffered write";
       if (data) {
         last.buf.append(std::move(data));
       }
       last.deliveryCallback = deliveryCallback;
       last.fin = fin;
     } else {
-      VLOG(4) << __func__ << " Emplacing new buffered write";
+      PRX_VLOG(4) << __func__ << " Emplacing new buffered write";
       bufferedWrites_.emplace_back(std::move(data), deliveryCallback, fin);
     }
   }
 
-  VLOG(4) << __func__
-          << " Flushing buffered writes, size=" << bufferedWrites_.size();
+  PRX_VLOG(4) << __func__
+              << " Flushing buffered writes, size=" << bufferedWrites_.size();
   return flushBufferedWrites();
 }
 
 folly::Expected<folly::SemiFuture<uint64_t>, WebTransport::ErrorCode>
 WebTransportImpl::StreamWriteHandle::awaitWritable() {
-  CHECK(!writePromise_.valid()) << "awaitWritable already called";
+  PRX_CHECK(!writePromise_.valid()) << "awaitWritable already called";
   auto contract = folly::makePromiseContract<uint64_t>();
   writePromise_ = std::move(contract.promise);
   writePromise_.setInterruptHandler([this](const folly::exception_wrapper& ex) {
-    VLOG(4) << "Exception from interrupt handler ex=" << ex.what();
+    PRX_VLOG(4) << "Exception from interrupt handler ex=" << ex.what();
     // if awaitWritable is cancelled, just reset it
-    CHECK(ex.with_exception([this](const folly::FutureCancellation& ex) {
-      VLOG(5) << "Setting exception ex=" << ex.what();
+    PRX_CHECK(ex.with_exception([this](const folly::FutureCancellation& ex) {
+      PRX_VLOG(5) << "Setting exception ex=" << ex.what();
       writePromise_.setException(ex);
       writePromise_ = emptyWritePromise();
     })) << "Unexpected exception type";
@@ -326,14 +326,14 @@ void WebTransportImpl::StreamWriteHandle::onStreamWriteReady(
 folly::Expected<WebTransport::FCState, WebTransport::ErrorCode>
 WebTransportImpl::StreamWriteHandle::flushBufferedWrites() {
   auto availableSpace = impl_.sendFlowController_.getAvailable();
-  VLOG(4) << __func__ << " availableSpace=" << availableSpace
-          << " bufferedWrites_.size()=" << bufferedWrites_.size();
+  PRX_VLOG(4) << __func__ << " availableSpace=" << availableSpace
+              << " bufferedWrites_.size()=" << bufferedWrites_.size();
 
   while (availableSpace > 0 && !bufferedWrites_.empty()) {
     auto& frontEntry = bufferedWrites_.front();
-    VLOG(4) << __func__ << " Processing frontEntry, buf.len="
-            << frontEntry.buf.chainLength() << " fin=" << frontEntry.fin
-            << " deliveryCallback=" << frontEntry.deliveryCallback;
+    PRX_VLOG(4) << __func__ << " Processing frontEntry, buf.len="
+                << frontEntry.buf.chainLength() << " fin=" << frontEntry.fin
+                << " deliveryCallback=" << frontEntry.deliveryCallback;
     // Prefer move when we can send the entire buffer; avoid computing chain
     // length
     std::unique_ptr<folly::IOBuf> bufToSend;
@@ -345,7 +345,7 @@ WebTransportImpl::StreamWriteHandle::flushBufferedWrites() {
       bufToSend = frontEntry.buf.splitAtMost(availableSpace); // partial send
     }
 
-    VLOG(4) << __func__ << " bufToSendLen=" << bufToSendLen;
+    PRX_VLOG(4) << __func__ << " bufToSendLen=" << bufToSendLen;
     availableSpace -= bufToSendLen;
     ByteEventCallback* sendDeliveryCallback = nullptr;
     bool sendFin = false;
@@ -353,31 +353,31 @@ WebTransportImpl::StreamWriteHandle::flushBufferedWrites() {
     if (frontEntry.buf.empty()) {
       sendDeliveryCallback = frontEntry.deliveryCallback;
       sendFin = frontEntry.fin;
-      VLOG(4) << __func__ << " frontEntry.buf empty, sendFin=" << sendFin;
+      PRX_VLOG(4) << __func__ << " frontEntry.buf empty, sendFin=" << sendFin;
       bufferedWrites_.pop_front();
     }
 
-    VLOG(4) << __func__ << " Sending data on stream id=" << id_
-            << " sendFin=" << sendFin
-            << " sendDeliveryCallback=" << sendDeliveryCallback;
+    PRX_VLOG(4) << __func__ << " Sending data on stream id=" << id_
+                << " sendFin=" << sendFin
+                << " sendDeliveryCallback=" << sendDeliveryCallback;
     auto res = impl_.sendWebTransportStreamData(
         id_, std::move(bufToSend), sendFin, sendDeliveryCallback);
 
     if (res.hasError()) {
-      VLOG(4) << __func__
-              << " sendWebTransportStreamData error=" << uint32_t(res.error());
+      PRX_VLOG(4) << __func__ << " sendWebTransportStreamData error="
+                  << uint32_t(res.error());
       return folly::makeUnexpected(res.error());
     }
 
     if (sendFin || *res == WebTransport::FCState::BLOCKED) {
-      VLOG(4) << __func__ << " sendFin=" << sendFin
-              << " or FCState::BLOCKED, ret=" << uint32_t(*res);
+      PRX_VLOG(4) << __func__ << " sendFin=" << sendFin
+                  << " or FCState::BLOCKED, ret=" << uint32_t(*res);
       return *res;
     }
   }
 
-  VLOG(4) << __func__
-          << " Done, bufferedWrites_.empty()=" << bufferedWrites_.empty();
+  PRX_VLOG(4) << __func__
+              << " Done, bufferedWrites_.empty()=" << bufferedWrites_.empty();
 
   if (!bufferedWrites_.empty()) {
     impl_.tp_.sendWTDataBlocked(impl_.sendFlowController_.getMaxOffset());
@@ -419,29 +419,29 @@ WebTransportImpl::StreamReadHandle::StreamReadHandle(WebTransportImpl& impl,
 
 folly::SemiFuture<StreamData>
 WebTransportImpl::StreamReadHandle::readStreamData() {
-  VLOG(4) << __func__;
-  CHECK(!readPromise_.valid()) << "One read at a time";
+  PRX_VLOG(4) << __func__;
+  PRX_CHECK(!readPromise_.valid()) << "One read at a time";
   if (ex_) {
     auto ex = ex_;
     impl_.closeIngressStream(getID());
     return folly::makeSemiFuture<StreamData>(std::move(ex));
   } else if (buf_.empty() && !eof_) {
-    VLOG(4) << __func__ << " waiting for data";
+    PRX_VLOG(4) << __func__ << " waiting for data";
     auto contract = folly::makePromiseContract<StreamData>();
     readPromise_ = std::move(contract.promise);
-    readPromise_.setInterruptHandler(
-        [this](const folly::exception_wrapper& ex) {
-          VLOG(4) << "Exception from interrupt handler ex=" << ex.what();
-          CHECK(ex.with_exception([this](const folly::FutureCancellation& ex) {
-            // TODO: allow app to configure the reset code on cancellation?
-            impl_.tp_.stopReadingWebTransportIngress(
-                id_, WebTransport::kInternalError);
-            deliverReadError(ex);
-          })) << "Unexpected exception type";
-        });
+    readPromise_.setInterruptHandler([this](
+                                         const folly::exception_wrapper& ex) {
+      PRX_VLOG(4) << "Exception from interrupt handler ex=" << ex.what();
+      PRX_CHECK(ex.with_exception([this](const folly::FutureCancellation& ex) {
+        // TODO: allow app to configure the reset code on cancellation?
+        impl_.tp_.stopReadingWebTransportIngress(id_,
+                                                 WebTransport::kInternalError);
+        deliverReadError(ex);
+      })) << "Unexpected exception type";
+    });
     return std::move(contract.future);
   } else {
-    VLOG(4) << __func__ << " returning data len=" << buf_.chainLength();
+    PRX_VLOG(4) << __func__ << " returning data len=" << buf_.chainLength();
     auto bufLen = buf_.chainLength();
     StreamData streamData({.data = buf_.move(), .fin = eof_});
     impl_.maybeGrantFlowControl(bufLen);
@@ -450,7 +450,7 @@ WebTransportImpl::StreamReadHandle::readStreamData() {
       // unregister the read callback, but don't send STOP_SENDING
       impl_.stopReadingWebTransportIngress(id_, folly::none);
     } else if (bufLen >= kMaxWTIngressBuf) {
-      VLOG(4) << __func__ << " resuming reads";
+      PRX_VLOG(4) << __func__ << " resuming reads";
       impl_.tp_.resumeWebTransportIngress(getID());
     }
     return folly::makeFuture(std::move(streamData));
@@ -462,7 +462,8 @@ void WebTransportImpl::StreamReadHandle::readAvailable(
   impl_.sp_.refreshTimeout();
   auto readRes = impl_.tp_.readWebTransportData(id, 65535);
   if (readRes.hasError()) {
-    LOG(ERROR) << "Got synchronous read error=" << uint32_t(readRes.error());
+    PRX_LOG(ERROR) << "Got synchronous read error="
+                   << uint32_t(readRes.error());
     readError(id,
               quic::QuicError(quic::LocalErrorCode::INTERNAL_ERROR,
                               "sync read error"));
@@ -478,14 +479,14 @@ void WebTransportImpl::StreamReadHandle::readAvailable(
     return;
   }
   if (state == WebTransport::FCState::BLOCKED && !eof) {
-    VLOG(4) << __func__ << " pausing reads";
+    PRX_VLOG(4) << __func__ << " pausing reads";
     impl_.tp_.pauseWebTransportIngress(id);
   }
 }
 
 WebTransport::FCState WebTransportImpl::StreamReadHandle::dataAvailable(
     std::unique_ptr<folly::IOBuf> data, bool eof) {
-  VLOG(4)
+  PRX_VLOG(4)
       << "dataAvailable buflen=" << (data ? data->computeChainDataLength() : 0)
       << " eof=" << uint64_t(eof);
 
@@ -507,7 +508,7 @@ WebTransport::FCState WebTransportImpl::StreamReadHandle::dataAvailable(
   } else {
     buf_.append(std::move(data)); // ok if nullptr
   }
-  VLOG(4) << "dataAvailable buflen=" << buf_.chainLength();
+  PRX_VLOG(4) << "dataAvailable buflen=" << buf_.chainLength();
   return (eof || buf_.chainLength() < kMaxWTIngressBuf)
              ? WebTransport::FCState::UNBLOCKED
              : WebTransport::FCState::BLOCKED;
@@ -534,7 +535,7 @@ void WebTransportImpl::StreamReadHandle::readError(
         WebTransport::Exception(*appErrorCode, "received reset_stream"));
     return;
   } else {
-    VLOG(4) << error;
+    PRX_VLOG(4) << error;
   }
   // any other error
   deliverReadError(WebTransport::Exception(
@@ -567,7 +568,7 @@ void WebTransportImpl::maybeGrantStreamCredit(HTTPCodec::StreamID id,
   if (isSessionTerminated()) {
     return;
   }
-  CHECK(closingReadHandle || closingWriteHandle);
+  PRX_CHECK(closingReadHandle || closingWriteHandle);
   bool isBidi = isBidirectional(id);
   bool canGrantCredit = false;
 
@@ -598,7 +599,7 @@ bool WebTransportImpl::shouldGrantFlowControl() const {
 bool WebTransportImpl::shouldGrantStreamCredit(bool isBidi) const {
   auto& streamLimits =
       isBidi ? peerBidiStreamFlowControl_ : peerUniStreamFlowControl_;
-  CHECK(streamLimits.numClosedStreams <= streamLimits.maxStreamID);
+  PRX_CHECK(streamLimits.numClosedStreams <= streamLimits.maxStreamID);
   return streamLimits.maxStreamID - streamLimits.numClosedStreams <
          (streamLimits.targetConcurrentStreams / 2);
 }

@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/ProxyStatus.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 

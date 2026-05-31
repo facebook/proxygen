@@ -14,6 +14,7 @@
 #include <folly/Random.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/async/EventBase.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly::io;
 using namespace std;
@@ -301,9 +302,10 @@ void WtCapsuleCodecCallback::onStopSending(
 }
 
 void WtCapsuleCodecCallback::onStream(WTStreamCapsule capsule) noexcept {
-  VLOG(4) << __func__ << "; id=" << capsule.streamId << "; len="
-          << (capsule.streamData ? capsule.streamData->computeChainDataLength()
-                                 : 0);
+  PRX_VLOG(4)
+      << __func__ << "; id=" << capsule.streamId << "; len="
+      << (capsule.streamData ? capsule.streamData->computeChainDataLength()
+                             : 0);
   stream.emplace(std::move(capsule));
   signal();
 }
@@ -362,13 +364,13 @@ void WtCapsuleCodecCallback::onDrainSession(
 
 void WtCapsuleCodecCallback::onConnectionError(
     WebTransportCapsuleCodec::ErrorCode) noexcept {
-  LOG(FATAL) << "conn error";
+  PRX_LOG(FATAL) << "conn error";
 }
 
 void WtCapsuleCodecCallback::onCapsule(uint64_t capsuleType,
                                        uint64_t capsuleLength) noexcept {
-  VLOG(4) << __func__ << "; capsuleType=" << capsuleType
-          << "; capsuleLength=" << capsuleLength;
+  PRX_VLOG(4) << __func__ << "; capsuleType=" << capsuleType
+              << "; capsuleLength=" << capsuleLength;
 }
 
 void WtCapsuleCodecCallback::signal() {

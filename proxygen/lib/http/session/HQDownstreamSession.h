@@ -9,6 +9,7 @@
 #pragma once
 
 #include <proxygen/lib/http/session/HQSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -54,7 +55,7 @@ class HQDownstreamSession : public HQSession {
   void detachThreadLocals(bool) override;
 
   bool isReplaySafe() const override {
-    LOG(FATAL) << __func__ << " is an upstream interface";
+    PRX_LOG(FATAL) << __func__ << " is an upstream interface";
   }
   // Create a new pushed transaction.
   HTTPTransaction* newPushedTransaction(
@@ -85,7 +86,7 @@ class HQDownstreamSession : public HQSession {
 
  protected:
   ~HQDownstreamSession() override {
-    CHECK_EQ(getNumStreams(), 0);
+    PRX_CHECK_EQ(getNumStreams(), 0);
   }
 
 #ifdef _MSC_VER
@@ -134,8 +135,8 @@ class HQDownstreamSession : public HQSession {
     // the egress push stream does not have to flush
     // ingress queues
     void transactionTimeout(HTTPTransaction* txn) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      DCHECK(txn == &txn_);
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_DCHECK(txn == &txn_);
     }
 
     void sendPushPromise(HTTPTransaction* /* txn */,
@@ -151,14 +152,14 @@ class HQDownstreamSession : public HQSession {
 
     // Egress only stream should not pause ingress
     void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__
-              << " Ingress function called on egress-only stream, ignoring";
+      PRX_VLOG(4) << __func__
+                  << " Ingress function called on egress-only stream, ignoring";
     }
 
     // Egress only stream should not pause ingress
     void resumeIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__
-              << " Ingress function called on egress-only stream, ignoring";
+      PRX_VLOG(4) << __func__
+                  << " Ingress function called on egress-only stream, ignoring";
     }
 
     folly::Expected<folly::Unit, WebTransport::ErrorCode> sendWTMaxData(
@@ -200,7 +201,7 @@ class HQDownstreamSession : public HQSession {
   void dispatchPushStream(quic::StreamId /* pushStreamId */,
                           hq::PushId /* pushId */,
                           size_t /* toConsume */) override {
-    LOG(DFATAL) << "nope";
+    PRX_LOG(DFATAL) << "nope";
   }
 
   // This is the current method of creating new push IDs.

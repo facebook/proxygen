@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <map>
 #include <proxygen/lib/services/WorkerThread.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <wangle/acceptor/LoadShedConfiguration.h>
 
 namespace proxygen {
@@ -60,7 +61,7 @@ class RequestWorkerThreadNoExecutor : public WorkerThread {
   static RequestWorkerThreadNoExecutor* getRequestWorkerThreadNoExecutor() {
     auto* self = dynamic_cast<RequestWorkerThreadNoExecutor*>(
         WorkerThread::getCurrentWorkerThread());
-    CHECK_NOTNULL(self);
+    PRX_CHECK_NOTNULL(self);
     return self;
   }
 
@@ -68,7 +69,7 @@ class RequestWorkerThreadNoExecutor : public WorkerThread {
    * Track the ServiceWorker objects in-use by this worker.
    */
   void addServiceWorker(Service* service, ServiceWorker* sw) {
-    CHECK(serviceWorkers_.find(service) == serviceWorkers_.end());
+    PRX_CHECK(serviceWorkers_.find(service) == serviceWorkers_.end());
     serviceWorkers_[service] = sw;
   }
 
@@ -78,7 +79,7 @@ class RequestWorkerThreadNoExecutor : public WorkerThread {
    */
   ServiceWorker* getServiceWorker(Service* service) const {
     auto it = serviceWorkers_.find(service);
-    CHECK(it != serviceWorkers_.end());
+    PRX_CHECK(it != serviceWorkers_.end());
     return it->second;
   }
 

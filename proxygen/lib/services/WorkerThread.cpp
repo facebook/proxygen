@@ -13,7 +13,7 @@
 #include <folly/String.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/io/async/IoUringBackend.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <signal.h>
 
 #if !FOLLY_MOBILE && __has_include(<liburing.h>)
@@ -36,14 +36,15 @@ std::unique_ptr<folly::EventBaseBackendBase> getEventBaseBackend() {
           .setUseRegisteredFds(FLAGS_pwt_io_uring_use_registered_fds);
 
       auto ret = std::make_unique<folly::IoUringBackend>(std::move(options));
-      LOG(INFO) << "Allocating io_uring backend(" << FLAGS_pwt_io_uring_capacity
-                << "," << FLAGS_pwt_io_uring_max_submit << ","
-                << FLAGS_pwt_io_uring_max_get << ","
-                << FLAGS_pwt_io_uring_use_registered_fds << "): " << ret.get();
+      PRX_LOG(INFO)
+          << "Allocating io_uring backend(" << FLAGS_pwt_io_uring_capacity
+          << "," << FLAGS_pwt_io_uring_max_submit << ","
+          << FLAGS_pwt_io_uring_max_get << ","
+          << FLAGS_pwt_io_uring_use_registered_fds << "): " << ret.get();
 
       return ret;
     } catch (const std::exception& ex) {
-      LOG(INFO) << "Failure creating io_uring backend: " << ex.what();
+      PRX_LOG(INFO) << "Failure creating io_uring backend: " << ex.what();
     }
   }
   return folly::EventBase::getDefaultBackend();
@@ -77,11 +78,11 @@ WorkerThread::WorkerThread(folly::EventBaseManager* eventBaseManager,
     eventBase_->setName(evbName);
   }
 
-  LOG(INFO) << "Created WorkerThread " << this << ", evb =  " << evbName;
+  PRX_LOG(INFO) << "Created WorkerThread " << this << ", evb =  " << evbName;
 }
 
 WorkerThread::~WorkerThread() {
-  CHECK(state_ == State::IDLE);
+  PRX_CHECK(state_ == State::IDLE);
 
   // Reset the underlying event base.  This will execute all associated
   // execution pending funcs if not already reset.
@@ -89,7 +90,7 @@ WorkerThread::~WorkerThread() {
 }
 
 void WorkerThread::start() {
-  CHECK(state_ == State::IDLE);
+  PRX_CHECK(state_ == State::IDLE);
   state_ = State::STARTING;
 
   {
@@ -118,8 +119,8 @@ void WorkerThread::stopWhenIdle() {
       // state_ could be IDLE if we don't execute this callback until the
       // EventBase is destroyed in the WorkerThread destructor
     } else if (state_ != State::IDLE && state_ != State::STOP_WHEN_IDLE) {
-      LOG(FATAL) << "stopWhenIdle() called in unexpected state "
-                 << static_cast<int>(state_);
+      PRX_LOG(FATAL) << "stopWhenIdle() called in unexpected state "
+                     << static_cast<int>(state_);
     }
   });
 }
@@ -136,8 +137,8 @@ void WorkerThread::forceStop() {
       // state_ could be IDLE if we don't execute this callback until the
       // EventBase is destroyed in the WorkerThread destructor
     } else if (state_ != State::IDLE) {
-      LOG(FATAL) << "forceStop() called in unexpected state "
-                 << static_cast<int>(state_);
+      PRX_LOG(FATAL) << "forceStop() called in unexpected state "
+                     << static_cast<int>(state_);
     }
   });
 }
@@ -165,11 +166,11 @@ void WorkerThread::setup() {
   sigaddset(&ss, SIGTERM);
   sigaddset(&ss, SIGCHLD);
   sigaddset(&ss, SIGIO);
-  PCHECK(pthread_sigmask(SIG_BLOCK, &ss, nullptr) == 0);
+  PRX_PCHECK(pthread_sigmask(SIG_BLOCK, &ss, nullptr) == 0);
 #endif
 
   // Update the currentWorker_ thread-local pointer
-  CHECK(nullptr == currentWorker_);
+  PRX_CHECK(nullptr == currentWorker_);
   currentWorker_ = this;
 
   // Update the manager with the event base this worker runs on
@@ -191,10 +192,10 @@ void WorkerThread::resetEventBase() {
 
 void WorkerThread::runLoop() {
   // Update state_
-  CHECK(state_ == State::STARTING);
+  PRX_CHECK(state_ == State::STARTING);
   state_ = State::RUNNING;
 
-  VLOG(1) << "WorkerThread " << this << " starting";
+  PRX_VLOG(1) << "WorkerThread " << this << " starting";
 
   // Call loopForever().  This will only return after stopWhenIdle() or
   // forceStop() has been called.
@@ -204,14 +205,14 @@ void WorkerThread::runLoop() {
     // We have been asked to stop when there are no more events left.
     // Call loop() to finish processing events.  This will return when there
     // are no more events to process, or after forceStop() has been called.
-    VLOG(1) << "WorkerThread " << this << " finishing non-internal events";
+    PRX_VLOG(1) << "WorkerThread " << this << " finishing non-internal events";
     eventBase_->loop();
   }
 
-  CHECK(state_ == State::STOP_WHEN_IDLE || state_ == State::FORCE_STOP);
+  PRX_CHECK(state_ == State::STOP_WHEN_IDLE || state_ == State::FORCE_STOP);
   state_ = State::IDLE;
 
-  VLOG(1) << "WorkerThread " << this << " terminated";
+  PRX_VLOG(1) << "WorkerThread " << this << " terminated";
 }
 
 } // namespace proxygen

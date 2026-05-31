@@ -16,7 +16,7 @@
 #include "proxygen/lib/http/coro/server/ScopedHTTPServer.h"
 #include "proxygen/lib/http/coro/test/HTTPTestSources.h"
 #include "proxygen/lib/http/coro/transport/test/HTTPConnectTransportTest.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <algorithm>
 #include <folly/coro/Baton.h>

@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/observer/HTTPTransactionObserverInterface.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -44,7 +45,8 @@ HTTPTransactionObserverInterface::TxnBytesEvent::Builder::build() && {
 
 HTTPTransactionObserverInterface::TxnBytesEvent::TxnBytesEvent(
     const TxnBytesEvent::BuilderFields& builderFields)
-    : timestamp(*CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())),
+    : timestamp(
+          *PRX_CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())),
       type(builderFields.type),
       maybeNumBytes(builderFields.numBytes),
       maybeHeadersRef(builderFields.maybeHeadersRef) {

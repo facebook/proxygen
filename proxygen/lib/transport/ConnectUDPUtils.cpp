@@ -10,6 +10,7 @@
 
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
@@ -89,7 +90,7 @@ std::unique_ptr<folly::IOBuf> prependContextId(
   folly::io::Appender appender(contextIdBuf.get(), 1);
   auto res =
       quic::encodeQuicInteger(0, [&](auto val) { appender.writeBE(val); });
-  CHECK(res.has_value());
+  PRX_CHECK(res.has_value());
   contextIdBuf->appendToChain(std::move(payload));
   return contextIdBuf;
 }

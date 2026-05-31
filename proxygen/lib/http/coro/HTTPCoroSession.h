@@ -23,7 +23,6 @@
 #include <folly/coro/AsyncScope.h>
 #include <folly/coro/Task.h>
 #include <folly/io/coro/Transport.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/HQMultiCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
@@ -32,6 +31,7 @@
 #include <proxygen/lib/http/codec/RateLimitFilter.h>
 #include <proxygen/lib/http/session/HQStreamDispatcher.h>
 #include <proxygen/lib/http/session/QuicProtocolInfo.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/UtilInl.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/common/Optional.h>
@@ -348,7 +348,7 @@ class HTTPCoroSession
   void addLifecycleObserver(LifecycleObserver* cb) override {
     // add to the beginning of the list, so that a currently iterating
     // ::deliverLifecycleEvent does not call into this observer
-    lifecycleObservers_.push_front(CHECK_NOTNULL(cb));
+    lifecycleObservers_.push_front(PRX_CHECK_NOTNULL(cb));
     cb->onAttached(*this);
   }
 
@@ -373,7 +373,7 @@ class HTTPCoroSession
 
   void setMaxConcurrentOutgoingStreams(uint32_t maxConcurrentOutgoingStreams) {
     if (maxConcurrentOutgoingStreams == 0) {
-      XLOG(ERR) << "Cannot set maxConcurrentOutgoingStreams_ to 0";
+      PRX_LOG(ERROR) << "Cannot set maxConcurrentOutgoingStreams_ to 0";
       return;
     }
     if (codec_->supportsParallelRequests()) {
@@ -383,16 +383,16 @@ class HTTPCoroSession
 
   uint32_t numOutgoingStreams() const override {
     auto nStreams = streams_.size();
-    XCHECK_GE(nStreams, numPushStreams_);
-    XCHECK_LT(nStreams, std::numeric_limits<uint32_t>::max());
+    PRX_CHECK_GE(nStreams, numPushStreams_);
+    PRX_CHECK_LT(nStreams, std::numeric_limits<uint32_t>::max());
     return isUpstream()
                ? uint32_t(nStreams) - numPushStreams_ + pendingSendStreams_
                : numPushStreams_;
   }
   uint32_t numIncomingStreams() const override {
     auto nStreams = streams_.size();
-    XCHECK_GE(nStreams, numPushStreams_);
-    XCHECK_LT(nStreams, std::numeric_limits<uint32_t>::max());
+    PRX_CHECK_GE(nStreams, numPushStreams_);
+    PRX_CHECK_LT(nStreams, std::numeric_limits<uint32_t>::max());
     return isDownstream() ? uint32_t(nStreams) - numPushStreams_
                           : numPushStreams_;
   }
@@ -616,7 +616,7 @@ class HTTPCoroSession
   }
   uint32_t getStreamFlowControlWindow(const HTTPSettings* settings) const {
     if (codec_->supportsStreamFlowControl()) {
-      XCHECK(settings) << "H2 has settings and stream flow control";
+      PRX_CHECK(settings) << "H2 has settings and stream flow control";
       auto setting = settings->getSetting(SettingsId::INITIAL_WINDOW_SIZE);
       return setting ? uint32_t(setting->value) : http2::kInitialWindow;
     }
@@ -1110,7 +1110,7 @@ class HTTPQuicCoroSession final
     uint64_t transportAvailable =
         isUpstream() ? quicSocket_->getNumOpenableBidirectionalStreams()
                      : quicSocket_->getNumOpenableUnidirectionalStreams();
-    XCHECK(pendingSendStreams_ == 0 || isUpstream());
+    PRX_CHECK(pendingSendStreams_ == 0 || isUpstream());
     if (transportAvailable <= pendingSendStreams_) {
       return 0; // at transport limit
     }
@@ -1282,12 +1282,12 @@ class HTTPQuicCoroSession final
     }
 
     void onByteEvent(quic::ByteEvent byteEvent) override {
-      XLOG(DBG4) << "onDeliveryAck for id=" << byteEvent.id;
+      PRX_VLOG(4) << "onDeliveryAck for id=" << byteEvent.id;
       decRef();
     }
 
     void onByteEventCanceled(quic::ByteEvent byteEvent) override {
-      XLOG(DBG4) << "onCanceled for id=" << byteEvent.id;
+      PRX_VLOG(4) << "onCanceled for id=" << byteEvent.id;
       decRef();
     }
 

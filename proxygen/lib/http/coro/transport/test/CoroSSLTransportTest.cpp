@@ -20,6 +20,7 @@
 #include <folly/testing/TestUtil.h>
 
 #include "proxygen/lib/http/coro/transport/test/TestCoroTransport.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace std::chrono_literals;
 using namespace folly;
@@ -462,7 +463,7 @@ TEST_F(CoroSSLTransportTest, WriteCancelled) {
     auto cs = co_await connect();
     // reduce the send buffer size so the write wouldn't complete immediately
     auto asyncSocket = dynamic_cast<folly::AsyncSocket*>(cs->getTransport());
-    XCHECK(asyncSocket);
+    PRX_CHECK(asyncSocket);
     EXPECT_EQ(asyncSocket->setSendBufSize(4096), 0);
 
     constexpr auto kBufSize = 65536;
@@ -624,9 +625,9 @@ namespace {
 
 TestCoroTransport* transportFromBio(BIO* bio) {
   auto appData = OpenSSLUtils::getBioAppData(bio);
-  XCHECK(appData);
+  PRX_CHECK(appData);
   auto* transport = reinterpret_cast<TestCoroTransport*>(appData);
-  XCHECK(transport);
+  PRX_CHECK(transport);
   return transport;
 }
 
@@ -729,13 +730,13 @@ class CoroSSLTransportFakeTest : public TransportTest {
     try {
       ssl_.reset(ctx_->createSSL());
     } catch (std::exception& ex) {
-      XLOG(ERR) << "TestSSLTransport::accept(this=" << this
-                << "): " << ex.what();
+      PRX_LOG(ERROR) << "TestSSLTransport::accept(this=" << this
+                     << "): " << ex.what();
       throw;
     }
 
     if (!setupSSLBio()) {
-      XLOG(ERR) << "TestSSLTransport::accept(this=" << this << "): ";
+      PRX_LOG(ERROR) << "TestSSLTransport::accept(this=" << this << "): ";
       co_return;
     }
 
@@ -747,12 +748,12 @@ class CoroSSLTransportFakeTest : public TransportTest {
           // A bit lame, but meh
           co_await folly::coro::sleep(100ms);
         } else {
-          XLOG(ERR) << "SSL_accept error=" << sslError;
+          PRX_LOG(ERROR) << "SSL_accept error=" << sslError;
           sslAccept_.post();
           break;
         }
       } else {
-        XLOG(INFO) << "accepted";
+        PRX_LOG(INFO) << "accepted";
         sslAccept_.post();
         break;
       }
@@ -904,16 +905,16 @@ TEST_F(CoroSSLTransportFakeTest, WriteFromSSLRead) {
           // A bit lame, but meh
           co_await folly::coro::sleep(100ms);
         } else if (sslError == SSL_ERROR_ZERO_RETURN) {
-          XLOG(ERR) << "SSL_read zer return";
+          PRX_LOG(ERROR) << "SSL_read zer return";
           break;
         } else {
-          XLOG(ERR) << "SSL_read error=" << sslError;
+          PRX_LOG(ERROR) << "SSL_read error=" << sslError;
           break;
         }
       } else {
         serverReadBytes += rc;
-        XLOG(DBG6) << "Server read returned rc=" << rc
-                   << " serverReadBytes=" << serverReadBytes;
+        PRX_VLOG(6) << "Server read returned rc=" << rc
+                    << " serverReadBytes=" << serverReadBytes;
       }
     }
     EXPECT_EQ(serverReadBytes, kBufSize + 1);

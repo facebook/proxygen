@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoderBase.h>
 #include <proxygen/lib/http/codec/compress/QPACKContext.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <unordered_map>
 #include <vector>
 
@@ -63,16 +64,16 @@ class QPACKEncoder
     if (updateMax) {
       // The peer's max is used whenn encoding RequiredInsertCouunt
       if (maxTableSize_ != 0 && maxTableSize_ != tableSize) {
-        LOG(ERROR) << "Cannot change non-zero max header table size, "
-                      "maxTableSize_="
-                   << maxTableSize_ << " tableSize=" << tableSize;
+        PRX_LOG(ERROR) << "Cannot change non-zero max header table size, "
+                          "maxTableSize_="
+                       << maxTableSize_ << " tableSize=" << tableSize;
         return false;
       }
       maxTableSize_ = tableSize;
     }
     if (tableSize > kMaxHeaderTableSize) {
-      VLOG(2) << "Limiting table size from " << tableSize << " to "
-              << kMaxHeaderTableSize;
+      PRX_VLOG(2) << "Limiting table size from " << tableSize << " to "
+                  << kMaxHeaderTableSize;
       tableSize = kMaxHeaderTableSize;
     }
     HPACKEncoderBase::setHeaderTableSize(table_, tableSize);

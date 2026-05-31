@@ -13,6 +13,7 @@
 
 #include <deque>
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 #include <tuple>
 
 namespace proxygen {
@@ -66,8 +67,8 @@ class HPACKQueue : public folly::DestructorCheck {
       } else {
         holBlockCount_++;
       }
-      VLOG(5) << "queued block=" << seqn << " len=" << length
-              << " placeholder=" << int32_t(oooOk);
+      PRX_VLOG(5) << "queued block=" << seqn << " len=" << length
+                  << " placeholder=" << int32_t(oooOk);
       queuedBytes_ += length;
       queue_.emplace(it, seqn, std::move(block), length, streamingCb);
     }
@@ -90,7 +91,7 @@ class HPACKQueue : public folly::DestructorCheck {
                    HPACK::StreamingCallback* cb,
                    bool ooo) {
     if (length > 0) {
-      VLOG(5) << "decodeBlock for block=" << seqn << " len=" << length;
+      PRX_VLOG(5) << "decodeBlock for block=" << seqn << " len=" << length;
       folly::io::Cursor c(block.get());
       folly::DestructorCheck::Safety safety(*this);
       codec_.decodeStreaming(c, length, cb);
@@ -115,7 +116,7 @@ class HPACKQueue : public folly::DestructorCheck {
                       false /* in order */)) {
         return;
       }
-      DCHECK_LE(length, queuedBytes_);
+      PRX_DCHECK_LE(length, queuedBytes_);
       queuedBytes_ -= length;
       queue_.pop_front();
     }

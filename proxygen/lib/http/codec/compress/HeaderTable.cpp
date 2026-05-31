@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -77,7 +77,7 @@ std::pair<uint32_t, uint32_t> HeaderTable::getIndexImpl(
     const HPACKHeaderName& headerName,
     folly::StringPiece value,
     bool nameOnly) const {
-  CHECK(indexNames_);
+  PRX_CHECK(indexNames_);
   auto it = names_.find(headerName);
   if (it == names_.end()) {
     return {0, 0};
@@ -93,7 +93,7 @@ std::pair<uint32_t, uint32_t> HeaderTable::getIndexImpl(
 }
 
 bool HeaderTable::hasName(const HPACKHeaderName& headerName) {
-  CHECK(indexNames_);
+  PRX_CHECK(indexNames_);
   return names_.find(headerName) != names_.end();
 }
 
@@ -103,7 +103,7 @@ uint32_t HeaderTable::nameIndex(const HPACKHeaderName& headerName) const {
 }
 
 const HPACKHeader& HeaderTable::getHeader(uint32_t index) const {
-  CHECK(isValid(index));
+  PRX_CHECK(isValid(index));
   return table_[toInternal(index)];
 }
 
@@ -119,9 +119,9 @@ uint32_t HeaderTable::removeLast() {
   // remove the first element from the names index
   if (indexNames_) {
     auto names_it = names_.find(table_[t].name);
-    DCHECK(names_it != names_.end());
+    PRX_DCHECK(names_it != names_.end());
     auto& ilist = names_it->second;
-    DCHECK_EQ(ilist.front(), t);
+    PRX_DCHECK_EQ(ilist.front(), t);
     ilist.erase(ilist.begin());
 
     // remove the name if there are no indices associated with it
@@ -132,8 +132,8 @@ uint32_t HeaderTable::removeLast() {
   const auto& header = table_[t];
   uint32_t headerBytes = header.bytes();
   bytes_ -= headerBytes;
-  DVLOG(10) << "Removing local idx=" << t << " name=" << header.name
-            << " value=" << header.value;
+  PRX_DVLOG(10) << "Removing local idx=" << t << " name=" << header.name
+                << " value=" << header.value;
   --size_;
   return headerBytes;
 }
@@ -171,7 +171,7 @@ bool HeaderTable::setCapacity(uint32_t newCapacity) {
 }
 
 void HeaderTable::increaseTableLengthTo(uint32_t newLength) {
-  DCHECK_GE(newLength, length());
+  PRX_DCHECK_GE(newLength, length());
   uint32_t oldTail = (size_ > 0) ? tail() : 0;
   auto oldLength = length();
   resizeTable(newLength);
@@ -186,7 +186,7 @@ void HeaderTable::increaseTableLengthTo(uint32_t newLength) {
       for (auto& names_it : names_) {
         for (auto& idx : names_it.second) {
           if (idx >= oldTail) {
-            DCHECK_LT(idx + (length() - oldLength), length());
+            PRX_DCHECK_LT(idx + (length() - oldLength), length());
             idx += (length() - oldLength);
           } else {
             // remaining indecies in the list were smaller than oldTail, so
@@ -223,7 +223,7 @@ bool HeaderTable::isValid(uint32_t index) const {
   bool result = false;
   result = 0 < index && index <= size_;
   if (!result) {
-    LOG(ERROR) << "Invalid index=" << index << " size_=" << size_;
+    PRX_LOG(ERROR) << "Invalid index=" << index << " size_=" << size_;
   }
   return result;
 }
@@ -235,7 +235,7 @@ uint32_t HeaderTable::next(uint32_t i) const {
 uint32_t HeaderTable::tail() const {
   // tail is private, and only called in the encoder, where head_ is always
   // valid
-  DCHECK_GT(size_, 0) << "tail() undefined";
+  PRX_DCHECK_GT(size_, 0) << "tail() undefined";
   return (head_ + length() - size_ + 1) % length();
 }
 

@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionUtils.h>
 
 #include <proxygen/lib/http/HeaderConstants.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using std::string;
 using std::vector;
@@ -38,8 +39,8 @@ bool containsAllHeaders(const HTTPHeaders& h1, const HTTPHeaders& h2) {
           verifyCookies = true;
           return;
         }
-        DCHECK(h2HasValue) << "h2 does not contain name=" << name
-                           << " value=" << value1;
+        PRX_DCHECK(h2HasValue)
+            << "h2 does not contain name=" << name << " value=" << value1;
         allValuesPresent &= h2HasValue;
       });
 
@@ -63,10 +64,10 @@ bool containsAllHeaders(const HTTPHeaders& h1, const HTTPHeaders& h2) {
       cookies[i] = combineCookieCrumbsSorted(crumbs);
     }
     if (cookies[0] == cookies[1]) {
-      LOG(INFO) << "Cookie crumbs are reordered";
+      PRX_LOG(INFO) << "Cookie crumbs are reordered";
     } else {
-      LOG(INFO) << "Cookies are not equal: `" << cookies[0] << "' vs. `"
-                << cookies[1] << "'";
+      PRX_LOG(INFO) << "Cookies are not equal: `" << cookies[0] << "' vs. `"
+                    << cookies[1] << "'";
       return false;
     }
   }

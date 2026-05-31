@@ -11,6 +11,7 @@
 
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 DEFINE_string(input, "", "File containing requests");
 DEFINE_string(scheme, "qpack", "Scheme: <qpack|qmin|hpack>");
@@ -36,26 +37,26 @@ using namespace proxygen::compress;
 int main(int argc, char* argv[]) {
   const folly::Init init(&argc, &argv, true);
   if (FLAGS_same_packet_compression) {
-    LOG(WARNING) << "Same packet compression no longer supported";
+    PRX_LOG(WARNING) << "Same packet compression no longer supported";
   }
 
   if (FLAGS_input.empty()) {
-    LOG(ERROR) << "Must supply a filename";
+    PRX_LOG(ERROR) << "Must supply a filename";
     return 1;
   }
 
   SchemeType t = SchemeType::QPACK;
   if (FLAGS_scheme == "qpack") {
-    LOG(INFO) << "Using QPACK";
+    PRX_LOG(INFO) << "Using QPACK";
     t = SchemeType::QPACK;
   } else if (FLAGS_scheme == "qmin") {
-    LOG(INFO) << "Using QMIN";
+    PRX_LOG(INFO) << "Using QMIN";
     t = SchemeType::QMIN;
   } else if (FLAGS_scheme == "hpack") {
-    LOG(INFO) << "Using HPACK with table size=" << FLAGS_table_size;
+    PRX_LOG(INFO) << "Using HPACK with table size=" << FLAGS_table_size;
     t = SchemeType::HPACK;
   } else {
-    LOG(ERROR) << "Unsupported scheme";
+    PRX_LOG(ERROR) << "Unsupported scheme";
     return 1;
   }
 

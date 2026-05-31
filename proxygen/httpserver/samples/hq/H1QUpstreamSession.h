@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/api/QuicStreamAsyncTransport.h>
 #include <quic/common/events/FollyQuicEventBase.h>
@@ -41,7 +42,7 @@ class H1QUpstreamSession
     auto streamTransport =
         quic::QuicStreamAsyncTransport::createWithNewStream(sock_);
     if (!streamTransport) {
-      LOG(ERROR) << "Failed to create stream transport";
+      PRX_LOG(ERROR) << "Failed to create stream transport";
       return nullptr;
     }
     auto codec = std::make_unique<proxygen::HTTP1xCodec>(
@@ -101,16 +102,16 @@ class H1QUpstreamSession
                      quic::ApplicationErrorCode) noexcept override {
   }
   void onConnectionEnd() noexcept override {
-    LOG(INFO) << __func__;
+    PRX_LOG(INFO) << __func__;
     delete this;
   }
   using proxygen::HTTPSessionBase::InfoCallback::onConnectionError;
   void onConnectionError(quic::QuicError) noexcept override {
-    LOG(INFO) << __func__;
+    PRX_LOG(INFO) << __func__;
     delete this;
   }
   void onConnectionEnd(quic::QuicError /* error */) noexcept override {
-    LOG(INFO) << __func__;
+    PRX_LOG(INFO) << __func__;
     delete this;
   }
 

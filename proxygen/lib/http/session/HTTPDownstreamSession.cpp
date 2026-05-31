@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 
 #include <proxygen/lib/http/session/HTTPSessionController.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -20,8 +21,8 @@ void HTTPDownstreamSession::startNow() {
 
 void HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
                                                    HTTPMessage* msg) {
-  VLOG(5) << "setupOnHeadersComplete txn=" << txn << ", id=" << txn->getID()
-          << ", handler=" << txn->getHandler() << ", msg=" << msg;
+  PRX_VLOG(5) << "setupOnHeadersComplete txn=" << txn << ", id=" << txn->getID()
+              << ", handler=" << txn->getHandler() << ", msg=" << msg;
   // We need to find a Handler to process the transaction.
   // Note: The handler is responsible for freeing itself
   // when it has finished processing the transaction.  The
@@ -30,7 +31,8 @@ void HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
 
   // In the general case, delegate to the handler factory to generate
   // a handler for the transaction.
-  auto* handler = CHECK_NOTNULL(getController()->getRequestHandler(*txn, msg));
+  auto* handler =
+      PRX_CHECK_NOTNULL(getController()->getRequestHandler(*txn, msg));
 
   DestructorGuard dg(this);
   txn->setHandler(handler);

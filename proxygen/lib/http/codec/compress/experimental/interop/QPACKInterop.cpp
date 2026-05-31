@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionUtils.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/SimStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/test/HTTPArchive.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace proxygen::compress;
@@ -91,9 +92,10 @@ void encodeBlocks(QPACKCodec& decoder,
     bytesOut += writevFull(outputF.fd(), iov.data(), iov.size());
     streamId++;
   }
-  LOG(INFO) << "Encoded " << (streamId - 1) << " streams.  Bytes in=" << bytesIn
-            << " Bytes out=" << bytesOut
-            << " Ratio=" << int32_t(100 * (1 - (bytesOut / double(bytesIn))));
+  PRX_LOG(INFO)
+      << "Encoded " << (streamId - 1) << " streams.  Bytes in=" << bytesIn
+      << " Bytes out=" << bytesOut
+      << " Ratio=" << int32_t(100 * (1 - (bytesOut / double(bytesIn))));
 }
 
 void encodeHar(QPACKCodec& decoder, const proxygen::HTTPArchive& har) {
@@ -122,14 +124,14 @@ class Reader {
       auto pre = inbuf.preallocate(4096, 4096);
       rc = readNoInt(inputF.fd(), pre.first, pre.second);
       if (rc < 0) {
-        LOG(ERROR) << "Read failed on " << FLAGS_input;
+        PRX_LOG(ERROR) << "Read failed on " << FLAGS_input;
         return 1;
       }
       inbuf.postallocate(rc);
       onIngress(inbuf);
     } while (rc != 0);
     if (!inbuf.empty()) {
-      LOG(ERROR) << "Premature end of file";
+      PRX_LOG(ERROR) << "Premature end of file";
       return 1;
     }
 
@@ -182,8 +184,8 @@ int decodeAndVerify(QPACKCodec& decoder, const proxygen::HTTPArchive& har) {
                                uint32_t length,
                                std::unique_ptr<folly::IOBuf> buf) {
     if (streamId == 0) {
-      CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
-               HPACK::DecodeError::NONE);
+      PRX_CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
+                   HPACK::DecodeError::NONE);
     } else {
       auto res = streams.emplace(
           std::piecewise_construct,
@@ -199,17 +201,17 @@ int decodeAndVerify(QPACKCodec& decoder, const proxygen::HTTPArchive& har) {
   size_t i = 0;
   for (const auto& req : streams) {
     if (req.second.error != HPACK::DecodeError::NONE) {
-      LOG(ERROR) << "request=" << req.first
-                 << " failed to decode error=" << req.second.error;
+      PRX_LOG(ERROR) << "request=" << req.first
+                     << " failed to decode error=" << req.second.error;
       return 1;
     }
     if (!(req.second.msg == har.requests[i])) {
-      LOG(ERROR) << "requests are not equal, got=" << req.second.msg
-                 << " expected=" << har.requests[i];
+      PRX_LOG(ERROR) << "requests are not equal, got=" << req.second.msg
+                     << " expected=" << har.requests[i];
     }
     i++;
   }
-  LOG(INFO) << "Verified " << i << " streams.";
+  PRX_LOG(INFO) << "Verified " << i << " streams.";
   return 0;
 }
 
@@ -232,7 +234,8 @@ class QIFCallback : public HPACK::StreamingCallback {
     complete = true;
   }
   void onDecodeError(HPACK::DecodeError decodeError) override {
-    LOG(FATAL) << "Decode error with stream=" << id << " err=" << decodeError;
+    PRX_LOG(FATAL) << "Decode error with stream=" << id
+                   << " err=" << decodeError;
   }
 
   uint64_t id{0};
@@ -249,8 +252,8 @@ int decodeToQIF(QPACKCodec& decoder) {
                                uint32_t length,
                                std::unique_ptr<folly::IOBuf> buf) {
     if (streamId == 0) {
-      CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
-               HPACK::DecodeError::NONE);
+      PRX_CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
+                   HPACK::DecodeError::NONE);
       encoderStreamBytes += length;
     } else {
       auto res = streams.emplace(std::piecewise_construct,
@@ -265,10 +268,10 @@ int decodeToQIF(QPACKCodec& decoder) {
   }
 
   for (const auto& stream : streams) {
-    CHECK(stream.second.complete)
+    PRX_CHECK(stream.second.complete)
         << "Stream " << stream.first << " didn't complete";
   }
-  LOG(INFO) << "encoderStreamBytes=" << encoderStreamBytes;
+  PRX_LOG(INFO) << "encoderStreamBytes=" << encoderStreamBytes;
   return 0;
 }
 
@@ -277,7 +280,7 @@ int interopHAR(QPACKCodec& decoder) {
       (FLAGS_public) ? HTTPArchive::fromPublicFile(FLAGS_har)
                      : HTTPArchive::fromFile(FLAGS_har);
   if (!har) {
-    LOG(ERROR) << "Failed to read har file='" << FLAGS_har << "'";
+    PRX_LOG(ERROR) << "Failed to read har file='" << FLAGS_har << "'";
     return 1;
   }
   if (FLAGS_mode == "encode") {
@@ -285,7 +288,7 @@ int interopHAR(QPACKCodec& decoder) {
   } else if (FLAGS_mode == "decode") {
     return decodeAndVerify(decoder, *har);
   } else {
-    LOG(ERROR) << "Usage" << std::endl;
+    PRX_LOG(ERROR) << "Usage" << std::endl;
     return 1;
   }
   return 0;
@@ -307,7 +310,7 @@ struct QIFReader : public Reader {
     if (rc != 0) {
       return rc;
     }
-    CHECK(blocks.back().empty());
+    PRX_CHECK(blocks.back().empty());
     blocks.pop_back();
     return 0;
   }
@@ -370,7 +373,7 @@ struct QIFReader : public Reader {
         case VALUE:
           strings.back() += c.readWhile([](uint8_t ch) { return !iseol(ch); });
           if (!c.isAtEnd()) {
-            CHECK_GE(strings.size(), 2);
+            PRX_CHECK_GE(strings.size(), 2);
             blocks.back().emplace_back(compress::Header::makeHeaderForTest(
                 *(strings.rbegin() + 1), *strings.rbegin()));
             state_ = EOL;
@@ -386,14 +389,14 @@ int interopQIF(QPACKCodec& decoder) {
   if (FLAGS_mode == "encode") {
     QIFReader reader;
     if (reader.read() != 0) {
-      LOG(ERROR) << "Failed to read QIF file='" << FLAGS_input << "'";
+      PRX_LOG(ERROR) << "Failed to read QIF file='" << FLAGS_input << "'";
       return 1;
     }
     encodeBlocks(decoder, reader.blocks);
   } else if (FLAGS_mode == "decode") {
     decodeToQIF(decoder);
   } else {
-    LOG(ERROR) << "Usage" << std::endl;
+    PRX_LOG(ERROR) << "Usage" << std::endl;
     return 1;
   }
 

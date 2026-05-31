@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -218,14 +218,15 @@ class WeakRefCountedPtr {
    *   - Increments reference count.
    */
   void initPtr(WeakRefCountedPtrState<T1>* state) {
-    CHECK(!state_);
+    PRX_CHECK(!state_);
     state_ = state;
     if (state_) {
       state_->count++;
       if (state_->ptr) {
         state_->ptr->onWeakRefCountedPtrCreate();
       }
-      CHECK_GE(state_->count, 1); // sanity if state_->count is ever unsigned
+      PRX_CHECK_GE(state_->count,
+                   1); // sanity if state_->count is ever unsigned
     }
   }
 
@@ -239,7 +240,7 @@ class WeakRefCountedPtr {
     if (!state_) {
       return;
     }
-    CHECK_GE(state_->count, 1);
+    PRX_CHECK_GE(state_->count, 1);
     state_->count--;
     if (state_->ptr) {
       state_->ptr->onWeakRefCountedPtrDestroy();

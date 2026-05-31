@@ -10,6 +10,7 @@
 
 #include <proxygen/httpserver/HTTPServerOptions.h>
 #include <proxygen/httpserver/samples/hq/HQParams.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <variant>
 
 namespace quic::samples {
@@ -75,7 +76,7 @@ struct HQToolParams {
     } else if (mode == HQMode::SERVER) {
       return (HQBaseParams&)std::get<HQToolServerParams>(params);
     }
-    LOG(FATAL) << "Uninit";
+    PRX_LOG(FATAL) << "Uninit";
   }
 
   HQBaseParams& baseParams() {
@@ -84,7 +85,7 @@ struct HQToolParams {
     } else if (mode == HQMode::SERVER) {
       return (HQBaseParams&)std::get<HQToolServerParams>(params);
     }
-    LOG(FATAL) << "Uninit";
+    PRX_LOG(FATAL) << "Uninit";
   }
 
   HQMode mode{HQMode::INVALID};

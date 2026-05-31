@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/session/CodecErrorResponseHandler.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -20,7 +21,7 @@ SimpleController::SimpleController(HTTPSessionAcceptor* acceptor)
 
 HTTPTransactionHandler* SimpleController::getRequestHandler(
     HTTPTransaction& txn, HTTPMessage* msg) {
-  CHECK(acceptor_) << "Requires an acceptor, or override this method";
+  PRX_CHECK(acceptor_) << "Requires an acceptor, or override this method";
   return acceptor_->newHandler(txn, msg);
 }
 

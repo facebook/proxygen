@@ -8,7 +8,7 @@
 
 #include "proxygen/lib/http/coro/HTTPFixedSource.h"
 #include "proxygen/lib/http/coro/server/HTTPServer.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 // TODO: move handler to it's own file?
 #include "proxygen/lib/http/coro/HTTPCoroSession.h"
 #include <quic/QuicConstants.h>
@@ -51,7 +51,7 @@ class EchoResponse : public HTTPSource {
     auto path = headerEvent->headers->getPathAsStringPiece();
     if (path == "/push") {
       if (headerEvent->eom) {
-        XLOG(ERR) << "Can only push in reply to POST";
+        PRX_LOG(ERROR) << "Can only push in reply to POST";
       }
       pendingPush_ = true;
     }
@@ -107,10 +107,10 @@ class EchoHandler
     co_return new EchoResponse(std::move(requestSource));
   }
   void onThreadStart(folly::EventBase* /*evb*/) override {
-    XLOG(DBG2) << "Thread started";
+    PRX_VLOG(2) << "Thread started";
   }
   void onThreadStop(folly::EventBase* /*evb*/) override {
-    XLOG(DBG2) << "Thread stopped";
+    PRX_VLOG(2) << "Thread stopped";
   }
 };
 
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
     try {
       tlsConfig.setCertificate(FLAGS_cert, FLAGS_key, "");
     } catch (const std::exception& ex) {
-      XLOG(ERR) << "Invalid certificate file or key file: %s" << ex.what();
+      PRX_LOG(ERROR) << "Invalid certificate file or key file: %s" << ex.what();
     }
     httpServerConfig.socketConfig.sslContextConfigs.emplace_back(
         std::move(tlsConfig));
@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
           FLAGS_quic_batch_size;
     }
   } else if (FLAGS_quic) {
-    XLOG(ERR) << "QUIC requires a cert and key";
+    PRX_LOG(ERROR) << "QUIC requires a cert and key";
     return 1;
   }
   auto handler = std::make_shared<EchoHandler>();

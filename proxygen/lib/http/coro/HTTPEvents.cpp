@@ -9,13 +9,14 @@
 #include "proxygen/lib/http/coro/HTTPEvents.h"
 #include "proxygen/lib/http/coro/HTTPSource.h"
 #include "proxygen/lib/http/webtransport/WebTransport.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
 HTTPHeaderEvent::HTTPHeaderEvent(std::unique_ptr<HTTPMessage> inHeaders,
                                  bool inEOM) noexcept
     : headers(std::move(inHeaders)), eom(inEOM) {
-  XCHECK(headers->isFinal() || !eom);
+  PRX_CHECK(headers->isFinal() || !eom);
 }
 
 HTTPHeaderEvent::~HTTPHeaderEvent() noexcept = default;

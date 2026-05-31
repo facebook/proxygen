@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/coro/HTTPHybridSource.h>
 #include <proxygen/lib/http/coro/HTTPSourceReader.h>
 #include <proxygen/lib/http/coro/test/Mocks.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/ZlibStreamCompressor.h>
 #include <proxygen/lib/utils/ZstdStreamDecompressor.h>
 
@@ -137,7 +138,7 @@ class CompressionFilterTest : public Test {
       }
       auto processedBody =
           expectCompression ? zd_->decompress(body.move().get()) : body.move();
-      CHECK(!zd_->hasError()) << "Failed to decompress body!";
+      PRX_CHECK(!zd_->hasError()) << "Failed to decompress body!";
       if (decompressedResponseBody) {
         decompressedResponseBody->prependChain(std::move(processedBody));
       } else {
@@ -150,7 +151,7 @@ class CompressionFilterTest : public Test {
     co_withExecutor(&evb_, reader.read()).start();
     evb_.loop();
 
-    CHECK(decompressedResponseBody);
+    PRX_CHECK(decompressedResponseBody);
     EXPECT_THAT(decompressedResponseBody.get(),
                 IOBufEquals(maybeChainedRespBody.get()));
   }

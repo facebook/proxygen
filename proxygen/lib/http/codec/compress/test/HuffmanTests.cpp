@@ -14,6 +14,7 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly::io;
 using namespace folly;
@@ -137,7 +138,7 @@ TEST_F(HuffmanTests, ExampleCom) {
 
   folly::fbstring decoded;
   tree_.decode(bufQueue.front()->data(), size, decoded);
-  CHECK_EQ(example, decoded);
+  PRX_CHECK_EQ(example, decoded);
 }
 
 TEST_F(HuffmanTests, UserAgent) {
@@ -159,7 +160,7 @@ TEST_F(HuffmanTests, UserAgent) {
 
   folly::fbstring decoded;
   tree.decode(bufQueue.front()->data(), size, decoded);
-  CHECK_EQ(user_agent, decoded);
+  PRX_CHECK_EQ(user_agent, decoded);
 }
 
 /*
@@ -178,7 +179,7 @@ TEST_F(HuffmanTests, FitInBuffer) {
   appender.append(appender.length() - 1);
   literal = "g";
   tree_.encode(literal, appender);
-  CHECK_EQ(appender.length(), 0);
+  PRX_CHECK_EQ(appender.length(), 0);
 }
 
 /*

@@ -15,9 +15,9 @@
 #include "proxygen/lib/http/coro/server/samples/fwdproxy/ConnectSource.h"
 #include <folly/init/Init.h>
 #include <folly/io/async/EventBaseLocal.h>
-#include <folly/logging/xlog.h>
 #include <folly/portability/GFlags.h>
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 
 DEFINE_int32(port, 8082, "What port to listen on");
 DEFINE_string(cert, "", "Certificate file");
@@ -44,14 +44,14 @@ class FwdProxyHandler : public proxygen::coro::HTTPHandler {
     auto& request = headerEvent->headers;
     auto parseURL = ParseURL::parseURL(request->getURL());
     if (!parseURL.has_value() || !parseURL->hasHost()) {
-      XLOG(ERR) << "Invalid url=" << request->getURL();
+      PRX_LOG(ERROR) << "Invalid url=" << request->getURL();
       co_return HTTPFixedSource::makeFixedResponse(400);
     }
 
     // Handle connect separately
     if (request->getMethod() == HTTPMethod::CONNECT) {
       if (parseURL->port() == 0) {
-        XLOG(ERR) << "Invalid url=" << request->getURL();
+        PRX_LOG(ERROR) << "Invalid url=" << request->getURL();
         co_return HTTPFixedSource::makeFixedResponse(400);
       }
       co_return co_await handleConnect(evb,
@@ -62,17 +62,17 @@ class FwdProxyHandler : public proxygen::coro::HTTPHandler {
     }
 
     if (parseURL->scheme().empty()) {
-      XLOG(ERR) << "Invalid url=" << request->getURL();
+      PRX_LOG(ERROR) << "Invalid url=" << request->getURL();
       co_return HTTPFixedSource::makeFixedResponse(400);
     }
 
-    XLOG(DBG4) << "Sending request upstream";
+    PRX_VLOG(4) << "Sending request upstream";
     // any exceptions are propagated
     auto& connCache = connCache_.try_emplace(*evb, *evb);
     auto res = co_await co_awaitTry(connCache.getSessionWithReservation(
         request->getURL(), std::chrono::milliseconds(FLAGS_timeout)));
     if (res.hasException()) {
-      XLOG(ERR) << "Failed to connect err=" << res.exception().what();
+      PRX_LOG(ERROR) << "Failed to connect err=" << res.exception().what();
       co_return HTTPFixedSource::makeFixedResponse(503);
     }
     URL reqURL(std::move(*parseURL));
@@ -95,7 +95,7 @@ class FwdProxyHandler : public proxygen::coro::HTTPHandler {
     auto serverAddresses = co_await co_awaitTry(CoroDNSResolver::resolveHost(
         evb, host, std::chrono::milliseconds(FLAGS_timeout)));
     if (serverAddresses.hasException()) {
-      XLOG(ERR) << "DNS error: " << serverAddresses.exception().what();
+      PRX_LOG(ERROR) << "DNS error: " << serverAddresses.exception().what();
       co_return HTTPFixedSource::makeFixedResponse(503);
     }
     serverAddresses->primary.setPort(port);
@@ -105,7 +105,7 @@ class FwdProxyHandler : public proxygen::coro::HTTPHandler {
             serverAddresses->primary,
             std::chrono::milliseconds(FLAGS_timeout)));
     if (transport.hasException()) {
-      XLOG(ERR) << "Connect error: " << transport.exception().what();
+      PRX_LOG(ERROR) << "Connect error: " << transport.exception().what();
       co_return HTTPFixedSource::makeFixedResponse(503);
     }
     auto connectSource = new ConnectSource(
@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
     try {
       tlsConfig.setCertificate(FLAGS_cert, FLAGS_key, "");
     } catch (const std::exception& ex) {
-      XLOG(ERR) << "Invalid certificate file or key file: %s" << ex.what();
+      PRX_LOG(ERROR) << "Invalid certificate file or key file: %s" << ex.what();
     }
     httpServerConfig.socketConfig.sslContextConfigs.emplace_back(
         std::move(tlsConfig));
@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
       httpServerConfig.quicConfig = HTTPServer::QuicConfig();
     }
   } else if (FLAGS_quic) {
-    XLOG(ERR) << "QUIC requires a cert and key";
+    PRX_LOG(ERROR) << "QUIC requires a cert and key";
     return 1;
   }
   HTTPServer server(std::move(httpServerConfig),

@@ -11,6 +11,7 @@
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -39,7 +40,7 @@ class RejectConnectFilter : public Filter {
   }
 
   void requestComplete() noexcept override {
-    CHECK(!upstream_);
+    PRX_CHECK(!upstream_);
     delete this;
   }
 

@@ -9,7 +9,7 @@
 #include <proxygen/lib/http/session/HTTPErrorPage.h>
 
 #include <folly/io/IOBuf.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using std::string;
 
@@ -29,7 +29,7 @@ HTTPErrorPage::Page HTTPStaticErrorPage::generate(
     ProxygenError err) const {
 
   HTTPHeaders headers;
-  VLOG(4) << "adding server-status header for proxygen error";
+  PRX_VLOG(4) << "adding server-status header for proxygen error";
   headers.set("Server-Status", folly::to<std::string>(static_cast<int>(err)));
   return {contentType_, content_->clone(), std::move(headers)};
 }

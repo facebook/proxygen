@@ -9,6 +9,7 @@
 #include "proxygen/lib/http/coro/HTTPTransactionAdaptorSource.h"
 #include "proxygen/lib/http/coro/HTTPError.h"
 #include "proxygen/lib/http/coro/HTTPSourceReader.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 constexpr std::chrono::milliseconds kDefaultEgressTimeout =
@@ -34,8 +35,8 @@ HTTPTransactionAdaptorSource* HTTPTransactionAdaptorSource::create(
 }
 
 HTTPTransactionAdaptorSource::~HTTPTransactionAdaptorSource() {
-  XCHECK(!txn_);
-  XCHECK(ingressSource_.inputFinished());
+  PRX_CHECK(!txn_);
+  PRX_CHECK(ingressSource_.inputFinished());
 }
 
 folly::CancellationToken HTTPTransactionAdaptorSource::getCancelToken() {
@@ -191,7 +192,7 @@ folly::coro::Task<void> HTTPTransactionAdaptorSource::egressLoop() {
           return;
         }
 
-        XLOG_EVERY_MS(ERR, 10000)
+        PRX_LOG_EVERY_MS(ERROR, 10000)
             << "Error while handling transaction" << error.describe();
         txn_->sendAbort();
       });

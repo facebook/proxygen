@@ -10,6 +10,7 @@
 
 #include <folly/Conv.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -44,7 +45,7 @@ class RFC1867Codec : HTTPCodec::Callback {
   //
   //   Content-type: multipart/form-data, boundary=AaB03x
   explicit RFC1867Codec(const std::string& boundary) {
-    CHECK(!boundary.empty());
+    PRX_CHECK(!boundary.empty());
     boundary_ = folly::to<std::string>("\n--", boundary);
     headerParser_.setCallback(this);
   }

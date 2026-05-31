@@ -18,6 +18,7 @@ proxygen_add_library(proxygen_pools_generators_coro_file_server_list_generator
   SRCS
     FileCoroServerListGenerator.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_file_util
   EXPORTED_DEPS
     proxygen_pools_generators_coro_server_list_generator

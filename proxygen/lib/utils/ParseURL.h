@@ -13,8 +13,8 @@
 #include <string>
 #include <string_view>
 
-#include <glog/logging.h>
 #include <proxygen/lib/utils/Export.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -88,7 +88,7 @@ class ParseURL {
   ParseURL() = default;
 
   void init(std::string_view urlVal, bool strict = false) {
-    CHECK(!initialized_);
+    PRX_CHECK(!initialized_);
     url_ = urlVal;
     parse(strict);
     initialized_ = true;

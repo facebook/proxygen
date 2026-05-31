@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/session/HQSession.h>
 
 #include <folly/io/async/HHWheelTimer.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/common/events/FollyQuicEventBase.h>
 
 namespace proxygen {
@@ -146,7 +147,7 @@ class HQUpstreamSession : public HQSession {
 
       // NOTE: change the API to avoid accepting parent txn ids
       // as optional
-      CHECK(parentTxnId.has_value());
+      PRX_CHECK(parentTxnId.has_value());
       auto cb = ((HQUpstreamSession&)session_).serverPushLifecycleCb_;
       if (cb) {
         cb->onHalfOpenPushedTxn(&txn_, pushId, *parentTxnId, false);
@@ -159,8 +160,8 @@ class HQUpstreamSession : public HQSession {
     void onPushMessageBegin(HTTPCodec::StreamID pushId,
                             HTTPCodec::StreamID parentTxnId,
                             HTTPMessage* /* msg */) override {
-      LOG(ERROR) << "Push promise on push stream" << " txn=" << txn_
-                 << " pushID=" << pushId << " parentTxnId=" << parentTxnId;
+      PRX_LOG(ERROR) << "Push promise on push stream" << " txn=" << txn_
+                     << " pushID=" << pushId << " parentTxnId=" << parentTxnId;
       session_.dropConnectionAsync(
           quic::QuicError(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED,
                           "Push promise on push stream"),

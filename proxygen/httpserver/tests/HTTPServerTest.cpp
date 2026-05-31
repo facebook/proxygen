@@ -26,6 +26,7 @@
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <proxygen/httpserver/ScopedHTTPServer.h>
 #include <proxygen/lib/http/HTTPConnector.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/TestUtils.h>
 #include <wangle/acceptor/Acceptor.h>
 #include <wangle/acceptor/ServerSocketConfig.h>
@@ -380,7 +381,7 @@ class TestHandlerFactory : public RequestHandlerFactory {
 
     void onEOM() noexcept override {
       std::string certHeader;
-      auto txn = CHECK_NOTNULL(downstream_->getTransaction());
+      auto txn = PRX_CHECK_NOTNULL(downstream_->getTransaction());
       auto& transport = txn->getTransport();
       if (auto cert =
               transport.getUnderlyingTransport()->getPeerCertificate()) {

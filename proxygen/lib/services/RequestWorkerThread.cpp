@@ -11,6 +11,7 @@
 #include <csignal>
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/lib/services/ServiceWorker.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -44,14 +45,14 @@ uint64_t RequestWorkerThread::nextRequestId() {
 }
 
 void RequestWorkerThread::flushStats() {
-  CHECK(getEventBase()->isInEventBaseThread());
+  PRX_CHECK(getEventBase()->isInEventBaseThread());
   for (auto& p : serviceWorkers_) {
     p.second->flushStats();
   }
 }
 
 void RequestWorkerThread::setup() {
-  CHECK(evb_);
+  PRX_CHECK(evb_);
   evb_->runImmediatelyOrRunInEventBaseThreadAndWait([&]() {
     sigset_t ss;
 
@@ -67,7 +68,7 @@ void RequestWorkerThread::setup() {
     sigaddset(&ss, SIGTERM);
     sigaddset(&ss, SIGCHLD);
     sigaddset(&ss, SIGIO);
-    PCHECK(pthread_sigmask(SIG_BLOCK, &ss, nullptr) == 0);
+    PRX_PCHECK(pthread_sigmask(SIG_BLOCK, &ss, nullptr) == 0);
 
     currentRequestWorker_ = this;
     callback_.workerStarted(this);
@@ -79,7 +80,7 @@ void RequestWorkerThread::forceStop() {
 }
 
 void RequestWorkerThread::cleanup() {
-  LOG(INFO) << "Worker " << unsigned(getWorkerId()) << " in cleanup";
+  PRX_LOG(INFO) << "Worker " << unsigned(getWorkerId()) << " in cleanup";
   callback_.workerFinished(this);
 }
 

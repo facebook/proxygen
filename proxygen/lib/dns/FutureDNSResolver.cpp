@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/dns/FutureDNSResolver.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 namespace {
@@ -36,9 +37,9 @@ class FutureDNSResolutionCallback : public DNSResolver::ResolutionCallback {
 FutureDNSResolver::FutureDNSResolver(folly::EventBase* evb,
                                      DNSResolver::UniquePtr resolver)
     : evb_{evb}, resolver_{std::move(resolver)} {
-  CHECK_NE(static_cast<folly::EventBase*>(nullptr), evb_)
+  PRX_CHECK_NE(static_cast<folly::EventBase*>(nullptr), evb_)
       << "EventBase must not be null";
-  CHECK_NE(static_cast<DNSResolver*>(nullptr), resolver_.get())
+  PRX_CHECK_NE(static_cast<DNSResolver*>(nullptr), resolver_.get())
       << "DNS resolver must not be null";
 }
 

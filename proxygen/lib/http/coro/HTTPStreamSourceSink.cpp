@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/HTTPStreamSourceSink.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 
@@ -80,7 +81,7 @@ class EomHttpSource : public HTTPSource {
 inline void handleIngressException(
     HTTPTransactionHandler* handler,
     const folly::exception_wrapper& ex) noexcept {
-  auto* httpError = CHECK_NOTNULL(ex.get_exception<HTTPError>());
+  auto* httpError = PRX_CHECK_NOTNULL(ex.get_exception<HTTPError>());
   handler->onError(HTTPErrorToHTTPException(*httpError));
 }
 
@@ -152,14 +153,14 @@ HTTPStreamSourceUpstreamSink::~HTTPStreamSourceUpstreamSink() {
 
 void HTTPStreamSourceUpstreamSink::detachAndAbortIfIncomplete(
     std::unique_ptr<HTTPSink> self) {
-  CHECK_EQ(self.get(), this);
+  PRX_CHECK_EQ(self.get(), this);
   self_ = std::move(self);
   handler_ = &kNoopTxnHandler;
   sendAbort();
 }
 
 void HTTPStreamSourceUpstreamSink::sendAbort() {
-  XLOG(DBG6) << __func__;
+  PRX_VLOG(6) << __func__;
   egressSource_.abort(HTTPErrorCode::CANCEL);
   cancellationSource_.requestCancellation();
 }
@@ -203,7 +204,7 @@ folly::coro::Task<void> HTTPStreamSourceUpstreamSink::transact(
 
   if (responseSource.hasError()) {
     std::string err{responseSource.error().describe()};
-    XLOG(DBG6) << "failed ::sendRequest; err=" << err;
+    PRX_VLOG(6) << "failed ::sendRequest; err=" << err;
     handler_->onError(
         HTTPException(HTTPException::Direction::INGRESS_AND_EGRESS, err));
     gate_.set(Event::IngressComplete);
@@ -212,7 +213,7 @@ folly::coro::Task<void> HTTPStreamSourceUpstreamSink::transact(
 
   // respSource must have streamID
   id_ = responseSource->getStreamID();
-  XCHECK(id_);
+  PRX_CHECK(id_);
   egressSource_.setStreamID(id_.value());
 
   co_await folly::coro::co_withCancellation(cancellationSource_.getToken(),
@@ -234,7 +235,7 @@ folly::coro::Task<void> HTTPStreamSourceUpstreamSink::read(
     co_await ingressResumed_.wait();
     auto headerEvent = co_await co_awaitTry(ingressSource.readHeaderEvent());
     if (headerEvent.hasException()) {
-      XLOG(DBG6) << "headerEvent err=" << headerEvent.exception().what();
+      PRX_VLOG(6) << "headerEvent err=" << headerEvent.exception().what();
       handleIngressException(handler_, headerEvent.exception());
       break;
     }
@@ -261,7 +262,7 @@ folly::coro::Task<void> HTTPStreamSourceUpstreamSink::read(
     auto bodyEvent =
         co_await co_awaitTry(ingressSource.readBodyEvent(kMaxBodyChunkSize));
     if (bodyEvent.hasException()) {
-      XLOG(DBG6) << "bodyEvent err=" << bodyEvent.exception().what();
+      PRX_VLOG(6) << "bodyEvent err=" << bodyEvent.exception().what();
       handleIngressException(handler_, bodyEvent.exception());
       break;
     }
@@ -298,7 +299,7 @@ folly::coro::Task<void> HTTPStreamSourceUpstreamSink::read(
       handler_->onEOM();
     }
   }
-  XLOG(DBG6) << __func__ << "; done";
+  PRX_VLOG(6) << __func__ << "; done";
 }
 
 } // namespace proxygen::coro

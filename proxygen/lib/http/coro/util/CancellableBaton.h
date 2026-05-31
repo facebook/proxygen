@@ -9,6 +9,7 @@
 #pragma once
 
 #include "proxygen/lib/http/coro/util/TimedBaton.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro::detail {
 
@@ -24,7 +25,7 @@ class CancellableBaton {
   CancellableBaton(CancellableBaton&&) = delete;
   CancellableBaton& operator=(CancellableBaton&&) = delete;
   ~CancellableBaton() {
-    XCHECK_EQ(status_, nullptr);
+    PRX_CHECK_EQ(status_, nullptr);
   }
 
   // wait indefinitely until ::signal is called or cancellation requested
@@ -38,7 +39,7 @@ class CancellableBaton {
   }
 
   void reset() {
-    XLOG(DBG8) << __func__;
+    PRX_VLOG(8) << __func__;
     status_ = nullptr;
     baton_.reset();
   }

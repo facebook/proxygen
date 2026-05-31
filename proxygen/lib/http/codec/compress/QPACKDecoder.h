@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKDecoderBase.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/QPACKContext.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -59,7 +60,7 @@ class QPACKDecoder
   }
 
   void setHeaderTableMaxSize(uint32_t maxSize) {
-    CHECK(maxTableSize_ == 0 || maxTableSize_ == maxSize)
+    PRX_CHECK(maxTableSize_ == 0 || maxTableSize_ == maxSize)
         << "Cannot change non-zero max header table size, "
            "maxTableSize_="
         << maxTableSize_ << " maxSize=" << maxSize;

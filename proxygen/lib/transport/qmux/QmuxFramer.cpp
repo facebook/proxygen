@@ -11,6 +11,7 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
 #include <proxygen/lib/http/codec/VarintUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
@@ -294,7 +295,7 @@ folly::Expected<QxPing, QmuxErrorCode> parsePing(folly::io::Cursor& cursor,
 
 WriteResult writeRecord(folly::IOBufQueue& queue,
                         std::unique_ptr<folly::IOBuf> frames) {
-  CHECK(frames) << "frames must be non-null";
+  PRX_CHECK(frames) << "frames must be non-null";
   size_t size = 0;
   bool error = false;
   auto framesLen = frames->computeChainDataLength();

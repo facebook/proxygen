@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/HPACKQueue.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::compress {
 
@@ -31,7 +32,7 @@ class HPACKScheme : public CompressionScheme {
   }
 
   ~HPACKScheme() override {
-    CHECK_EQ(serverQueue_.getQueuedBytes(), 0);
+    PRX_CHECK_EQ(serverQueue_.getQueuedBytes(), 0);
   }
 
   // HPACK has no ACKs
@@ -63,8 +64,8 @@ class HPACKScheme : public CompressionScheme {
     folly::io::Cursor cursor(encodedReq.get());
     auto seqn = cursor.readBE<uint16_t>();
     callback.seqn = seqn;
-    VLOG(1) << "Decoding request=" << callback.requestIndex
-            << " header seqn=" << seqn;
+    PRX_VLOG(1) << "Decoding request=" << callback.requestIndex
+                << " header seqn=" << seqn;
     auto len = cursor.totalLength();
     encodedReq->trimStart(sizeof(uint16_t));
     serverQueue_.enqueueHeaderBlock(

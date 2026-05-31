@@ -8,8 +8,8 @@
 
 proxygen_add_library(proxygen_ssl
   EXPORTED_DEPS
+    proxygen_utils_log_shim
     Folly::folly_portability_openssl
-    glog::glog
 )
 
 proxygen_add_library(proxygen_ssl_fizz_handshake_error_type

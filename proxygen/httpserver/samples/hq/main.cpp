@@ -16,6 +16,7 @@
 #include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <proxygen/httpserver/samples/hq/HQServerModule.h>
 #include <proxygen/lib/transport/PersistentQuicPskCache.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace quic::samples;
 
@@ -39,7 +40,7 @@ int main(int argc, char* argv[]) {
     if (sink.isValid()) {
       AddLogSink(&sink);
     } else if (!params.logdir.empty()) {
-      LOG(ERROR) << "Cannot open " << params.logdir;
+      PRX_LOG(ERROR) << "Cannot open " << params.logdir;
     }
 
     switch (params.mode) {
@@ -50,22 +51,22 @@ int main(int argc, char* argv[]) {
         err = startClient(std::get<HQToolClientParams>(params.params));
         break;
       default:
-        LOG(ERROR) << "Unknown mode specified: ";
+        PRX_LOG(ERROR) << "Unknown mode specified: ";
         return -1;
     }
     if (params.logRuntime) {
-      LOG(INFO) << "Run time: "
-                << std::chrono::duration_cast<std::chrono::milliseconds>(
-                       std::chrono::steady_clock().now().time_since_epoch())
-                           .count() -
-                       startTime
-                << "ms";
+      PRX_LOG(INFO) << "Run time: "
+                    << std::chrono::duration_cast<std::chrono::milliseconds>(
+                           std::chrono::steady_clock().now().time_since_epoch())
+                               .count() -
+                           startTime
+                    << "ms";
     }
     return err;
   } else {
     for (auto& param : expectedParams.error()) {
-      LOG(ERROR) << "Invalid param: " << param.name << " " << param.value << " "
-                 << param.errorMsg;
+      PRX_LOG(ERROR) << "Invalid param: " << param.name << " " << param.value
+                     << " " << param.errorMsg;
     }
     return -1;
   }

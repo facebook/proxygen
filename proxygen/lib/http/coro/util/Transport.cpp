@@ -8,15 +8,15 @@
 
 #include <folly/io/async/EventBase.h>
 #include <folly/io/coro/TransportCallbacks.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include "proxygen/lib/http/coro/util/Transport.h"
 
 namespace proxygen::coro::detail {
 
 void Transport::detachEventBase() {
-  XCHECK(eventBase_->isInEventBaseThread());
-  XCHECK_EQ(readCB_, nullptr);
+  PRX_CHECK(eventBase_->isInEventBaseThread());
+  PRX_CHECK_EQ(readCB_, nullptr);
   /**
    * static_cast<folly::coro::ReadCallback> necessary to ::cancelTimeout below
    * and ::rescheduleTimeout in attachEventBase. This is ok because the contract
@@ -25,7 +25,7 @@ void Transport::detachEventBase() {
    */
   readCB_ =
       static_cast<folly::coro::ReadCallback*>(transport_->getReadCallback());
-  XLOG(DBG6) << __func__ << "; readCB_=" << readCB_;
+  PRX_VLOG(6) << __func__ << "; readCB_=" << readCB_;
   transport_->setReadCB(nullptr); // ok if already uninstalled
   if (readCB_) {
     readCB_->cancelTimeout();
@@ -34,7 +34,7 @@ void Transport::detachEventBase() {
 }
 
 void Transport::attachEventBase(folly::EventBase* evb) {
-  XLOG(DBG6) << __func__ << "; readCB_=" << readCB_;
+  PRX_VLOG(6) << __func__ << "; readCB_=" << readCB_;
   eventBase_ = evb;
   transport_->attachEventBase(evb);
   if (auto* readCB = std::exchange(readCB_, nullptr)) {

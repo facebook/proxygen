@@ -12,9 +12,9 @@
 #include "proxygen/lib/http/coro/util/TimedBaton.h"
 #include <folly/coro/Task.h>
 #include <folly/io/IOBuf.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/common/BufUtil.h>
 
 namespace proxygen {

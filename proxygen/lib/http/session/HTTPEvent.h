@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include <glog/logging.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -49,7 +49,7 @@ class HTTPEvent {
     // so we could enforce this check at compile time.  Unfortunately,
     // that would prevent us from using this constructor with
     // deferredCallbacks_.emplace().)
-    CHECK(event == Type::CHUNK_HEADER);
+    PRX_CHECK(event == Type::CHUNK_HEADER);
   }
 
   HTTPEvent(HTTPCodec::StreamID streamID,
@@ -85,7 +85,7 @@ class HTTPEvent {
         length_(0),
         event_(Type::ERROR),
         upgrade_(false) {
-    CHECK(error_);
+    PRX_CHECK(error_);
   }
 
   HTTPEvent(HTTPCodec::StreamID streamID, Type event, UpgradeProtocol protocol)
@@ -125,12 +125,12 @@ class HTTPEvent {
   }
 
   bool isUpgrade() const {
-    CHECK(event_ == Type::MESSAGE_COMPLETE);
+    PRX_CHECK(event_ == Type::MESSAGE_COMPLETE);
     return upgrade_;
   }
 
   size_t getChunkLength() const {
-    CHECK(event_ == Type::CHUNK_HEADER);
+    PRX_CHECK(event_ == Type::CHUNK_HEADER);
     return length_;
   }
 

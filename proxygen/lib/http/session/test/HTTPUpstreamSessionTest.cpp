@@ -25,6 +25,7 @@
 #include <proxygen/lib/http/webtransport/WtUtils.h>
 #include <proxygen/lib/http/webtransport/test/Mocks.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
 using folly::test::MockAsyncTransport;
@@ -221,14 +222,14 @@ class HTTPUpstreamTest
   }
 
   void readAndLoop(const uint8_t* input, size_t length) {
-    CHECK_NOTNULL(readCallback_);
+    PRX_CHECK_NOTNULL(readCallback_);
     void* buf;
     size_t bufSize;
     while (length > 0) {
       readCallback_->getReadBuffer(&buf, &bufSize);
       // This is somewhat specific to our implementation, but currently we
       // always return at least some space from getReadBuffer
-      CHECK_GT(bufSize, 0);
+      PRX_CHECK_GT(bufSize, 0);
       bufSize = std::min(bufSize, length);
       memcpy(buf, input, bufSize);
       readCallback_->readDataAvailable(bufSize);
@@ -672,13 +673,13 @@ TEST_F(HTTP2UpstreamSessionTest, FullResponsePriorToEgressCompleteNoError) {
   eventBase_.loop();
 
   // txn should still exist
-  CHECK_NOTNULL(handler->txn_);
+  PRX_CHECK_NOTNULL(handler->txn_);
 
   // resume ingress and loop again
   EXPECT_CALL(*handler, _onBodyWithOffset(_, _)).Times(1);
   EXPECT_CALL(*handler, _onEOM()).Times(1);
   handler->expectError([this](auto&& ex) {
-    CHECK(ex.hasCodecStatusCode());
+    PRX_CHECK(ex.hasCodecStatusCode());
     EXPECT_EQ(ex.getCodecStatusCode(), ErrorCode::NO_ERROR);
     eventBase_.terminateLoopSoon();
   });
@@ -686,7 +687,7 @@ TEST_F(HTTP2UpstreamSessionTest, FullResponsePriorToEgressCompleteNoError) {
   eventBase_.loop();
 
   // txn should have detached here
-  CHECK(handler->txn_ == nullptr);
+  PRX_CHECK(handler->txn_ == nullptr);
 
   httpSession_->dropConnection();
 }
@@ -742,11 +743,11 @@ TEST_F(HTTP2UpstreamSessionTest, FullResponsePriorToEgressCompleteCancelError) {
   eventBase_.loop();
 
   // txn should still exist
-  CHECK_NOTNULL(handler->txn_);
+  PRX_CHECK_NOTNULL(handler->txn_);
 
   // keep ingress paused; ErrorCode::CANCEL should invoke ::onError
   handler->expectError([this](auto&& ex) {
-    CHECK(ex.hasCodecStatusCode());
+    PRX_CHECK(ex.hasCodecStatusCode());
     EXPECT_EQ(ex.getCodecStatusCode(), ErrorCode::CANCEL);
     eventBase_.terminateLoopSoon();
   });
@@ -757,7 +758,7 @@ TEST_F(HTTP2UpstreamSessionTest, FullResponsePriorToEgressCompleteCancelError) {
   readAndLoop(input->data(), input->length());
 
   // txn should have detached here
-  CHECK(handler->txn_ == nullptr);
+  PRX_CHECK(handler->txn_ == nullptr);
 
   httpSession_->dropConnection();
 }
@@ -849,8 +850,8 @@ void HTTPUpstreamTest<CodecPair>::testBasicRequest() {
       "Transfer-Encoding: chunked\r\n\r\n"
       "0\r\n\r\n");
 
-  CHECK(httpSession_->supportsMoreTransactions());
-  CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  PRX_CHECK(httpSession_->supportsMoreTransactions());
+  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
 }
 
 TEST_F(HTTPUpstreamSessionTest, BasicRequest) {
@@ -927,8 +928,8 @@ TEST_F(HTTPUpstreamSessionTest, TestFirstHeaderByteEventTracker) {
       "Transfer-Encoding: chunked\r\n\r\n"
       "0\r\n\r\n");
 
-  CHECK(httpSession_->supportsMoreTransactions());
-  CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  PRX_CHECK(httpSession_->supportsMoreTransactions());
+  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
   handler->txn_->decrementPendingByteEvents();
   httpSession_->destroy();
 }
@@ -995,8 +996,8 @@ TEST_F(HTTPUpstreamSessionTest, BasicTrailers) {
       "X-Trailer1: foo\r\n"
       "\r\n");
 
-  CHECK(httpSession_->supportsMoreTransactions());
-  CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  PRX_CHECK(httpSession_->supportsMoreTransactions());
+  PRX_CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
   httpSession_->destroy();
 }
 
@@ -2889,12 +2890,12 @@ class H2WtUpstreamTest : public HTTPUpstreamTest<HTTP2CodecPair> {
     // pipe every http/2 ingress data on the CONNECT stream to WtCapsuleCodec
     EXPECT_CALL(server.codecCb, onBody(1, _, _))
         .WillRepeatedly([this](auto id, auto buf, auto pad) {
-          VLOG(5) << "::onBody len=" << buf->computeChainDataLength();
+          PRX_VLOG(5) << "::onBody len=" << buf->computeChainDataLength();
           server.wtCodec.onIngress(buf->clone(), false);
         });
     EXPECT_CALL(server.codecCb, onMessageComplete(1, _))
         .WillRepeatedly([this]() {
-          VLOG(5) << "::onMessageComplete";
+          PRX_VLOG(5) << "::onMessageComplete";
           server.wtCodec.onIngress(nullptr, true);
         });
   }
@@ -2918,9 +2919,9 @@ class H2WtUpstreamTest : public HTTPUpstreamTest<HTTP2CodecPair> {
     // serialize final 2xx
     deliverRespHeaders(/*id=*/1, makeResponse(200), /*eom=*/false);
     auto res = waitForFut(std::move(wtReq), eventBase_);
-    CHECK(res.hasValue());
+    PRX_CHECK(res.hasValue());
     EXPECT_EQ(res.value()->getStatusCode(), 200);
-    CHECK(wt.handlerCtx->wtSession);
+    PRX_CHECK(wt.handlerCtx->wtSession);
     wt.sess = std::move(wt.handlerCtx->wtSession);
 
     constexpr uint32_t kWindowUpdate = 1 << 20; // 1MiB
@@ -2978,7 +2979,7 @@ class H2WtUpstreamTest : public HTTPUpstreamTest<HTTP2CodecPair> {
   // pipe every session write into the peer's codec, which then pipes everything
   // into peer's wt codec
   void onWrite(const HTTPSessionBase&, size_t) override {
-    CHECK(!writes_.empty());
+    PRX_CHECK(!writes_.empty());
     server.codec->onIngress(*writes_.move());
   }
 
@@ -3032,7 +3033,7 @@ TEST_F(H2WtUpstreamTest, SimpleUniEgress) {
   wt.sess->awaitUniStreamCredit().isReady();
   // peer advertised uni credit => ::createUniStream now yields handle
   createStream = wt.sess->createUniStream();
-  CHECK(createStream.hasValue());
+  PRX_CHECK(createStream.hasValue());
   auto* wh = createStream.value();
   auto id = wh->getID();
 
@@ -3060,7 +3061,7 @@ TEST_F(H2WtUpstreamTest, SimpleUniEgress) {
 
   // validate we've rx'd a wt_stream capsule with expected values
   auto streamEvent = std::exchange(server.wtCodecCb.stream, {});
-  CHECK(streamEvent.has_value());
+  PRX_CHECK(streamEvent.has_value());
   EXPECT_EQ(streamEvent->streamId, id);
   EXPECT_EQ(streamEvent->streamData->computeChainDataLength(), kBufLen);
 
@@ -3087,7 +3088,7 @@ TEST_F(H2WtUpstreamTest, SimpleUniEgress) {
   grantMaxData(detail::kInvalidVarint, kBufLen + 1);
   server.wtCodecCb.waitForEvent(eventBase_);
   streamEvent = std::exchange(server.wtCodecCb.stream, {});
-  CHECK(streamEvent.has_value());
+  PRX_CHECK(streamEvent.has_value());
   EXPECT_EQ(streamEvent->streamId, id);
   EXPECT_EQ(streamEvent->streamData->computeChainDataLength(), 1);
 
@@ -3098,7 +3099,7 @@ TEST_F(H2WtUpstreamTest, SimpleUniEgress) {
 
   server.wtCodecCb.waitForEvent(eventBase_);
   streamEvent = std::exchange(server.wtCodecCb.stream, {});
-  CHECK(streamEvent.has_value());
+  PRX_CHECK(streamEvent.has_value());
   EXPECT_EQ(streamEvent->streamId, id);
   EXPECT_EQ(streamEvent->streamData->computeChainDataLength(), 0);
   EXPECT_EQ(streamEvent->fin, true);
@@ -3172,7 +3173,7 @@ TEST_F(H2WtUpstreamTest, SimpleBidiEcho) {
 
   // peer advertised bidi credit => ::createBidiStream now yields handle
   createStream = wt.sess->createBidiStream();
-  CHECK(createStream.hasValue());
+  PRX_CHECK(createStream.hasValue());
   auto handle = createStream.value();
   auto id = handle.readHandle->getID();
 
@@ -3210,7 +3211,7 @@ TEST_F(H2WtUpstreamTest, SimpleBidiEcho) {
 
     // validate we've rx'd a wt_stream capsule with val idx
     auto streamEvent = std::exchange(server.wtCodecCb.stream, {});
-    CHECK(streamEvent.has_value());
+    PRX_CHECK(streamEvent.has_value());
     EXPECT_EQ(streamEvent->streamId, id);
     EXPECT_EQ(streamEvent->streamData->length(), 1);
     EXPECT_EQ(*streamEvent->streamData->data(), idx);
@@ -3224,7 +3225,7 @@ TEST_F(H2WtUpstreamTest, SimpleBidiEcho) {
 
     // expect to client to rx same byte
     auto read = waitForFut(wt.sess->readStreamData(id).value(), eventBase_);
-    CHECK(read.hasValue());
+    PRX_CHECK(read.hasValue());
     EXPECT_EQ(*read->data->data(), idx);
   }
 

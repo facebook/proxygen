@@ -11,6 +11,7 @@
 #include "proxygen/lib/http/coro/client/HTTPCoroSessionPool.h"
 #include "proxygen/lib/http/coro/server/ScopedHTTPServer.h"
 #include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include "folly/init/Init.h"
 #include <folly/Benchmark.h>
@@ -84,7 +85,7 @@ HTTPClient::SecureTransportImpl transportImpl(TransportType transportType) {
     case TransportType::TLS_FIZZ:
       return HTTPClient::SecureTransportImpl::FIZZ;
     default:
-      XLOG(FATAL) << "Don't call this for QUIC";
+      PRX_LOG(FATAL) << "Don't call this for QUIC";
   }
 }
 
@@ -119,7 +120,7 @@ class SizeHandler
       HTTPSessionContextPtr /*ctx*/,
       HTTPSourceHolder requestSource) override {
     auto headerEvent = co_await requestSource.readHeaderEvent();
-    XCHECK(headerEvent.eom);
+    PRX_CHECK(headerEvent.eom);
     co_return HTTPFixedSource::makeFixedResponse(200, respBody_->clone());
   }
 
@@ -246,7 +247,7 @@ class BenchmarkFixture {
     try {
       tlsConfig.setCertificate(getServerCertPath(), getServerKeyPath(), "");
     } catch (const std::exception& ex) {
-      XLOG(ERR) << "Invalid certificate file or key file: %s" << ex.what();
+      PRX_LOG(ERROR) << "Invalid certificate file or key file: %s" << ex.what();
     }
     serverConfig.socketConfig.bindAddress.setFromLocalPort(uint16_t(0));
     if (transportType_ != TransportType::TCP) {
@@ -353,18 +354,18 @@ class BenchmarkFixture {
   folly::coro::Task<void> get(HTTPCoroSessionPool& pool) {
     auto res = co_await co_awaitTry(pool.getSessionWithReservation());
     if (res.hasException()) {
-      XLOG(ERR) << res.exception().what();
+      PRX_LOG(ERROR) << res.exception().what();
       res.throwUnlessValue();
     }
     HTTPSourceReader reader;
     reader
         .onHeaders([](std::unique_ptr<HTTPMessage> resp, bool, bool) {
-          XLOG_IF(ERR, resp->getStatusCode() != 200)
+          PRX_LOG_IF(ERROR, resp->getStatusCode() != 200)
               << "Error response, status=" << resp->getStatusCode();
           return HTTPSourceReader::Continue;
         })
         .onError([](HTTPSourceReader::ErrorContext, const HTTPError& err) {
-          XLOG(ERR) << err.msg;
+          PRX_LOG(ERROR) << err.msg;
         });
     auto maybe = co_await co_awaitTry(HTTPClient::request(
         res->session,
@@ -372,7 +373,7 @@ class BenchmarkFixture {
         HTTPFixedSource::makeFixedSource(std::make_unique<HTTPMessage>(req_)),
         std::move(reader)));
     if (maybe.hasException()) {
-      XLOG(ERR) << maybe.exception().what();
+      PRX_LOG(ERROR) << maybe.exception().what();
       res.throwUnlessValue();
     }
   }

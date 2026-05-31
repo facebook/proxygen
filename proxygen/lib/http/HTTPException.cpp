@@ -9,6 +9,7 @@
 #include <sstream>
 
 #include <proxygen/lib/http/HTTPException.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -21,7 +22,7 @@ HTTP3::ErrorCode toHTTP3ErrorCode(proxygen::ErrorCode err) {
     case ErrorCode::INTERNAL_ERROR:
       return HTTP3::ErrorCode::HTTP_INTERNAL_ERROR;
     case ErrorCode::FLOW_CONTROL_ERROR:
-      DCHECK(false) << "ErrorCode::FLOW_CONTROL_ERROR for QUIC";
+      PRX_DCHECK(false) << "ErrorCode::FLOW_CONTROL_ERROR for QUIC";
 #ifdef NDEBUG
       [[fallthrough]];
 #endif

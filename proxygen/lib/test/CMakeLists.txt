@@ -25,6 +25,8 @@ add_library(testmain TestMain.cpp)
 target_include_directories(
     testmain PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${PROXYGEN_FBCODE_ROOT}>
+    $<BUILD_INTERFACE:${PROXYGEN_GENERATED_ROOT}>
     ${LIBGMOCK_INCLUDE_DIR}
     ${LIBGTEST_INCLUDE_DIR}
 )

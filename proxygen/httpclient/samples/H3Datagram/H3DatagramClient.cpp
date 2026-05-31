@@ -14,6 +14,7 @@
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
 #include <proxygen/lib/transport/ConnectUDPUtils.h>
 #include <proxygen/lib/transport/H3DatagramAsyncSocket.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -65,12 +66,12 @@ class DatagramClient
   }
 
   void start() {
-    CHECK(evb_->isInEventBaseThread());
+    PRX_CHECK(evb_->isInEventBaseThread());
     try {
       socket_.connect(SocketAddress(FLAGS_proxy_host, FLAGS_proxy_port));
     } catch (const std::system_error& e) {
-      LOG(ERROR) << "Failed to connect to " << FLAGS_proxy_host << ":"
-                 << FLAGS_proxy_port << ": " << e.what();
+      PRX_LOG(ERROR) << "Failed to connect to " << FLAGS_proxy_host << ":"
+                     << FLAGS_proxy_port << ": " << e.what();
       return;
     }
     socket_.resumeRead(this);
@@ -79,7 +80,7 @@ class DatagramClient
   }
 
   void shutdown() {
-    CHECK(evb_->isInEventBaseThread());
+    PRX_CHECK(evb_->isInEventBaseThread());
     socket_.pauseRead();
     socket_.close();
     closing_ = true;
@@ -96,11 +97,11 @@ class DatagramClient
   }
 
   virtual void writePing(std::unique_ptr<folly::IOBuf> buf) {
-    VLOG(2) << "Writing Datagram";
+    PRX_VLOG(2) << "Writing Datagram";
     auto res =
         socket_.write(SocketAddress(FLAGS_proxy_host, FLAGS_proxy_port), buf);
     if (res < 0) {
-      LOG(ERROR) << "Failure to write: errno=" << errno;
+      PRX_LOG(ERROR) << "Failure to write: errno=" << errno;
     }
   }
 
@@ -114,30 +115,30 @@ class DatagramClient
                        bool truncated,
                        OnDataAvailableParams) noexcept override {
     ++pongRecvd_;
-    VLOG(4) << "Read " << len << " bytes (trun:" << truncated << ") from "
-            << client.describe() << " - " << std::string(buf_.data(), len);
+    PRX_VLOG(4) << "Read " << len << " bytes (trun:" << truncated << ") from "
+                << client.describe() << " - " << std::string(buf_.data(), len);
     auto datagramString = std::string(buf_.data(), len);
     auto datagramInt = folly::tryTo<uint16_t>(datagramString);
     if (!datagramInt.hasValue()) {
-      VLOG(2) << "Received Datagram without Integer value. Stopping. len="
-              << datagramString.length();
+      PRX_VLOG(2) << "Received Datagram without Integer value. Stopping. len="
+                  << datagramString.length();
       return;
     }
-    VLOG(2) << "Received Datagram with Integer value (" << (int)*datagramInt
-            << ")";
+    PRX_VLOG(2) << "Received Datagram with Integer value (" << (int)*datagramInt
+                << ")";
     if (*datagramInt >= std::numeric_limits<uint16_t>::max()) {
-      VLOG(2) << "Received Datagram with large Integer value. Stopping";
+      PRX_VLOG(2) << "Received Datagram with large Integer value. Stopping";
       return;
     }
-    VLOG(2) << "Sending Datagram with Integer value ("
-            << (int)(*datagramInt + 1) << ")";
+    PRX_VLOG(2) << "Sending Datagram with Integer value ("
+                << (int)(*datagramInt + 1) << ")";
     n_ = (int)(*datagramInt + 1);
 
     scheduleTimeout(1000);
   }
 
   void onReadError(const folly::AsyncSocketException& ex) noexcept override {
-    LOG(ERROR) << ex.what();
+    PRX_LOG(ERROR) << ex.what();
   }
 
   void onReadClosed() noexcept override {
@@ -145,7 +146,7 @@ class DatagramClient
   }
 
   void timeoutExpired() noexcept override {
-    LOG(INFO) << "Timeout expired";
+    PRX_LOG(INFO) << "Timeout expired";
     if (!closing_) {
       sendPing();
     }

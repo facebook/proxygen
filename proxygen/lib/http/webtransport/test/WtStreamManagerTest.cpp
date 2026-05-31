@@ -11,6 +11,7 @@
 
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/priority/HTTPPriorityQueue.h>
 
 namespace proxygen::coro::test {
@@ -141,7 +142,7 @@ TEST(WtStreamManager, BasicPeerBidi) {
   EXPECT_EQ(bidiRes.readHandle, nullptr);
   EXPECT_EQ(bidiRes.writeHandle, nullptr);
 
-  CHECK_EQ(ingressCb.peerIds.size(), 2);
+  PRX_CHECK_EQ(ingressCb.peerIds.size(), 2);
   EXPECT_EQ(ingressCb.peerIds[0], 0x01);
   EXPECT_EQ(ingressCb.peerIds[1], 0x09);
 }
@@ -171,7 +172,7 @@ TEST(WtStreamManager, BasicPeerUni) {
   EXPECT_EQ(bidiRes.writeHandle, nullptr); // ingress only
 
   // validate peer streams
-  CHECK_EQ(ingressCb.peerIds.size(), 2);
+  PRX_CHECK_EQ(ingressCb.peerIds.size(), 2);
   EXPECT_EQ(ingressCb.peerIds[0], 0x03);
   EXPECT_EQ(ingressCb.peerIds[1], 0x0b);
 }
@@ -185,7 +186,7 @@ TEST(WtStreamManager, NextBidiUniHandle) {
       detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
 
   // next egress handle tests
-  auto uni = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto uni = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   EXPECT_EQ(uni->getID(), 0x02);
   uni = streamManager.createEgressHandle();
   EXPECT_EQ(uni->getID(), 0x06);
@@ -235,7 +236,7 @@ TEST(WtStreamManager, StreamLimits) {
   EXPECT_TRUE(streamManager.onMaxStreams(MaxStreamsUni{2}));
 
   // next egress handle should succeed
-  uni = CHECK_NOTNULL(streamManager.createEgressHandle());
+  uni = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   EXPECT_NE(uni, nullptr);
 
   // next bidi handle should succeed
@@ -254,7 +255,7 @@ TEST(WtStreamManager, EnqueueIngressData) {
 
   // next createBidiHandle should succeed
   auto one = streamManager.createBidiHandle();
-  CHECK(one.readHandle && one.writeHandle);
+  PRX_CHECK(one.readHandle && one.writeHandle);
   constexpr std::string_view kData = "abcdefghijklmnopqrstuvwxyz";
   for (auto c : kData) {
     EXPECT_TRUE(streamManager.enqueue(
@@ -282,7 +283,8 @@ TEST(WtStreamManager, EnqueueIngressDataRwnd) {
   // next createBidiHandle should succeed
   auto one = streamManager.createBidiHandle();
   auto two = streamManager.createBidiHandle();
-  CHECK(one.readHandle && one.writeHandle && two.readHandle && two.writeHandle);
+  PRX_CHECK(one.readHandle && one.writeHandle && two.readHandle &&
+            two.writeHandle);
 
   constexpr auto kBufLen = 65'535;
 
@@ -323,7 +325,8 @@ TEST(WtStreamManager, WriteEgressHandle) {
   // next two ::createBidiHandle should succeed
   auto one = streamManager.createBidiHandle();
   auto two = streamManager.createBidiHandle();
-  CHECK(one.readHandle && one.writeHandle && two.readHandle && two.writeHandle);
+  PRX_CHECK(one.readHandle && one.writeHandle && two.readHandle &&
+            two.writeHandle);
 
   // Set priorities to make ordering predictable (urgency, incremental)
   one.writeHandle->setPriority(quic::HTTPPriorityQueue::Priority(
@@ -404,7 +407,7 @@ TEST(WtStreamManager, DequeueWriteConnFcBlocked) {
   WtStreamManager streamManager{
       detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
 
-  auto uni = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto uni = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   // write kBufLen & fin into stream (fills egress buffer)
   constexpr auto kBufLen = 65'535;
   auto res = uni->writeStreamData(
@@ -427,7 +430,7 @@ TEST(WtStreamManager, BidiHandleCancellation) {
 
   // next ::createBidiHandle should succeed
   auto one = streamManager.createBidiHandle();
-  CHECK(one.readHandle && one.writeHandle);
+  PRX_CHECK(one.readHandle && one.writeHandle);
 
   auto res = one.writeHandle->writeStreamData(
       /*data=*/makeBuf(100), /*fin=*/false, /*byteEventCallback=*/nullptr);
@@ -439,7 +442,7 @@ TEST(WtStreamManager, BidiHandleCancellation) {
   // reset stream on cancellation
   folly::CancellationCallback cancelCb{
       ct, [eh = one.writeHandle]() {
-        CHECK(eh->exception() && eh->exception()->error == 0xface);
+        PRX_CHECK(eh->exception() && eh->exception()->error == 0xface);
         eh->resetStream(0); // reset stream
       }};
   streamManager.onStopSending({one.writeHandle->getID(), 0xface});
@@ -468,7 +471,7 @@ TEST(WtStreamManager, GrantFlowControlCredit) {
 
   // next ::createBidiHandle should succeed
   auto one = streamManager.createBidiHandle();
-  CHECK(one.readHandle && one.writeHandle);
+  PRX_CHECK(one.readHandle && one.writeHandle);
   // fills up both conn- & stream-level flow control
   EXPECT_TRUE(streamManager.enqueue(*one.readHandle,
                                     {makeBuf(kBufLen), /*fin=*/false}));
@@ -479,7 +482,7 @@ TEST(WtStreamManager, GrantFlowControlCredit) {
   EXPECT_TRUE(std::exchange(egressCb.evAvail_, false)); // callback should have
                                                         // triggered
   auto events = streamManager.moveEvents();
-  CHECK_GE(events.size(), 2); // one conn & one stream fc
+  PRX_CHECK_GE(events.size(), 2); // one conn & one stream fc
   auto maxStreamData = std::get<MaxStreamData>(events[0]);
   auto maxConnData = std::get<MaxConnData>(events[1]);
   EXPECT_EQ(maxStreamData.streamId, one.readHandle->getID());
@@ -488,7 +491,7 @@ TEST(WtStreamManager, GrantFlowControlCredit) {
 
   // next ::createBidiHandle should succeed
   auto two = streamManager.createBidiHandle();
-  CHECK(two.readHandle && two.writeHandle);
+  PRX_CHECK(two.readHandle && two.writeHandle);
   // fills up both conn- & stream-level flow control
   fut = two.readHandle->readStreamData();
   EXPECT_TRUE(
@@ -500,11 +503,12 @@ TEST(WtStreamManager, GrantFlowControlCredit) {
 
   // validate that receiving a reset_stream releases connection-level flow
   // control
-  auto* ingress = CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
+  auto* ingress =
+      PRX_CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
   streamManager.enqueue(*ingress, {makeBuf(kBufLen), /*fin=*/false});
   streamManager.onResetStream(ResetStream{ingress->getID(), 0x00});
   events = streamManager.moveEvents();
-  CHECK_GE(events.size(), 1);
+  PRX_CHECK_GE(events.size(), 1);
   maxConnData = std::get<MaxConnData>(events[0]);
   EXPECT_EQ(maxConnData.maxData,
             kBufLen * 4); // we've previously already issued 2x kBufLen
@@ -524,7 +528,8 @@ TEST(WtStreamManager, GrantConnFlowControlCreditAfterRead) {
   // enqueue a total of kBufLen bytes across handles one & two
   auto one = streamManager.createBidiHandle();
   auto two = streamManager.createBidiHandle();
-  CHECK(one.readHandle && one.writeHandle && two.readHandle && two.writeHandle);
+  PRX_CHECK(one.readHandle && one.writeHandle && two.readHandle &&
+            two.writeHandle);
 
   EXPECT_TRUE(streamManager.enqueue(*one.readHandle,
                                     {makeBuf(kBufLen - 1), /*fin=*/true}));
@@ -563,7 +568,7 @@ TEST(WtStreamManager, NonDefaultFlowControlValues) {
 
   // enqueue 100 bytes of data
   auto one = streamManager.createBidiHandle();
-  CHECK(one.readHandle && one.writeHandle);
+  PRX_CHECK(one.readHandle && one.writeHandle);
   EXPECT_TRUE(streamManager.enqueue(*one.readHandle,
                                     {makeBuf(kBufLen), /*fin=*/false}));
 
@@ -574,7 +579,7 @@ TEST(WtStreamManager, NonDefaultFlowControlValues) {
   EXPECT_TRUE(std::exchange(egressCb.evAvail_, false)); // callback should have
                                                         // triggered
   auto events = streamManager.moveEvents();
-  CHECK_GE(events.size(), 2); // one conn & one stream fc
+  PRX_CHECK_GE(events.size(), 2); // one conn & one stream fc
   auto maxStreamData = std::get<MaxStreamData>(events[0]);
   auto maxConnData = std::get<MaxConnData>(events[1]);
   EXPECT_EQ(maxStreamData.streamId, one.readHandle->getID());
@@ -595,7 +600,7 @@ TEST(WtStreamManager, NonDefaultFlowControlValues) {
 
   // dequeuing data from two's writeHandle is now limited by conn egress fc,
   // which is 100-60=40
-  auto* two = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto* two = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   two->writeStreamData(
       makeBuf(kBufLen), /*fin=*/true, /*byteEventCallback=*/nullptr);
   EXPECT_EQ(streamManager.nextWritable(), two);
@@ -615,9 +620,9 @@ TEST(WtStreamManager, ResetStreamReleasesConnFlowControl) {
   constexpr auto kBufLen = 65'535;
   constexpr auto kHalfBufLen = (kBufLen / 2) + 1;
 
-  auto* one = CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
-  auto* two = CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x07));
-  auto* three = CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x0b));
+  auto* one = PRX_CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
+  auto* two = PRX_CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x07));
+  auto* three = PRX_CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x0b));
 
   // queue kHalfBufLen across all handles; ensure the last reset releases
   // conn fc
@@ -651,7 +656,7 @@ TEST(WtStreamManager, StopSendingResetStreamTest) {
 
   // next ::createBidiHandle should succeed
   auto one = streamManager.createBidiHandle();
-  CHECK(one.readHandle && one.writeHandle);
+  PRX_CHECK(one.readHandle && one.writeHandle);
   auto id = one.readHandle->getID();
 
   // ReadHandle::stopSending invokes ::eventsAvailable & resolve pending promise
@@ -688,7 +693,7 @@ TEST(WtStreamManager, StopSendingResetStreamTest) {
   EXPECT_FALSE(streamManager.hasStreams());
 
   // ::resetStream on a unidirectional egress stream should erase the stream
-  auto* egress = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto* egress = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   EXPECT_TRUE(streamManager.hasStreams());
   egress->resetStream(/*error=*/0); // read side is closed for an egress-only
                                     // handle; bidirectionally complete after
@@ -710,7 +715,7 @@ TEST(WtStreamManager, StopSendingTest) {
     // StopSending on an ingress stream marks it as half closed; stream is only
     // closed when we rx a reset_stream or eom from peer (to account for flow
     // control)
-    auto* uni = CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
+    auto* uni = PRX_CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
     uni->stopSending(0x00);
 
     // validate StopSending event is enqueued
@@ -739,7 +744,7 @@ TEST(WtStreamManager, StopSendingTest) {
     // StopSending on an ingress stream marks it as half closed; stream is only
     // closed when we rx a reset_stream or eom from peer (to account for flow
     // control)
-    auto* uni = CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x07));
+    auto* uni = PRX_CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x07));
     uni->stopSending(0x00);
 
     // validate StopSending event is enqueued
@@ -775,7 +780,7 @@ TEST(WtStreamManager, AwaitWritableTest) {
 
   constexpr auto kBufLen = 65'535;
   // next ::createBidiHandle should succeed
-  auto eh = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto eh = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
 
   // await writable future should be synchronously ready & equal to kBufLen
   // (default egress stream fc)
@@ -815,8 +820,8 @@ TEST(WtStreamManager, WritableStreams) {
   constexpr auto kAtMost = std::numeric_limits<uint64_t>::max();
 
   // next two ::createEgressHandle should succeed
-  auto one = CHECK_NOTNULL(streamManager.createEgressHandle());
-  auto two = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto one = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto two = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
 
   // 1 byte + eof; next writableStream == one
   auto writeRes = one->writeStreamData(
@@ -870,7 +875,7 @@ TEST(WtStreamManager, WritableStreams) {
   EXPECT_FALSE(dequeue.fin);
 
   // FIN-only stream should still be writable even when connection FC is blocked
-  auto three = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto three = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   three->writeStreamData(nullptr, /*fin=*/true, /*byteEventCallback=*/nullptr);
   EXPECT_EQ(streamManager.nextWritable(), three);
   expectNextWritable(*priorityQueue, three->getID());
@@ -889,7 +894,7 @@ TEST(WtStreamManager, DrainWtSession) {
   streamManager.drain();
   EXPECT_TRUE(egressCb.evAvail_);
   auto events = streamManager.moveEvents();
-  CHECK(!events.empty() && std::holds_alternative<DrainSession>(events[0]));
+  PRX_CHECK(!events.empty() && std::holds_alternative<DrainSession>(events[0]));
 
   // streams can still be created after drain
   auto bidi = streamManager.createBidiHandle();
@@ -951,7 +956,8 @@ TEST(WtStreamManager, ResetStreamReliableSize) {
 
   // enqueue 100 bytes, ensure ::onResetStream does not deallocate stream until
   // after 100 bytes are read
-  auto ingress = CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
+  auto ingress =
+      PRX_CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
   streamManager.enqueue(*ingress, {makeBuf(100), /*fin=*/false});
 
   auto ct = ingress->getCancelToken();
@@ -1006,8 +1012,9 @@ TEST(WtStreamManager, IssueMaxStreamsBidiUni) {
       detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
 
   auto peerBidi = streamManager.getOrCreateBidiHandle(0x01);
-  CHECK(peerBidi.readHandle && peerBidi.writeHandle);
-  auto peerUni = CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
+  PRX_CHECK(peerBidi.readHandle && peerBidi.writeHandle);
+  auto peerUni =
+      PRX_CHECK_NOTNULL(streamManager.getOrCreateIngressHandle(0x03));
 
   // tx & rx rst_stream on peerBidi will close stream => issue
   // MaxStreamsBidi
@@ -1041,7 +1048,7 @@ TEST(WtStreamManager, ShutdownOpenStreams) {
 
   // create bidi stream
   auto bidi = streamManager.createBidiHandle();
-  CHECK(bidi.readHandle && bidi.writeHandle);
+  PRX_CHECK(bidi.readHandle && bidi.writeHandle);
 
   // reset one direction
   bidi.writeHandle->resetStream(0);
@@ -1089,8 +1096,8 @@ TEST(WtStreamManager, OnlyFinPending) {
   WtStreamManager streamManager{
       detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
 
-  auto one = CHECK_NOTNULL(streamManager.createEgressHandle());
-  auto two = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto one = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto two = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
 
   // Set priorities to make ordering predictable (urgency, incremental)
   one->setPriority(quic::HTTPPriorityQueue::Priority(
@@ -1123,7 +1130,7 @@ TEST(WtStreamManager, NextWritableReturnsNullptrWhenQueueEmpty) {
   EXPECT_EQ(streamManager.nextWritable(), nullptr);
 
   // Create a stream but don't write data - queue should still be empty
-  auto one = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto one = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   EXPECT_EQ(streamManager.nextWritable(), nullptr);
 
   // Write data to make stream writable
@@ -1153,7 +1160,7 @@ TEST(WtStreamManager, NextWritableReturnsNullptrWhenHeadIsDatagram) {
   EXPECT_EQ(streamManager.nextWritable(), nullptr);
 
   // Now add a stream with lower priority
-  auto one = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto one = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   one->setPriority(quic::HTTPPriorityQueue::Priority(1, false));
   one->writeStreamData(
       makeBuf(10), /*fin=*/false, /*byteEventCallback=*/nullptr);
@@ -1196,7 +1203,7 @@ TEST(WtStreamManager, PerStreamCallbacks) {
       detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
 
   auto bidi = streamManager.createBidiHandle();
-  CHECK(bidi.readHandle && bidi.writeHandle);
+  PRX_CHECK(bidi.readHandle && bidi.writeHandle);
 
   // set stream callbacks
   WtReadCallback rcb;
@@ -1231,7 +1238,7 @@ TEST(WtStreamManager, DeliveryCallback) {
   MockDeliveryCallback cb1, cb2, cb3, cb4, cb5;
 
   // single write with callback
-  auto* h1 = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto* h1 = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   h1->writeStreamData(makeBuf(100), /*fin=*/true, &cb1);
   auto deq1 = streamManager.dequeue(*h1, 100);
   EXPECT_EQ(deq1.data->computeChainDataLength(), 100);
@@ -1240,7 +1247,7 @@ TEST(WtStreamManager, DeliveryCallback) {
   EXPECT_EQ(deq1.lastByteStreamOffset, 99);
 
   // multiple writes with different callbacks
-  auto* h2 = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto* h2 = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   h2->writeStreamData(makeBuf(100), /*fin=*/false, &cb1);
   h2->writeStreamData(makeBuf(50), /*fin=*/false, &cb2);
   h2->writeStreamData(makeBuf(75), /*fin=*/true, &cb3);
@@ -1262,7 +1269,7 @@ TEST(WtStreamManager, DeliveryCallback) {
   EXPECT_EQ(d2c.lastByteStreamOffset, 224);
 
   // writes without callbacks coalesce with final callback write
-  auto* h3 = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto* h3 = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   h3->writeStreamData(makeBuf(100), /*fin=*/false, nullptr);
   h3->writeStreamData(makeBuf(100), /*fin=*/false, nullptr);
   h3->writeStreamData(makeBuf(50), /*fin=*/true, &cb4);
@@ -1274,7 +1281,7 @@ TEST(WtStreamManager, DeliveryCallback) {
   EXPECT_EQ(deq3.lastByteStreamOffset, 249);
 
   // callback delivered only when write completes
-  auto* h4 = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto* h4 = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   h4->writeStreamData(makeBuf(100), /*fin=*/true, &cb5);
 
   auto d4a = streamManager.dequeue(*h4, 60);
@@ -1289,7 +1296,7 @@ TEST(WtStreamManager, DeliveryCallback) {
   EXPECT_EQ(d4b.lastByteStreamOffset, 99);
 
   // fin-only write with callback
-  auto* h5 = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto* h5 = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   h5->writeStreamData(makeBuf(50), /*fin=*/false, nullptr);
   auto d5a = streamManager.dequeue(*h5, 100);
   EXPECT_EQ(d5a.data->computeChainDataLength(), 50);
@@ -1314,7 +1321,7 @@ TEST(WtStreamManager, ByteEventCancellation) {
 
   ::testing::StrictMock<MockDeliveryCallback> cb1, cb2;
 
-  auto* h = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto* h = PRX_CHECK_NOTNULL(streamManager.createEgressHandle());
   auto id = h->getID();
 
   // first write: 100 bytes at offset 0 => last byte offset = 99
@@ -1337,21 +1344,21 @@ TEST(WtStreamManager, CannotOpenPreviouslyClosedStreams) {
       detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
 
   // create stream 2 then immediately dealloc
-  auto* handle = CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(2));
+  auto* handle = PRX_CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(2));
   handle->resetStream(0);
   // attempt to re-create stream id 2 should fail
   handle = streamManager.getOrCreateEgressHandle(2);
   EXPECT_EQ(handle, nullptr);
 
   // create stream 10 then immediately dealloc
-  handle = CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(10));
+  handle = PRX_CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(10));
   handle->resetStream(0);
   // attempt to re-create stream id 10 should fail
   handle = streamManager.getOrCreateEgressHandle(10);
   EXPECT_EQ(handle, nullptr);
 
   // create stream 6 then immediately dealloc
-  handle = CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(6));
+  handle = PRX_CHECK_NOTNULL(streamManager.getOrCreateEgressHandle(6));
   handle->resetStream(0);
   // attempt to re-create stream id 6 should fail
   handle = streamManager.getOrCreateEgressHandle(6);

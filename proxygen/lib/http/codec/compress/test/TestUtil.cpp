@@ -13,8 +13,8 @@
 #include <folly/io/Cursor.h>
 #include <folly/portability/GTest.h>
 #include <fstream>
-#include <glog/logging.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::IOBuf;
 using std::ofstream;
@@ -43,12 +43,12 @@ void verifyHeaders(vector<HPACKHeader>& headers,
   std::sort(headers.begin(), headers.end());
   if (headers.size() != decodedHeaders.size()) {
     std::cerr << printDelta(decodedHeaders, headers);
-    CHECK(false) << "Mismatched headers size";
+    PRX_CHECK(false) << "Mismatched headers size";
   }
   EXPECT_EQ(headers, decodedHeaders);
   if (headers != decodedHeaders) {
     std::cerr << printDelta(headers, decodedHeaders);
-    CHECK(false) << "Mismatched headers";
+    PRX_CHECK(false) << "Mismatched headers";
   }
 }
 
@@ -57,12 +57,12 @@ unique_ptr<IOBuf> encodeDecode(vector<HPACKHeader>& headers,
                                HPACKDecoder& decoder) {
   unique_ptr<IOBuf> encoded = encoder.encode(headers);
   auto decodedHeaders = hpack::decode(decoder, encoded.get());
-  CHECK(!decoder.hasError());
+  PRX_CHECK(!decoder.hasError());
 
   verifyHeaders(headers, *decodedHeaders);
 
   // header tables should look the same
-  CHECK(encoder.getTable() == decoder.getTable());
+  PRX_CHECK(encoder.getTable() == decoder.getTable());
   EXPECT_EQ(encoder.getTable(), decoder.getTable());
 
   return encoded;
@@ -77,16 +77,16 @@ void encodeDecode(vector<HPACKHeader>& headers,
     decoder.decodeEncoderStream(std::move(encoded.control));
     encoder.decodeDecoderStream(decoder.encodeInsertCountInc());
   }
-  CHECK(encoded.stream);
+  PRX_CHECK(encoded.stream);
   auto length = encoded.stream->computeChainDataLength();
   decoder.decodeStreaming(1, std::move(encoded.stream), length, &cb);
-  CHECK(!cb.hasError());
+  PRX_CHECK(!cb.hasError());
   auto decodedHeaders = cb.hpackHeaders();
   verifyHeaders(headers, *decodedHeaders);
   encoder.decodeDecoderStream(decoder.encodeHeaderAck(1));
 
   // header tables should look the same
-  CHECK(encoder.getTable() == decoder.getTable());
+  PRX_CHECK(encoder.getTable() == decoder.getTable());
   EXPECT_EQ(encoder.getTable(), decoder.getTable());
 }
 

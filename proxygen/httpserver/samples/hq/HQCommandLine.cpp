@@ -13,6 +13,7 @@
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/lib/http/SynchronizedLruQuicPskCache.h>
 #include <proxygen/lib/transport/PersistentQuicPskCache.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/QuicConstants.h>
 
 DEFINE_string(host, "::1", "HQ server hostname/IP");
@@ -213,7 +214,7 @@ namespace {
 void initializeCommonSettings(HQToolParams& hqParams) {
   // General section
   if (FLAGS_mode == "server") {
-    CHECK(FLAGS_local_address.empty())
+    PRX_CHECK(FLAGS_local_address.empty())
         << "local_address only allowed in client mode";
     hqParams.setMode(HQMode::SERVER);
     hqParams.logprefix = "server";
@@ -301,7 +302,7 @@ void initializeTransportSettings(HQToolParams& hqUberParams) {
         quic::DataPathType::ContinuousMemory;
   }
   if (FLAGS_rate_limit >= 0) {
-    CHECK(hqUberParams.mode == HQMode::SERVER);
+    PRX_CHECK(hqUberParams.mode == HQMode::SERVER);
     std::get<HQToolServerParams>(hqUberParams.params).rateLimitPerThread =
         FLAGS_rate_limit;
 
@@ -320,8 +321,9 @@ void initializeTransportSettings(HQToolParams& hqUberParams) {
                                                 FLAGS_transport_knobs});
   }
   if (FLAGS_quic_experiment != 0) {
-    CHECK_GT(FLAGS_quic_experiment, 0) << "--quic_experiment must be positive";
-    CHECK_LE(FLAGS_quic_experiment, 65535)
+    PRX_CHECK_GT(FLAGS_quic_experiment, 0)
+        << "--quic_experiment must be positive";
+    PRX_CHECK_LE(FLAGS_quic_experiment, 65535)
         << "--quic_experiment must fit in uint16_t";
     hqParams.transportSettings.quicExperimentId =
         static_cast<uint16_t>(FLAGS_quic_experiment);
@@ -517,7 +519,8 @@ HQToolParamsBuilderFromCmdline::HQToolParamsBuilderFromCmdline(
   gflags::FlagSaver saver;
 
   for (auto& kv : initial) {
-    LOG(INFO) << "Overriding HQToolParams " << kv.first << " to " << kv.second;
+    PRX_LOG(INFO) << "Overriding HQToolParams " << kv.first << " to "
+                  << kv.second;
     gflags::SetCommandLineOptionWithMode(
         kv.first.c_str(),
         kv.second.c_str(),

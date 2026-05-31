@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace testing;
@@ -62,7 +63,7 @@ class DownstreamTransactionTest : public testing::Test {
     } else {
       EXPECT_CALL(transport_, sendEOM(txn, _))
           .WillOnce(InvokeWithoutArgs([=, this]() {
-            CHECK_EQ(sent_, size);
+            PRX_CHECK_EQ(sent_, size);
             txn->onIngressBody(makeBuf(size), 0);
             txn->onIngressEOM();
             return 5;
@@ -74,7 +75,7 @@ class DownstreamTransactionTest : public testing::Test {
               received_ += body->computeChainDataLength();
             }));
     EXPECT_CALL(handler_, _onEOM()).WillOnce(InvokeWithoutArgs([=, this] {
-      CHECK_EQ(received_, size);
+      PRX_CHECK_EQ(received_, size);
     }));
     EXPECT_CALL(transport_, notifyPendingEgress())
         .WillOnce(InvokeWithoutArgs([=] { txn->onWriteReady(size, 1); }))

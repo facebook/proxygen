@@ -12,13 +12,13 @@
 #include <folly/Optional.h>
 #include <folly/SocketAddress.h>
 #include <folly/io/IOBufQueue.h>
-#include <glog/logging.h>
 #include <map>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/HTTPMethod.h>
 #include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/Types.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/ParseURL.h>
 #include <proxygen/lib/utils/Time.h>
 #include <string>
@@ -662,7 +662,7 @@ class HTTPMessage {
                           const HTTPHeaders* customHeaders = nullptr);
 
   const HTTPHeaders& getStrippedPerHopHeaders() const {
-    CHECK(strippedPerHopHeaders_) << "call stripPerHopHeaders first";
+    PRX_CHECK(strippedPerHopHeaders_) << "call stripPerHopHeaders first";
     return *strippedPerHopHeaders_;
   }
 
@@ -904,7 +904,7 @@ class HTTPMessage {
 
   template <typename T> // T = string
   ParseURL setURLImpl(T&& url, bool unparse, bool strict) {
-    DVLOG(9) << "setURL: " << std::forward<T>(url);
+    PRX_DVLOG(9) << "setURL: " << std::forward<T>(url);
 
     // Set the URL, path, and query string parameters
     request().url_ = std::forward<T>(url);
@@ -1071,8 +1071,8 @@ class HTTPMessage {
   } fields_;
 
   Request& request() {
-    DCHECK(fields_.which_ == MessageType::NONE ||
-           fields_.which_ == MessageType::REQUEST)
+    PRX_DCHECK(fields_.which_ == MessageType::NONE ||
+               fields_.which_ == MessageType::REQUEST)
         << int(fields_.which_);
     if (fields_.which_ == MessageType::NONE) {
       fields_.which_ = MessageType::REQUEST;
@@ -1090,8 +1090,8 @@ class HTTPMessage {
   }
 
   Response& response() {
-    DCHECK(fields_.which_ == MessageType::NONE ||
-           fields_.which_ == MessageType::RESPONSE)
+    PRX_DCHECK(fields_.which_ == MessageType::NONE ||
+               fields_.which_ == MessageType::RESPONSE)
         << int(fields_.which_);
     if (fields_.which_ == MessageType::NONE) {
       fields_.which_ = MessageType::RESPONSE;

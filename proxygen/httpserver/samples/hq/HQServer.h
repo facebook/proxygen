@@ -17,6 +17,7 @@
 #include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <proxygen/lib/http/codec/H3EarlyDataHandler.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/server/QuicHandshakeSocketHolder.h>
 #include <quic/server/QuicServer.h>
 #include <quic/state/EarlyDataAppParamsHandler.h>
@@ -65,7 +66,7 @@ class HQServer {
 
   void setStatsFactory(
       std::unique_ptr<quic::QuicTransportStatsCallbackFactory>&& statsFactory) {
-    CHECK(server_);
+    PRX_CHECK(server_);
     server_->setTransportStatsCallbackFactory(std::move(statsFactory));
   }
 

@@ -10,6 +10,7 @@
 
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -32,7 +33,7 @@ std::unique_ptr<HTTPCodec> HTTPCodecFactory::getCodec(
     case CodecProtocol::HTTP_BINARY:
     case CodecProtocol::TUNNEL_LITE:
     default:
-      LOG(FATAL) << "Unreachable";
+      PRX_LOG(FATAL) << "Unreachable";
   }
 }
 

@@ -15,6 +15,7 @@
 #include <folly/io/async/test/MockAsyncSocket.h>
 #include <folly/logging/xlog.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/TestUtils.h>
 
 using namespace proxygen;

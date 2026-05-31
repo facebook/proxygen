@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -49,7 +50,7 @@ void HQDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
                                                  HTTPMessage* msg) {
   HTTPTransaction::Handler* handler =
       getController()->getRequestHandler(*txn, msg);
-  CHECK(handler);
+  PRX_CHECK(handler);
   txn->setHandler(handler);
   if (infoCallback_) {
     infoCallback_->onIngressMessage(*this, *msg);
@@ -57,7 +58,7 @@ void HQDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
 }
 
 bool HQDownstreamSession::isDetachable(bool) const {
-  LOG(FATAL) << __func__ << " is an upstream interface";
+  PRX_LOG(FATAL) << __func__ << " is an upstream interface";
 }
 
 void HQDownstreamSession::attachThreadLocals(
@@ -68,11 +69,11 @@ void HQDownstreamSession::attachThreadLocals(
     FilterIteratorFn,
     HeaderCodec::Stats*,
     HTTPSessionController*) {
-  LOG(FATAL) << __func__ << " is an upstream interface";
+  PRX_LOG(FATAL) << __func__ << " is an upstream interface";
 }
 
 void HQDownstreamSession::detachThreadLocals(bool) {
-  LOG(FATAL) << __func__ << " is an upstream interface";
+  PRX_LOG(FATAL) << __func__ << " is an upstream interface";
 }
 
 bool HQDownstreamSession::pushAllowedByGoaway(hq::PushId pushId) {
@@ -85,16 +86,16 @@ HQDownstreamSession::createEgressPushStream(hq::PushId pushId,
                                             quic::StreamId streamId,
                                             quic::StreamId parentStreamId) {
 
-  VLOG(4) << __func__ << "sess=" << *this << " pushId=" << pushId
-          << " isClosing()=" << isClosing() << " streamId=" << streamId
-          << " parentStreamId=" << parentStreamId;
+  PRX_VLOG(4) << __func__ << "sess=" << *this << " pushId=" << pushId
+              << " isClosing()=" << isClosing() << " streamId=" << streamId
+              << " parentStreamId=" << parentStreamId;
 
   // Use version utils to ensure that the session is not in draining state
   if (!pushAllowedByGoaway(pushId)) {
-    VLOG(3) << __func__ << " Not creating - session is draining"
-            << " sess=" << *this << " pushId=" << pushId
-            << " isClosing()=" << isClosing() << " streamId=" << streamId
-            << " parentStreamId=" << parentStreamId;
+    PRX_VLOG(3) << __func__ << " Not creating - session is draining"
+                << " sess=" << *this << " pushId=" << pushId
+                << " isClosing()=" << isClosing() << " streamId=" << streamId
+                << " parentStreamId=" << parentStreamId;
     return nullptr;
   }
 
@@ -116,8 +117,8 @@ HQDownstreamSession::createEgressPushStream(hq::PushId pushId,
   pushIdToStreamId_[pushId] = streamId;
   streamIdToPushId_[streamId] = pushId;
 
-  CHECK(matchPair.second) << "Emplacement failed, despite earlier "
-                             "existence check.";
+  PRX_CHECK(matchPair.second) << "Emplacement failed, despite earlier "
+                                 "existence check.";
 
   // Generate the stream preface
   matchPair.first->second.generateStreamPreface();
@@ -141,16 +142,16 @@ HTTPTransaction* FOLLY_NULLABLE HQDownstreamSession::newPushedTransaction(
     ProxygenError* error) {
 
   if (isClosing()) {
-    VLOG(3) << __func__ << " Not creating transaction - draining ";
+    PRX_VLOG(3) << __func__ << " Not creating transaction - draining ";
     SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorTransportIsDraining);
     return nullptr;
   }
 
   auto parentRequestStream = findNonDetachedStream(parentRequestStreamId);
   if (!parentRequestStream) {
-    VLOG(3) << __func__
-            << " Not creating transaction - request stream StreamID="
-            << parentRequestStreamId << " not found";
+    PRX_VLOG(3) << __func__
+                << " Not creating transaction - request stream StreamID="
+                << parentRequestStreamId << " not found";
     SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorParentStreamNotExist);
     return nullptr;
   }
@@ -163,7 +164,7 @@ HTTPTransaction* FOLLY_NULLABLE HQDownstreamSession::newPushedTransaction(
   // NOTE: should be stored in the transaction
   // NOTE: should be cleaned up when the transaction is closed
   if (!pushStreamId) {
-    VLOG(2) << __func__ << " failed to create new unidirectional stream";
+    PRX_VLOG(2) << __func__ << " failed to create new unidirectional stream";
     SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
     return nullptr;
   }
@@ -175,14 +176,14 @@ HTTPTransaction* FOLLY_NULLABLE HQDownstreamSession::newPushedTransaction(
       pushId, pushStreamId.value(), parentRequestStreamId);
 
   if (!pushStream) {
-    LOG(ERROR) << "Creation of the push stream failed, pushID=" << pushId;
+    PRX_LOG(ERROR) << "Creation of the push stream failed, pushID=" << pushId;
     SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
     return nullptr;
   }
 
-  VLOG(4) << "New pushed transaction: pushId=" << pushId
-          << "; pushStreamId=" << pushStreamId.value()
-          << "; assocStreamId=" << parentRequestStreamId;
+  PRX_VLOG(4) << "New pushed transaction: pushId=" << pushId
+              << "; pushStreamId=" << pushStreamId.value()
+              << "; assocStreamId=" << parentRequestStreamId;
 
   pushStream->txn_.setHandler(handler);
   return &pushStream->txn_;
@@ -200,7 +201,7 @@ HQDownstreamSession::findEgressPushStream(quic::StreamId streamId) {
     return nullptr;
   } else {
     auto pstream = &it->second;
-    DCHECK(pstream->isUsing(streamId));
+    PRX_DCHECK(pstream->isUsing(streamId));
     return pstream;
   }
 }
@@ -230,12 +231,13 @@ void HQDownstreamSession::HQEgressPushStream::sendPushPromise(
     HTTPHeaderSize* size,
     bool includeEOM) {
 
-  CHECK(txn) << "Must be invoked on a live transaction";
-  CHECK(txn->getAssocTxnId())
+  PRX_CHECK(txn) << "Must be invoked on a live transaction";
+  PRX_CHECK(txn->getAssocTxnId())
       << "Must be invoked on a transaction with a parent";
-  CHECK_EQ(txn_.getID(), txn->getID()) << " Transaction stream mismatch";
-  CHECK(pushId == folly::none) << " The push id is stored in the egress stream,"
-                               << " and should not be passed by the session";
+  PRX_CHECK_EQ(txn_.getID(), txn->getID()) << " Transaction stream mismatch";
+  PRX_CHECK(pushId == folly::none)
+      << " The push id is stored in the egress stream,"
+      << " and should not be passed by the session";
 
   auto parentStreamId = txn->getAssocTxnId();
 #if DEBUG
@@ -258,7 +260,7 @@ void HQDownstreamSession::HQEgressPushStream::sendPushPromise(
 size_t HQDownstreamSession::HQEgressPushStream::generateStreamPushId() {
   // reserve space for max quic interger len
   auto result = hq::writeStreamPreface(writeBuf_, pushId_);
-  CHECK(result.has_value())
+  PRX_CHECK(result.has_value())
       << __func__ << " QUIC integer encoding error value=" << pushId_;
 
   return *result;

@@ -9,6 +9,7 @@
 #pragma once
 
 #include <proxygen/httpserver/RequestHandler.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -55,19 +56,19 @@ class PushHandler : public RequestHandler {
   };
 
   void onRequest(std::unique_ptr<HTTPMessage> /*headers*/) noexcept override {
-    LOG(FATAL) << "Unreachable";
+    PRX_LOG(FATAL) << "Unreachable";
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> /*body*/) noexcept override {
-    LOG(FATAL) << "Unreachable";
+    PRX_LOG(FATAL) << "Unreachable";
   }
 
   void onUpgrade(proxygen::UpgradeProtocol /*prot*/) noexcept override {
-    LOG(FATAL) << "Unreachable";
+    PRX_LOG(FATAL) << "Unreachable";
   }
 
   void onEOM() noexcept override {
-    LOG(FATAL) << "Unreachable";
+    PRX_LOG(FATAL) << "Unreachable";
   }
 
   InnerPushHandler innerHandler_;

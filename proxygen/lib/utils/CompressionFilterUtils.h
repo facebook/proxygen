@@ -10,6 +10,7 @@
 
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/RFC2616.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/StreamCompressor.h>
 #include <proxygen/lib/utils/ZlibStreamCompressor.h>
 #include <proxygen/lib/utils/ZstdStreamCompressor.h>
@@ -153,7 +154,7 @@ class CompressionFilterUtils {
     } else if (it->first == "gzip") {
       return CodecType::ZLIB;
     } else {
-      DCHECK(false) << "found unexpected content-coding selection";
+      PRX_DCHECK(false) << "found unexpected content-coding selection";
       return CodecType::NO_COMPRESSION;
     }
   }

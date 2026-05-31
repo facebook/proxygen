@@ -13,6 +13,7 @@
 #include <folly/FileUtil.h>
 #include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <proxygen/lib/transport/ConnectUDPUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/common/udpsocket/FollyQuicAsyncUDPSocket.h>
 #include <quic/fizz/client/handshake/FizzClientQuicHandshakeContext.h>
 #include <utility>
@@ -53,12 +54,12 @@ const folly::SocketAddress& H3DatagramAsyncSocket::address() const {
 
 void H3DatagramAsyncSocket::closeWithError(const AsyncSocketException& ex) {
   if (pendingError_.has_value()) {
-    LOG(ERROR) << "Multiple errors. Previous error: '" << pendingError_->what()
-               << "'";
+    PRX_LOG(ERROR) << "Multiple errors. Previous error: '"
+                   << pendingError_->what() << "'";
     return;
   }
   if (!readCallback_) {
-    LOG(ERROR)
+    PRX_LOG(ERROR)
         << "Error with readCallback not set. Will deliver when resuming reads.";
     pendingError_ = ex;
     return;
@@ -103,11 +104,11 @@ void H3DatagramAsyncSocket::connectError(quic::QuicError error) {
 
 void H3DatagramAsyncSocket::setTransaction(
     proxygen::HTTPTransaction* /*txn*/) noexcept {
-  CHECK(!txn_);
+  PRX_CHECK(!txn_);
 }
 
 void H3DatagramAsyncSocket::detachTransaction() noexcept {
-  VLOG(4) << "Transaction Detached";
+  PRX_VLOG(4) << "Transaction Detached";
   txn_ = nullptr;
 }
 
@@ -133,7 +134,7 @@ void H3DatagramAsyncSocket::onDatagram(
     auto stripped = stripContextId(std::move(datagram));
     if (!stripped.has_value()) {
       // Non-zero context ID or malformed — silently drop
-      VLOG(4) << "Dropping datagram with non-zero or invalid context ID";
+      PRX_VLOG(4) << "Dropping datagram with non-zero or invalid context ID";
       return;
     }
     datagram = std::move(stripped.value());
@@ -157,15 +158,15 @@ void H3DatagramAsyncSocket::deliverDatagram(
   void* buf{nullptr};
   size_t len{0};
   ReadCallback::OnDataAvailableParams params;
-  CHECK(readCallback_);
-  CHECK(datagram);
+  PRX_CHECK(readCallback_);
+  PRX_CHECK(datagram);
   if (!readCallback_->shouldOnlyNotify()) {
 
     readCallback_->getReadBuffer(&buf, &len);
     if (buf == nullptr || len == 0 ||
         len < datagram->computeChainDataLength()) {
-      LOG(ERROR) << "Buffer too small to deliver "
-                 << datagram->computeChainDataLength() << " bytes datagram";
+      PRX_LOG(ERROR) << "Buffer too small to deliver "
+                     << datagram->computeChainDataLength() << " bytes datagram";
       return;
     }
     datagram->coalesce();
@@ -204,7 +205,7 @@ int H3DatagramAsyncSocket::recvmmsg(struct mmsghdr* msgvec,
                                     unsigned int vlen,
                                     unsigned int flags,
                                     struct timespec* /*timeout*/) {
-  CHECK_GT(vlen, 0);
+  PRX_CHECK_GT(vlen, 0);
   auto bytesReceived = recvmsg(&msgvec->msg_hdr, flags);
   if (bytesReceived < 0) {
     return -1;
@@ -225,7 +226,7 @@ void H3DatagramAsyncSocket::onBody(
   while (leftToParse > 0) {
     auto typeRes = quic::follyutils::decodeQuicInteger(cursor, leftToParse);
     if (!typeRes) {
-      LOG(ERROR) << "Failed to decode capsule type.";
+      PRX_LOG(ERROR) << "Failed to decode capsule type.";
       return;
     }
     auto [type, typeLen] = typeRes.value();
@@ -233,14 +234,14 @@ void H3DatagramAsyncSocket::onBody(
     auto capLengthRes =
         quic::follyutils::decodeQuicInteger(cursor, leftToParse);
     if (!capLengthRes) {
-      LOG(ERROR) << "Failed to decode capsule length: type=" << type;
+      PRX_LOG(ERROR) << "Failed to decode capsule length: type=" << type;
       return;
     }
     auto [capLength, capLengthLen] = capLengthRes.value();
     leftToParse -= capLengthLen;
     if (capLength > leftToParse) {
-      LOG(ERROR) << "Not enough data for capsule: type=" << type
-                 << " length=" << capLength;
+      PRX_LOG(ERROR) << "Not enough data for capsule: type=" << type
+                     << " length=" << capLength;
       return;
     }
     H3Capsule ret{.type = type, .length = capLength, .data = nullptr};
@@ -300,7 +301,7 @@ void H3DatagramAsyncSocket::startClient() {
             .build();
     auto client = std::make_shared<quic::QuicClientTransport>(
         qEvb, std::move(sock), fizzClientContext);
-    CHECK(connectAddress_.isInitialized());
+    PRX_CHECK(connectAddress_.isInitialized());
     client->addNewPeerAddress(connectAddress_);
     if (!options_.hostname_.empty()) {
       client->setHostname(options_.hostname_);
@@ -337,7 +338,7 @@ void H3DatagramAsyncSocket::startClient() {
           {{proxygen::SettingsId::_HQ_DATAGRAM, 1}});
     }
 
-    VLOG(4) << "connecting to " << connectAddress_.describe();
+    PRX_VLOG(4) << "connecting to " << connectAddress_.describe();
     upstreamSession_->startNow();
     client->start(upstreamSession_, upstreamSession_);
   }
@@ -373,25 +374,25 @@ H3DatagramAsyncSocket::createFizzClientContext() {
 ssize_t H3DatagramAsyncSocket::write(const folly::SocketAddress& address,
                                      const std::unique_ptr<folly::IOBuf>& buf) {
   if (!buf) {
-    LOG(ERROR) << "Invalid write data";
+    PRX_LOG(ERROR) << "Invalid write data";
     errno = EINVAL;
     return -1;
   }
   if (!connectAddress_.isInitialized()) {
-    LOG(ERROR) << "Socket not connected. Must call connect()";
+    PRX_LOG(ERROR) << "Socket not connected. Must call connect()";
     errno = ENOTCONN;
     return -1;
   }
   // Can only write to the one address we are connected to
   if (address != connectAddress_) {
-    LOG(ERROR) << "Socket can only write to address " << connectAddress_;
+    PRX_LOG(ERROR) << "Socket can only write to address " << connectAddress_;
     errno = EINVAL;
     return -1;
   }
   auto size = buf->computeChainDataLength();
   if (!transportConnected_) {
     if (writeBuf_.size() < sndBufPkts_) {
-      VLOG(10) << "Socket not connected yet. Buffering datagram";
+      PRX_VLOG(10) << "Socket not connected yet. Buffering datagram";
       auto bufCopy = buf->clone();
       if (options_.rfcMode_) {
         bufCopy = prependContextId(std::move(bufCopy));
@@ -399,19 +400,20 @@ ssize_t H3DatagramAsyncSocket::write(const folly::SocketAddress& address,
       writeBuf_.emplace_back(std::move(bufCopy));
       return size;
     }
-    LOG(ERROR) << "Socket write buffer is full. Discarding datagram";
+    PRX_LOG(ERROR) << "Socket write buffer is full. Discarding datagram";
     errno = ENOBUFS;
     return -1;
   }
   if (!txn_) {
-    LOG(ERROR) << "Unable to create HTTP/3 transaction. Discarding datagram";
+    PRX_LOG(ERROR)
+        << "Unable to create HTTP/3 transaction. Discarding datagram";
     errno = ECANCELED;
     return -1;
   }
   if (size > txn_->getDatagramSizeLimit()) {
-    LOG(ERROR) << "Datagram too large len=" << size
-               << " transport max datagram size len="
-               << txn_->getDatagramSizeLimit() << ". Discarding datagram";
+    PRX_LOG(ERROR) << "Datagram too large len=" << size
+                   << " transport max datagram size len="
+                   << txn_->getDatagramSizeLimit() << ". Discarding datagram";
     errno = EMSGSIZE;
     return -1;
   }
@@ -420,7 +422,7 @@ ssize_t H3DatagramAsyncSocket::write(const folly::SocketAddress& address,
     datagramBuf = prependContextId(std::move(datagramBuf));
   }
   if (!txn_->sendDatagram(std::move(datagramBuf))) {
-    LOG(ERROR) << "Transport write buffer is full. Discarding datagram";
+    PRX_LOG(ERROR) << "Transport write buffer is full. Discarding datagram";
     // sendDatagram can only fail for exceeding the maximum size (checked
     // above) and if the write buffer is full
     errno = ENOBUFS;
@@ -438,7 +440,7 @@ void H3DatagramAsyncSocket::resumeRead(ReadCallback* cob) {
     inResumeRead_ = false;
   };
   inResumeRead_ = true;
-  readCallback_ = CHECK_NOTNULL(cob);
+  readCallback_ = PRX_CHECK_NOTNULL(cob);
   folly::DelayedDestruction::DestructorGuard dg(this);
   // if there are buffered datagrams, deliver those first.
   auto it = readBuf_.begin();

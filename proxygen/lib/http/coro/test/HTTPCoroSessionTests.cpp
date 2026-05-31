@@ -9,6 +9,7 @@
 #include "proxygen/lib/http/coro/test/HTTPCoroSessionTests.h"
 
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace testing;
 using namespace proxygen;
@@ -29,8 +30,7 @@ std::string paramsToTestName(const testing::TestParamInfo<TestParams> &info) {
     case CodecProtocol::HQ:
       return "h3";
     default:
-      XLOG(FATAL);
-      return "";
+      PRX_LOG(FATAL);
   }
 }
 
