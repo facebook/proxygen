@@ -20,6 +20,7 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -130,10 +131,10 @@ void CurlClient::sslHandshakeFollowup(HTTPUpstreamSession* session) noexcept {
   unsigned nextProtoLength = 0;
   sslSocket->getSelectedNextProtocol(&nextProto, &nextProtoLength);
   if (nextProto) {
-    VLOG(1) << "Client selected next protocol "
-            << string((const char*)nextProto, nextProtoLength);
+    PRX_VLOG(1) << "Client selected next protocol "
+                << string((const char*)nextProto, nextProtoLength);
   } else {
-    VLOG(1) << "Client did not select a next protocol";
+    PRX_VLOG(1) << "Client did not select a next protocol";
   }
 
   // Note: This ssl session can be used by defining a member and setting
@@ -181,7 +182,7 @@ void CurlClient::setupHeaders() {
 }
 
 void CurlClient::sendRequest(HTTPTransaction* txn) {
-  LOG_IF(INFO, loggingEnabled_)
+  PRX_LOG_IF(INFO, loggingEnabled_)
       << fmt::format("Sending request for {}", url_.getUrl());
   txn_ = txn;
   setupHeaders();
@@ -199,7 +200,7 @@ void CurlClient::sendRequest(HTTPTransaction* txn) {
 
 void CurlClient::sendBodyFromFile() {
   const uint16_t kReadSize = 4096;
-  CHECK(inputFile_);
+  PRX_CHECK(inputFile_);
   // Reading from the file by chunks
   // Important note: It's pretty bad to call a blocking i/o function like
   // ifstream::read() in an eventloop - but for the sake of this simple
@@ -231,7 +232,7 @@ void CurlClient::printMessageImpl(proxygen::HTTPMessage* msg,
 }
 
 void CurlClient::connectError(const folly::AsyncSocketException& ex) {
-  LOG_IF(ERROR, loggingEnabled_)
+  PRX_LOG_IF(ERROR, loggingEnabled_)
       << "Coudln't connect to " << url_.getHostAndPort() << ":" << ex.what();
 }
 
@@ -258,7 +259,7 @@ void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
   if (!loggingEnabled_) {
     return;
   }
-  CHECK(outputStream_);
+  PRX_CHECK(outputStream_);
   if (chain) {
     const IOBuf* p = chain.get();
     do {
@@ -270,11 +271,11 @@ void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
 }
 
 void CurlClient::onTrailers(std::unique_ptr<HTTPHeaders>) noexcept {
-  LOG_IF(INFO, loggingEnabled_) << "Discarding trailers";
+  PRX_LOG_IF(INFO, loggingEnabled_) << "Discarding trailers";
 }
 
 void CurlClient::onEOM() noexcept {
-  LOG_IF(INFO, loggingEnabled_)
+  PRX_LOG_IF(INFO, loggingEnabled_)
       << fmt::format("Got EOM for {}. Txn Time= {} ms",
                      url_.getUrl(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -286,20 +287,20 @@ void CurlClient::onEOM() noexcept {
 }
 
 void CurlClient::onUpgrade(UpgradeProtocol) noexcept {
-  LOG_IF(INFO, loggingEnabled_) << "Discarding upgrade protocol";
+  PRX_LOG_IF(INFO, loggingEnabled_) << "Discarding upgrade protocol";
 }
 
 void CurlClient::onError(const HTTPException& error) noexcept {
-  LOG_IF(ERROR, loggingEnabled_) << "An error occurred: " << error.what();
+  PRX_LOG_IF(ERROR, loggingEnabled_) << "An error occurred: " << error.what();
 }
 
 void CurlClient::onEgressPaused() noexcept {
-  VLOG_IF(1, loggingEnabled_) << "Egress paused";
+  PRX_VLOG_IF(1, loggingEnabled_) << "Egress paused";
   egressPaused_ = true;
 }
 
 void CurlClient::onEgressResumed() noexcept {
-  VLOG_IF(1, loggingEnabled_) << "Egress resumed";
+  PRX_VLOG_IF(1, loggingEnabled_) << "Egress resumed";
   egressPaused_ = false;
   if (inputFile_) {
     sendBodyFromFile();
@@ -325,12 +326,12 @@ const string& CurlClient::getServerName() const {
 // CurlPushHandler methods
 void CurlClient::CurlPushHandler::setTransaction(
     proxygen::HTTPTransaction* txn) noexcept {
-  LOG_IF(INFO, parent_->loggingEnabled_) << "Received pushed transaction";
+  PRX_LOG_IF(INFO, parent_->loggingEnabled_) << "Received pushed transaction";
   pushedTxn_ = txn;
 }
 
 void CurlClient::CurlPushHandler::detachTransaction() noexcept {
-  LOG_IF(INFO, parent_->loggingEnabled_) << "Detached pushed transaction";
+  PRX_LOG_IF(INFO, parent_->loggingEnabled_) << "Detached pushed transaction";
 }
 
 void CurlClient::CurlPushHandler::onHeadersComplete(
@@ -351,7 +352,7 @@ void CurlClient::CurlPushHandler::onBody(
 }
 
 void CurlClient::CurlPushHandler::onEOM() noexcept {
-  LOG_IF(INFO, parent_->loggingEnabled_) << "Got PushTxn EOM";
+  PRX_LOG_IF(INFO, parent_->loggingEnabled_) << "Got PushTxn EOM";
 }
 
 void CurlClient::CurlPushHandler::onError(

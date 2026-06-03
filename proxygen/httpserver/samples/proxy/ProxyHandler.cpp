@@ -17,6 +17,7 @@
 #include <proxygen/lib/utils/URL.h>
 
 #include "ProxyStats.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using std::string;
@@ -40,7 +41,7 @@ ProxyHandler::ProxyHandler(ProxyStats* stats, folly::HHWheelTimer* timer)
 }
 
 ProxyHandler::~ProxyHandler() {
-  VLOG(4) << "deleting ProxyHandler";
+  PRX_VLOG(4) << "deleting ProxyHandler";
 }
 
 void ProxyHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
@@ -66,7 +67,7 @@ void ProxyHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
   }
 
   downstream_->pauseIngress();
-  LOG(INFO) << "Trying to connect to " << addr;
+  PRX_LOG(INFO) << "Trying to connect to " << addr;
   auto evb = folly::EventBaseManager::get()->getEventBase();
   if (request_->getMethod() == HTTPMethod::CONNECT) {
     upstreamSock_ = folly::AsyncSocket::newSocket(evb);
@@ -86,8 +87,9 @@ void ProxyHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
 void ProxyHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
   DestructorGuard dg(this);
   if (txn_) {
-    LOG(INFO) << "Forwarding " << ((body) ? body->computeChainDataLength() : 0)
-              << " body bytes to server";
+    PRX_LOG(INFO) << "Forwarding "
+                  << ((body) ? body->computeChainDataLength() : 0)
+                  << " body bytes to server";
     txn_->sendBody(std::move(body));
   } else if (upstreamSock_) {
     upstreamEgressPaused_ = true;
@@ -97,38 +99,39 @@ void ProxyHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
       onServerEgressPaused();
     }
   } else {
-    LOG(WARNING) << "Dropping " << ((body) ? body->computeChainDataLength() : 0)
-                 << " body bytes to server";
+    PRX_LOG(WARNING) << "Dropping "
+                     << ((body) ? body->computeChainDataLength() : 0)
+                     << " body bytes to server";
   }
 }
 
 void ProxyHandler::onEOM() noexcept {
   if (txn_) {
-    LOG(INFO) << "Forwarding client EOM to server";
+    PRX_LOG(INFO) << "Forwarding client EOM to server";
     txn_->sendEOM();
   } else if (upstreamSock_) {
-    LOG(INFO) << "Closing upgraded socket";
+    PRX_LOG(INFO) << "Closing upgraded socket";
     sockStatus_ |= WRITES_SHUTDOWN;
     upstreamSock_->shutdownWrite();
   } else {
-    LOG(INFO) << "Dropping client EOM to server";
+    PRX_LOG(INFO) << "Dropping client EOM to server";
   }
 }
 
 void ProxyHandler::connectSuccess(HTTPUpstreamSession* session) {
   DestructorGuard dg(this);
-  LOG(INFO) << "Established " << *session;
+  PRX_LOG(INFO) << "Established " << *session;
   session_ = std::make_unique<SessionWrapper>(session);
   txn_ = session->newTransaction(&serverHandler_);
-  LOG(INFO) << "Forwarding client request: " << request_->getURL()
-            << " to server";
+  PRX_LOG(INFO) << "Forwarding client request: " << request_->getURL()
+                << " to server";
   txn_->sendHeaders(*request_);
   downstream_->resumeIngress();
 }
 
 void ProxyHandler::connectError(const folly::AsyncSocketException& ex) {
   DestructorGuard dg(this);
-  LOG(ERROR) << "Failed to connect: " << folly::exceptionStr(ex);
+  PRX_LOG(ERROR) << "Failed to connect: " << folly::exceptionStr(ex);
   if (!clientTerminated_) {
     ResponseBuilder(downstream_).status(503, "Bad Gateway").sendWithEOM();
   } else {
@@ -139,21 +142,23 @@ void ProxyHandler::connectError(const folly::AsyncSocketException& ex) {
 
 void ProxyHandler::onServerHeadersComplete(
     unique_ptr<HTTPMessage> msg) noexcept {
-  CHECK(!clientTerminated_);
-  LOG(INFO) << "Forwarding " << msg->getStatusCode() << " response to client";
+  PRX_CHECK(!clientTerminated_);
+  PRX_LOG(INFO) << "Forwarding " << msg->getStatusCode()
+                << " response to client";
   downstream_->sendHeaders(*msg);
 }
 
 void ProxyHandler::onServerBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
-  CHECK(!clientTerminated_);
-  LOG(INFO) << "Forwarding " << ((chain) ? chain->computeChainDataLength() : 0)
-            << " body bytes to client";
+  PRX_CHECK(!clientTerminated_);
+  PRX_LOG(INFO) << "Forwarding "
+                << ((chain) ? chain->computeChainDataLength() : 0)
+                << " body bytes to client";
   downstream_->sendBody(std::move(chain));
 }
 
 void ProxyHandler::onServerEOM() noexcept {
   if (!clientTerminated_) {
-    LOG(INFO) << "Forwarding server EOM to client";
+    PRX_LOG(INFO) << "Forwarding server EOM to client";
     downstream_->sendEOM();
   }
 }
@@ -164,7 +169,7 @@ void ProxyHandler::detachServerTransaction() noexcept {
 }
 
 void ProxyHandler::onServerError(const HTTPException& error) noexcept {
-  LOG(ERROR) << "Server error: " << error;
+  PRX_LOG(ERROR) << "Server error: " << error;
   abortDownstream();
 }
 
@@ -186,11 +191,11 @@ void ProxyHandler::requestComplete() noexcept {
 }
 
 void ProxyHandler::onError(ProxygenError err) noexcept {
-  LOG(ERROR) << "Client error: " << proxygen::getErrorString(err);
+  PRX_LOG(ERROR) << "Client error: " << proxygen::getErrorString(err);
   DestructorGuard dg(this);
   clientTerminated_ = true;
   if (txn_) {
-    LOG(ERROR) << "Aborting server txn: " << *txn_;
+    PRX_LOG(ERROR) << "Aborting server txn: " << *txn_;
     txn_->sendAbort();
   } else if (upstreamSock_) {
     upstreamSock_.reset();
@@ -230,7 +235,7 @@ bool ProxyHandler::checkForShutdown() {
 }
 
 void ProxyHandler::connectSuccess() noexcept {
-  LOG(INFO) << "Connected to upstream " << upstreamSock_;
+  PRX_LOG(INFO) << "Connected to upstream " << upstreamSock_;
   DestructorGuard dg(this);
   ResponseBuilder(downstream_).status(200, "OK").send();
   upstreamSock_->setReadCB(this);
@@ -260,7 +265,7 @@ void ProxyHandler::readEOF() noexcept {
 
 void ProxyHandler::readErr(const folly::AsyncSocketException& ex) noexcept {
   DestructorGuard dg(this);
-  LOG(ERROR) << "Server read error: " << folly::exceptionStr(ex);
+  PRX_LOG(ERROR) << "Server read error: " << folly::exceptionStr(ex);
   abortDownstream();
   upstreamSock_.reset();
   checkForShutdown();
@@ -278,7 +283,7 @@ void ProxyHandler::writeSuccess() noexcept {
 
 void ProxyHandler::writeErr(size_t /*bytesWritten*/,
                             const folly::AsyncSocketException& ex) noexcept {
-  LOG(ERROR) << "Server write error: " << folly::exceptionStr(ex);
+  PRX_LOG(ERROR) << "Server write error: " << folly::exceptionStr(ex);
   DestructorGuard dg(this);
   upstreamEgressPaused_ = false;
   abortDownstream();

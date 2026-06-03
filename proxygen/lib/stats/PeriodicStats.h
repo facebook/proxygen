@@ -15,6 +15,7 @@
 #include <folly/executors/FunctionScheduler.h>
 #include <folly/synchronization/Rcu.h>
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -67,7 +68,7 @@ class PeriodicStats {
    */
   void setRefreshCB(folly::Function<void()>&& cb) {
     std::lock_guard<std::mutex> guard(schedulerMutex_);
-    CHECK(!scheduler_);
+    PRX_CHECK(!scheduler_);
     refreshCb_ = std::move(cb);
   }
 
@@ -85,7 +86,7 @@ class PeriodicStats {
   void refreshWithPeriod(
       std::chrono::milliseconds periodMs,
       std::chrono::milliseconds initialDelayMs = std::chrono::milliseconds(0)) {
-    CHECK_GE(periodMs.count(), 0);
+    PRX_CHECK_GE(periodMs.count(), 0);
     std::lock_guard<std::mutex> guard(schedulerMutex_);
     refreshPeriodMs_ = periodMs;
     if (!scheduler_) {

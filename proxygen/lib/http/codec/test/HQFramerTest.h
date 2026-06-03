@@ -11,6 +11,7 @@
 #include <folly/io/IOBufQueue.h>
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
@@ -21,9 +22,9 @@ size_t writeFrameHeaderManual(folly::IOBufQueue& queue,
   folly::io::QueueAppender appender(&queue, proxygen::hq::kMaxFrameHeaderSize);
   auto appenderOp = [&](auto val) { appender.writeBE<decltype(val)>(val); };
   auto typeRes = quic::encodeQuicInteger(decodedType, appenderOp);
-  CHECK(typeRes.has_value());
+  PRX_CHECK(typeRes.has_value());
   auto lengthRes = quic::encodeQuicInteger(decodedLength, appenderOp);
-  CHECK(lengthRes.has_value());
+  PRX_CHECK(lengthRes.has_value());
   return *typeRes + *lengthRes;
 }
 
@@ -56,7 +57,7 @@ void writeValidFrame(folly::IOBufQueue& queue, proxygen::hq::FrameType type) {
       folly::io::QueueAppender appender(&queue, *idSize);
       auto appenderOp = [&](auto val) { appender.writeBE<decltype(val)>(val); };
       auto idResult = quic::encodeQuicInteger(id, appenderOp);
-      CHECK(idResult.has_value());
+      PRX_CHECK(idResult.has_value());
       if (type == proxygen::hq::FrameType::PUSH_PROMISE) {
         // header data for push-promise
         uint8_t simplePushPromise[] = {0x00, 0x00, 0xC0, 0xC1, 0xD1, 0xD7};
@@ -87,7 +88,7 @@ void writeValidFrame(folly::IOBufQueue& queue, proxygen::hq::FrameType type) {
       auto appenderOp = [&](auto val) { appender.writeBE<decltype(val)>(val); };
       auto prioritizedIdResult =
           quic::encodeQuicInteger(prioritizedId, appenderOp);
-      CHECK(prioritizedIdResult.has_value());
+      PRX_CHECK(prioritizedIdResult.has_value());
       queue.append(std::move(data));
       break;
     }

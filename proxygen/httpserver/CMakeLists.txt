@@ -12,6 +12,7 @@ proxygen_add_library(proxygen_httpserver_httpserver_headers
   EXPORTED_DEPS
     proxygen_http_session_http_transaction
     proxygen_utils_compression_filter_utils
+    proxygen_utils_log_shim
     proxygen_utils_stream_decompressor
     Folly::folly_expected
     Folly::folly_function
@@ -39,6 +40,7 @@ proxygen_add_library(proxygen_httpserver
   DEPS
     proxygen_http_codec_codec_common
     proxygen_http_codec_http1x_codec
+    proxygen_utils_log_shim
     wangle::wangle_ssl_ssl_context_manager
     Folly::folly_exception_string
     Folly::folly_executors_thread_factory_named_thread_factory
@@ -64,6 +66,7 @@ proxygen_add_library(proxygen_httpserver_scoped_httpserver
   EXPORTED_DEPS
     proxygen_httpserver
     proxygen_httpserver_httpserver_headers
+    proxygen_utils_log_shim
     Folly::folly_io_async_ssl_context
     Folly::folly_system_thread_name
 )

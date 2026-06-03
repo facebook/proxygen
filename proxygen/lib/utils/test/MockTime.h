@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/Time.h>
 
 namespace proxygen {
@@ -21,7 +21,7 @@ class MockTimeUtilGeneric : public TimeUtilGeneric<ClockType> {
   }
 
   void setCurrentTime(std::chrono::time_point<ClockType> t) {
-    CHECK(t.time_since_epoch() > t_.time_since_epoch())
+    PRX_CHECK(t.time_since_epoch() > t_.time_since_epoch())
         << "Time can not move backwards";
     t_ = t;
   }

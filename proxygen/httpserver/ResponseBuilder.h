@@ -12,6 +12,7 @@
 #include <proxygen/httpserver/ResponseHandler.h>
 
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -93,14 +94,14 @@ class ResponseBuilder {
 
   template <typename T>
   ResponseBuilder& header(const std::string& headerIn, const T& value) {
-    CHECK(headers_) << "You need to call `status` before adding headers";
+    PRX_CHECK(headers_) << "You need to call `status` before adding headers";
     headers_->getHeaders().add(headerIn, value);
     return *this;
   }
 
   template <typename T>
   ResponseBuilder& header(HTTPHeaderCode code, const T& value) {
-    CHECK(headers_) << "You need to call `status` before adding headers";
+    PRX_CHECK(headers_) << "You need to call `status` before adding headers";
     headers_->getHeaders().add(code, value);
     return *this;
   }
@@ -200,7 +201,7 @@ class ResponseBuilder {
     if (upgradeType == UpgradeType::CONNECT_REQUEST) {
       headers_->constructDirectResponse({1, 1}, 200, "OK");
     } else {
-      CHECK(!upgradeProtocol.empty());
+      PRX_CHECK(!upgradeProtocol.empty());
       headers_->constructDirectResponse({1, 1}, 101, "Switching Protocols");
       headers_->getHeaders().add(HTTP_HEADER_UPGRADE, upgradeProtocol);
       headers_->getHeaders().add(HTTP_HEADER_CONNECTION, "Upgrade");

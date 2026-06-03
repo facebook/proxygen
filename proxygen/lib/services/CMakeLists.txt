@@ -36,6 +36,7 @@ proxygen_add_library(proxygen_services
   EXPORTED_DEPS
     proxygen_services_worker
     proxygen_utils_acceptor_address
+    proxygen_utils_log_shim
     wangle::wangle_acceptor
     wangle::wangle_acceptor_acceptor_core
     Folly::folly_io_async_async_base
@@ -46,10 +47,10 @@ proxygen_add_library(proxygen_services_worker
   SRCS
     WorkerThread.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_io_async_event_base_manager
     Folly::folly_io_async_io_uring_backend
     Folly::folly_string
-    glog::glog
   EXPORTED_DEPS
     Folly::folly_io_async_async_base
     Folly::folly_portability

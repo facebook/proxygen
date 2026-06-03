@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <glog/logging.h>
 #include <limits>
+#include <proxygen/lib/utils/LogShim.h>
 #include <tuple>
 
 namespace proxygen {
@@ -30,13 +30,13 @@ class StateMachine {
 
     std::tie(newState, ok) = T::find(state, event);
     if (!ok) {
-      LOG_EVERY_N(ERROR, 100)
+      PRX_LOG_EVERY_N(ERROR, 100)
           << T::getName() << ": invalid transition tried: " << state << " "
           << event;
       return false;
     } else {
-      VLOG(6) << T::getName() << ": transitioning from " << state << " to "
-              << newState;
+      PRX_VLOG(6) << T::getName() << ": transitioning from " << state << " to "
+                  << newState;
       state = newState;
       return true;
     }
@@ -75,8 +75,8 @@ class TransitionTable {
       size_t nEvents,
       std::vector<std::pair<std::pair<State, Event>, State>> transitions)
       : nStates_(nStates), nEvents_(nEvents) {
-    CHECK_LT(static_cast<uint64_t>(nStates),
-             std::numeric_limits<uint8_t>::max());
+    PRX_CHECK_LT(static_cast<uint64_t>(nStates),
+                 std::numeric_limits<uint8_t>::max());
     // Set all transitions to invalid
     transitions_.resize(nStates * nEvents, std::numeric_limits<uint8_t>::max());
 
@@ -98,8 +98,8 @@ class TransitionTable {
   }
 
   std::pair<State, bool> find(State s, Event e) const {
-    CHECK_LT(static_cast<uint64_t>(s), nStates_);
-    CHECK_LT(static_cast<uint64_t>(e), nEvents_);
+    PRX_CHECK_LT(static_cast<uint64_t>(s), nStates_);
+    PRX_CHECK_LT(static_cast<uint64_t>(e), nEvents_);
     uint8_t result = transitions_[index(s, e)];
     if (result == std::numeric_limits<uint8_t>::max()) {
       return std::make_pair(s, false);

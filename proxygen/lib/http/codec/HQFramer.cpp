@@ -11,6 +11,7 @@
 #include <folly/Random.h>
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
@@ -43,7 +44,7 @@ folly::Optional<uint64_t> getGreaseId(uint64_t n) {
 ParseResult parseData(folly::io::Cursor& cursor,
                       const FrameHeader& header,
                       std::unique_ptr<folly::IOBuf>& outBuf) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   cursor.clone(outBuf, header.length);
   return folly::none;
 }
@@ -51,7 +52,7 @@ ParseResult parseData(folly::io::Cursor& cursor,
 ParseResult parseHeaders(folly::io::Cursor& cursor,
                          const FrameHeader& header,
                          std::unique_ptr<folly::IOBuf>& outBuf) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   // for HEADERS frame, zero-length is allowed
   cursor.clone(outBuf, header.length);
   return folly::none;
@@ -60,7 +61,7 @@ ParseResult parseHeaders(folly::io::Cursor& cursor,
 static ParseResult parseIdOnlyFrame(folly::io::Cursor& cursor,
                                     const FrameHeader& header,
                                     uint64_t& outId) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   auto frameLength = header.length;
 
   auto id = quic::follyutils::decodeQuicInteger(cursor, frameLength);
@@ -116,7 +117,7 @@ decodeSettingValue(folly::io::Cursor& cursor,
 ParseResult parseSettings(folly::io::Cursor& cursor,
                           const FrameHeader& header,
                           std::deque<SettingPair>& settings) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   folly::IOBuf buf;
   auto frameLength = header.length;
 
@@ -146,7 +147,7 @@ ParseResult parsePushPromise(folly::io::Cursor& cursor,
                              const FrameHeader& header,
                              PushId& outPushId,
                              std::unique_ptr<folly::IOBuf>& outBuf) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   folly::IOBuf buf;
   auto frameLength = header.length;
 
@@ -177,7 +178,7 @@ ParseResult parsePriorityUpdate(folly::io::Cursor& cursor,
                                 const FrameHeader& header,
                                 HTTPCodec::StreamID& outId,
                                 HTTPPriority& priorityUpdate) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
+  PRX_DCHECK_LE(header.length, cursor.totalLength());
   auto length = header.length;
   auto id = quic::follyutils::decodeQuicInteger(cursor, length);
   if (!id) {
@@ -219,7 +220,7 @@ static WriteResult writeSimpleFrame(
     IOBufQueue& queue,
     FrameType type,
     std::unique_ptr<folly::IOBuf> data) noexcept {
-  DCHECK(data);
+  PRX_DCHECK(data);
   auto payloadSize = data->computeChainDataLength();
   auto headerSize = writeFrameHeader(queue, type, payloadSize);
   if (!headerSize) {
@@ -293,7 +294,7 @@ WriteResult writeSettings(IOBufQueue& queue,
 WriteResult writePushPromise(IOBufQueue& queue,
                              PushId pushId,
                              std::unique_ptr<folly::IOBuf> data) noexcept {
-  DCHECK(data);
+  PRX_DCHECK(data);
   auto pushIdSize = quic::getQuicIntegerSize(pushId);
   ret_if_err(pushIdSize);
   size_t payloadSize = *pushIdSize + data->computeChainDataLength();
@@ -416,7 +417,7 @@ static const char* getFrameTypeString(FrameType type) {
       // can happen when type was cast from uint8_t
       return "Unknown";
   }
-  LOG(FATAL) << "Unreachable";
+  PRX_LOG(FATAL) << "Unreachable";
 }
 
 std::ostream& operator<<(std::ostream& os, FrameType type) {
@@ -442,8 +443,8 @@ WriteResult writeWTStreamPreface(folly::IOBufQueue& writeBuf,
       folly::to_underlying(UnidirectionalStreamType::WEBTRANSPORT),
       folly::to_underlying(BidirectionalStreamType::WEBTRANSPORT)};
   auto idx = folly::to_underlying(streamType);
-  CHECK_GE(idx, 0);
-  CHECK_LT(idx, streamTypes.size());
+  PRX_CHECK_GE(idx, 0);
+  PRX_CHECK_LT(idx, streamTypes.size());
   QueueAppender appender(&writeBuf, 64);
   size_t prefaceSize = 0;
   auto res = quic::encodeQuicInteger(streamTypes[idx], [&appender](auto val) {

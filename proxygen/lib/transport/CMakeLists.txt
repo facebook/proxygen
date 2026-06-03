@@ -10,6 +10,7 @@ proxygen_add_library(proxygen_transport_persistent_fizz_psk_cache
   SRCS
     PersistentFizzPskCache.cpp
   EXPORTED_DEPS
+    proxygen_utils_log_shim
     wangle::wangle_client_persistence
     fizz::fizz
 )
@@ -18,6 +19,7 @@ proxygen_add_library(proxygen_transport_persistent_quic_psk_cache
   SRCS
     PersistentQuicPskCache.cpp
   DEPS
+    proxygen_utils_log_shim
     mvfst::mvfst_client_cached_server_tp_serialization
     fizz::fizz
     Folly::folly_conv
@@ -44,6 +46,7 @@ proxygen_add_library(proxygen_transport_h3_datagram_async_socket
   EXPORTED_DEPS
     proxygen_http_session_hq_upstream_session
     proxygen_http_session_http_transaction
+    proxygen_utils_log_shim
     mvfst::mvfst_api_transport
     mvfst::mvfst_client
     fizz::fizz
@@ -55,6 +58,7 @@ proxygen_add_library(proxygen_transport_connect_udp_utils
   SRCS
     ConnectUDPUtils.cpp
   DEPS
+    proxygen_utils_log_shim
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
     Folly::folly_string
@@ -74,6 +78,8 @@ proxygen_add_library(proxygen_transport_persistent_quic_token_cache
 proxygen_add_library(proxygen_transport_async_udp_socket_factory
   SRCS
     AsyncUDPSocketFactory.cpp
+  DEPS
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_utils_exception
     Folly::folly_expected

@@ -11,6 +11,7 @@
 #include <folly/json/dynamic.h>
 #include <folly/json/json.h>
 #include <proxygen/lib/pools/generators/FileServerListGenerator.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <sstream>
 
 using folly::dynamic;
@@ -33,7 +34,8 @@ void FileServerListGenerator::FileGenerator::cancelServerListRequest() {
 void FileServerListGenerator::FileGenerator::run(milliseconds /*timeout*/) {
   // Read the file
 
-  VLOG(4) << "Looking up server list from File Handle " << params_->fileName;
+  PRX_VLOG(4) << "Looking up server list from File Handle "
+              << params_->fileName;
 
   std::string content;
   try {
@@ -81,11 +83,11 @@ void FileServerListGenerator::FileGenerator::run(milliseconds /*timeout*/) {
     }
   } else {
     // Unsupported FileType yet.
-    LOG(FATAL) << "Unsupported FileServerListGenerator::FileType!";
+    PRX_LOG(FATAL) << "Unsupported FileServerListGenerator::FileType!";
   }
 
-  VLOG(4) << "Found " << servers.size() << " usable servers from File "
-          << params_->fileName;
+  PRX_VLOG(4) << "Found " << servers.size() << " usable servers from File "
+              << params_->fileName;
   callback_->serverListAvailable(std::move(servers));
   delete this;
 }

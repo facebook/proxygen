@@ -21,6 +21,7 @@
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 constexpr unsigned int kTransactionTimeout = 500;
@@ -118,7 +119,7 @@ class HQSessionTest
           nullptr);
       nextUnidirectionalStreamId_ = 3;
     } else {
-      LOG(FATAL) << "wrong TransportEnum";
+      PRX_LOG(FATAL) << "wrong TransportEnum";
     }
 
     if (GetParam().datagrams_) {
@@ -240,7 +241,7 @@ class HQSessionTest
   void readCallback(quic::StreamId id,
                     std::unique_ptr<folly::IOBuf> buf,
                     bool eof) override {
-    CHECK(buf);
+    PRX_CHECK(buf);
     if (wtStreams_.streamExists(id)) {
       wtStreams_.appendData(id, std::move(buf), eof);
       return;
@@ -271,8 +272,8 @@ class HQSessionTest
     if (it == controlStreams_.end()) {
       folly::io::Cursor cursor(buf.get());
       auto preface = parseUniStreamPreface(cursor, getProtocolString());
-      CHECK(preface) << "Preface can not be parsed protocolString="
-                     << getProtocolString();
+      PRX_CHECK(preface) << "Preface can not be parsed protocolString="
+                         << getProtocolString();
       switch (preface->first) {
         case proxygen::hq::UnidirectionalStreamType::CONTROL:
           ingressControlCodec_ = std::make_unique<proxygen::hq::HQControlCodec>(
@@ -301,7 +302,7 @@ class HQSessionTest
           wtStreams_.appendData(id, std::move(buf), eof);
           return;
         default:
-          CHECK(false) << "Unknown stream preface=" << preface->first;
+          PRX_CHECK(false) << "Unknown stream preface=" << preface->first;
       }
       socketDriver_->sock_->setControlStream(id);
       auto res = controlStreams_.emplace(id, preface->first);
@@ -324,19 +325,19 @@ class HQSessionTest
         parseReadData(&qpackDecoderCodec_, decoderReadBuf_, std::move(buf));
         break;
       case proxygen::hq::UnidirectionalStreamType::PUSH:
-        VLOG(4) << "Ingress push streams should not go through "
-                << "the unidirectional read path";
+        PRX_VLOG(4) << "Ingress push streams should not go through "
+                    << "the unidirectional read path";
         break;
       default:
-        CHECK(false) << "Unknown stream type=" << it->second;
+        PRX_CHECK(false) << "Unknown stream type=" << it->second;
     }
   }
 
   void onError(proxygen::HTTPCodec::StreamID streamID,
                const proxygen::HTTPException& error,
                bool /*newTxn*/) override {
-    LOG(FATAL) << __func__ << " streamID=" << streamID
-               << " error=" << error.what();
+    PRX_LOG(FATAL) << __func__ << " streamID=" << streamID
+                   << " error=" << error.what();
   }
 
   quic::StreamId nextUnidirectionalStreamId() {

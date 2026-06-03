@@ -15,6 +15,7 @@
 #include <proxygen/httpserver/SignalHandler.h>
 #include <proxygen/httpserver/filters/CompressionFilter.h>
 #include <proxygen/httpserver/filters/RejectConnectFilter.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <wangle/ssl/SSLContextManager.h>
 
 using folly::EventBaseManager;
@@ -88,7 +89,7 @@ HTTPServer::HTTPServer(HTTPServerOptions options)
 }
 
 HTTPServer::~HTTPServer() {
-  CHECK(!mainEventBase_) << "Forgot to stop() server?";
+  PRX_CHECK(!mainEventBase_) << "Forgot to stop() server?";
 }
 
 void HTTPServer::bind(std::vector<IPConfig>&& addrs) {

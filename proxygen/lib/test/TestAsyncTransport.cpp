@@ -12,6 +12,7 @@
 #include <folly/io/IOBuf.h>
 #include <folly/io/async/AsyncSocketException.h>
 #include <folly/io/async/EventBase.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <vector>
 
 using folly::AsyncSocketException;
@@ -42,7 +43,7 @@ class TestAsyncTransport::ReadEvent {
       // This means EOF
       return;
     }
-    CHECK_NOTNULL(buf);
+    PRX_CHECK_NOTNULL(buf);
 
     buffer_ = static_cast<char*>(malloc(buflen));
     if (buffer_ == nullptr) {
@@ -94,7 +95,7 @@ class TestAsyncTransport::ReadEvent {
   }
 
   void consumeData(size_t length) {
-    CHECK_LE(readStart_ + length, dataEnd_);
+    PRX_CHECK_LE(readStart_ + length, dataEnd_);
     readStart_ += length;
   }
 
@@ -219,7 +220,7 @@ void TestAsyncTransport::setReadCB(AsyncTransport::ReadCallback* callback) {
     return;
   }
 
-  CHECK_EQ(readState_, kStateOpen);
+  PRX_CHECK_EQ(readState_, kStateOpen);
   readCallback_ = callback;
 
   // If the callback was previously nullptr, read events were paused, so we need
@@ -235,7 +236,7 @@ void TestAsyncTransport::setReadCB(AsyncTransport::ReadCallback* callback) {
     // Either readEvents_ is empty, or startReadEvents() hasn't been called yet
     return;
   }
-  CHECK(!readEvents_.empty());
+  PRX_CHECK(!readEvents_.empty());
   scheduleNextReadEvent(proxygen::getCurrentTime());
 }
 
@@ -266,7 +267,7 @@ void TestAsyncTransport::writev(AsyncTransport::WriteCallback* callback,
     AsyncSocketException ex(AsyncSocketException::NOT_OPEN,
                             "write() called on non-open TestAsyncTransport");
     auto cb = dynamic_cast<WriteCallback*>(callback);
-    DCHECK(cb);
+    PRX_DCHECK(cb);
     cb->writeErr(0, ex);
     return;
   }
@@ -275,7 +276,7 @@ void TestAsyncTransport::writev(AsyncTransport::WriteCallback* callback,
   if (writeState_ == kStatePaused || pendingWriteEvents_.size() > 0) {
     pendingWriteEvents_.emplace_back(event, callback);
   } else {
-    CHECK_EQ(writeState_, kStateOpen);
+    PRX_CHECK_EQ(writeState_, kStateOpen);
     writeEvents_.push_back(event);
     callback->writeSuccess();
   }
@@ -353,14 +354,14 @@ bool TestAsyncTransport::error() const {
 }
 
 void TestAsyncTransport::attachEventBase(EventBase* eventBase) {
-  CHECK(nullptr == eventBase_);
-  CHECK(nullptr == readCallback_);
+  PRX_CHECK(nullptr == eventBase_);
+  PRX_CHECK(nullptr == readCallback_);
   eventBase_ = eventBase;
 }
 
 void TestAsyncTransport::detachEventBase() {
-  CHECK_NOTNULL(eventBase_);
-  CHECK(nullptr == readCallback_);
+  PRX_CHECK_NOTNULL(eventBase_);
+  PRX_CHECK(nullptr == readCallback_);
   eventBase_ = nullptr;
 }
 
@@ -382,16 +383,16 @@ uint32_t TestAsyncTransport::getSendTimeout() const {
 
 void TestAsyncTransport::pauseWrites() {
   if (writeState_ != kStateOpen) {
-    LOG(FATAL) << "cannot pause writes on non-open transport; state="
-               << writeState_;
+    PRX_LOG(FATAL) << "cannot pause writes on non-open transport; state="
+                   << writeState_;
   }
   writeState_ = kStatePaused;
 }
 
 void TestAsyncTransport::resumeWrites() {
   if (writeState_ != kStatePaused) {
-    LOG(FATAL) << "cannot resume writes on non-paused transport; state="
-               << writeState_;
+    PRX_LOG(FATAL) << "cannot resume writes on non-paused transport; state="
+                   << writeState_;
   }
   writeState_ = kStateOpen;
   for (auto event = pendingWriteEvents_.begin();
@@ -434,7 +435,7 @@ void TestAsyncTransport::addReadEvent(
     size_t buflen,
     std::chrono::milliseconds delayFromPrevious) {
   if (!readEvents_.empty() && readEvents_.back()->isFinalEvent()) {
-    LOG(FATAL) << "cannot add more read events after an error or EOF";
+    PRX_LOG(FATAL) << "cannot add more read events after an error or EOF";
   }
 
   auto event = std::make_shared<ReadEvent>(buf, buflen, delayFromPrevious);
@@ -460,7 +461,7 @@ void TestAsyncTransport::addReadError(
     const folly::AsyncSocketException& ex,
     std::chrono::milliseconds delayFromPrevious) {
   if (!readEvents_.empty() && readEvents_.back()->isFinalEvent()) {
-    LOG(FATAL) << "cannot add a read error after an error or EOF";
+    PRX_LOG(FATAL) << "cannot add a read error after an error or EOF";
   }
 
   auto event = std::make_shared<ReadEvent>(ex, delayFromPrevious);
@@ -513,8 +514,8 @@ void TestAsyncTransport::scheduleNextReadEvent(TimePoint now) {
 
 void TestAsyncTransport::fireNextReadEvent() {
   DestructorGuard dg(this);
-  CHECK(!readEvents_.empty());
-  CHECK_NOTNULL(readCallback_);
+  PRX_CHECK(!readEvents_.empty());
+  PRX_CHECK_NOTNULL(readCallback_);
 
   // maxReadAtOnce prevents us from starving other users of this EventBase
   unsigned int const maxReadAtOnce = 30;
@@ -539,14 +540,14 @@ void TestAsyncTransport::fireNextReadEvent() {
 }
 
 void TestAsyncTransport::fireOneReadEvent() {
-  CHECK(!readEvents_.empty());
-  CHECK_NOTNULL(readCallback_);
+  PRX_CHECK(!readEvents_.empty());
+  PRX_CHECK_NOTNULL(readCallback_);
 
   const shared_ptr<ReadEvent>& event = readEvents_.front();
 
   // Handle a read event using a movable buffer
   if (event->isMovableBuffer()) {
-    CHECK(readCallback_->isBufferMovable());
+    PRX_CHECK(readCallback_->isBufferMovable());
     readCallback_->readBufferAvailable(event->getMovableBuffer());
     readEvents_.pop_front();
 
@@ -570,12 +571,12 @@ void TestAsyncTransport::fireOneReadEvent() {
   } catch (...) {
     // TODO: we should convert the error to a AsyncSocketException and call
     // readError() here.
-    LOG(FATAL) << "readCallback_->getReadBuffer() threw an error";
+    PRX_LOG(FATAL) << "readCallback_->getReadBuffer() threw an error";
   }
   if (buf == nullptr || buflen == 0) {
     // TODO: we should just call readError() here.
-    LOG(FATAL) << "readCallback_->getReadBuffer() returned a nullptr or "
-                  "empty buffer";
+    PRX_LOG(FATAL) << "readCallback_->getReadBuffer() returned a nullptr or "
+                      "empty buffer";
   }
 
   // Handle errors
@@ -588,7 +589,7 @@ void TestAsyncTransport::fireOneReadEvent() {
     // pointer before popping it off the readEvents_ list.
     shared_ptr<ReadEvent> eventPointerCopy = readEvents_.front();
     readEvents_.pop_front();
-    CHECK(readEvents_.empty());
+    PRX_CHECK(readEvents_.empty());
     nextReadEventTime_ = {};
 
     auto callback = readCallback_;
@@ -603,7 +604,7 @@ void TestAsyncTransport::fireOneReadEvent() {
     readState_ = kStateClosed;
 
     readEvents_.pop_front();
-    CHECK(readEvents_.empty());
+    PRX_CHECK(readEvents_.empty());
     nextReadEventTime_ = {};
 
     auto callback = readCallback_;
@@ -641,7 +642,7 @@ void TestAsyncTransport::fireOneReadEvent() {
 }
 
 void TestAsyncTransport::timeoutExpired() noexcept {
-  CHECK_NOTNULL(readCallback_);
-  CHECK(!readEvents_.empty());
+  PRX_CHECK_NOTNULL(readCallback_);
+  PRX_CHECK(!readEvents_.empty());
   fireNextReadEvent();
 }

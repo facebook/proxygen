@@ -10,6 +10,7 @@
 
 #include <folly/Conv.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using std::string;
 
@@ -19,11 +20,11 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
                                 const folly::fbstring& value) {
   // Refuse decoding other headers if an error is already found
   if (decodeError != HPACK::DecodeError::NONE || !parsingError.empty()) {
-    VLOG(4) << "Ignoring header=" << name << " value=" << value
-            << " due to parser error=" << parsingError;
+    PRX_VLOG(4) << "Ignoring header=" << name << " value=" << value
+                << " due to parser error=" << parsingError;
     return true;
   }
-  DVLOG(5) << "Processing header=" << name << " value=" << value;
+  PRX_DVLOG(5) << "Processing header=" << name << " value=" << value;
   auto headerCode = name.getHeaderCode();
   folly::StringPiece nameSp(name.get());
   folly::StringPiece valueSp(value);

@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/sink/HTTPTunnelSink.h>
 
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -24,7 +24,7 @@ void HTTPTunnelSink::detachAndAbortIfIncomplete(
   if (!egressEOMSeen_ && !ingressEOMRead_) {
     sock_->closeWithReset();
   }
-  XCHECK(self.get() == this);
+  PRX_CHECK(self.get() == this);
   if (outstandingWrites_ > 0) {
     destroyOnWriteComplete_ = true;
     void(self.release());
@@ -92,7 +92,7 @@ void HTTPTunnelSink::resumeIngress() {
 }
 
 void HTTPTunnelSink::timeoutExpired() noexcept {
-  XLOG(DBG4) << "Closing socket now";
+  PRX_VLOG(4) << "Closing socket now";
   sock_->closeNow();
   if (handler_) {
     DestructorCheck::Safety safety(*this);

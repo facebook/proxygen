@@ -7,7 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/transport/HTTPConnectStream.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -110,8 +110,8 @@ folly::coro::Task<void> HTTPConnectStream::connectImpl(
         peerAddr.setFromIpPort(upstreamAddress, upstreamPort);
         peerAddr_ = std::move(peerAddr);
       } catch (const std::exception& ex) {
-        XLOG(ERR) << "Upstream returned invalid X-Connected-To: "
-                  << upstreamAddress << " err=" << ex.what();
+        PRX_LOG(ERROR) << "Upstream returned invalid X-Connected-To: "
+                       << upstreamAddress << " err=" << ex.what();
       }
     }
     break; // meh

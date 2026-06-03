@@ -12,6 +12,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <proxygen/lib/transport/test/MockAsyncTransportCertificate.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/api/test/MockQuicSocket.h>
 #include <quic/common/events/FollyQuicEventBase.h>
 #include <quic/priority/HTTPPriorityQueue.h>
@@ -34,9 +35,9 @@ constexpr uint64_t kConnectionStreamId = std::numeric_limits<uint64_t>::max();
   {                                                    \
     if (condition) {                                   \
       if (strictErrorCheck_) {                         \
-        CHECK(!(condition)) << message;                \
+        PRX_CHECK(!(condition)) << message;            \
       } else {                                         \
-        LOG(ERROR) << message;                         \
+        PRX_LOG(ERROR) << message;                     \
         softErrorHandler;                              \
       }                                                \
     }                                                  \
@@ -524,7 +525,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                    MockQuicSocket::SharedBuf data,
                    bool eof,
                    ByteEventCallback* cb) -> quic::MockQuicSocket::WriteResult {
-              CHECK(data || eof) << "no-op write";
+              PRX_CHECK(data || eof) << "no-op write";
               ERROR_IF(id == kConnectionStreamId,
                        "writeChain(kConnectionStreamId) not handled",
                        return quic::make_unexpected(
@@ -571,9 +572,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                 auto finOffset =
                     stream.nextWriteOffset + stream.unsentBuf.chainLength();
                 auto type = quic::ByteEvent::Type::ACK;
-                VLOG(4) << "onByteEventRegistered id=" << id
-                        << " offset=" << finOffset
-                        << " type=" << uint64_t(type);
+                PRX_VLOG(4)
+                    << "onByteEventRegistered id=" << id
+                    << " offset=" << finOffset << " type=" << uint64_t(type);
                 cb->onByteEventRegistered(
                     {.id = id, .offset = finOffset, .type = type});
                 stream.deliveryCallbacks.emplace_back(finOffset, cb);
@@ -583,8 +584,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                   flushWrites();
                 }
               });
-              CHECK(stream.unsentBuf.empty() || stream.flowControlWindow == 0 ||
-                    connState.flowControlWindow == 0);
+              PRX_CHECK(stream.unsentBuf.empty() ||
+                        stream.flowControlWindow == 0 ||
+                        connState.flowControlWindow == 0);
               return {};
             }));
 
@@ -778,16 +780,17 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                               id),
                   return quic::make_unexpected(
                       LocalErrorCode::STREAM_NOT_EXISTS));
-              VLOG(4) << "onByteEventRegistered id=" << id
-                      << " offset=" << offset << " type=" << uint64_t(type);
+              PRX_VLOG(4) << "onByteEventRegistered id=" << id
+                          << " offset=" << offset << " type=" << uint64_t(type);
               cb->onByteEventRegistered(
                   {.id = id, .offset = offset, .type = type});
               if (it->second.fireByteEventAt(offset)) {
                 // already available, fire the cb from the loop
                 eventBase_->runInLoop(
                     [id, offset, type, cb] {
-                      VLOG(4) << "onByteEvent id=" << id << " offset=" << offset
-                              << " type=" << uint64_t(type);
+                      PRX_VLOG(4)
+                          << "onByteEvent id=" << id << " offset=" << offset
+                          << " type=" << uint64_t(type);
                       cb->onByteEvent(
                           {.id = id, .offset = offset, .type = type});
                     },
@@ -890,12 +893,12 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   }
 
   void checkNotReadOnlyStream(quic::StreamId id) {
-    CHECK(!isReceivingStream(id))
+    PRX_CHECK(!isReceivingStream(id))
         << "API not supported on read-only unidirectional stream. streamID="
         << id;
   }
   void checkNotWriteOnlyStream(quic::StreamId id) {
-    CHECK(!isSendingStream(id))
+    PRX_CHECK(!isSendingStream(id))
         << "API not supported on write-only unidirectional stream. streamID="
         << id;
   }
@@ -1123,8 +1126,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       if (!stream.fireByteEventAt(cb.first)) {
         break;
       }
-      VLOG(4) << "onByteEvent id=" << id << " offset=" << cb.first
-              << " type=" << uint64_t(type);
+      PRX_VLOG(4) << "onByteEvent id=" << id << " offset=" << cb.first
+                  << " type=" << uint64_t(type);
       cb.second->onByteEvent({.id = id, .offset = cb.first, .type = type});
       callbacks.pop_front();
     }
@@ -1461,7 +1464,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                     stream.writeState = CLOSED;
                     sock_->connCb_->onNewUnidirectionalStream(event.streamId);
                   } else {
-                    CHECK(event.error) << "Non-error on self-uni stream";
+                    PRX_CHECK(event.error) << "Non-error on self-uni stream";
                   }
                 } else {
                   sock_->connCb_->onNewBidirectionalStream(event.streamId);
@@ -1666,9 +1669,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             copyBuf = streamState.readBuf.front()->clone();
             copyBufLen = copyBuf->computeChainDataLength();
           }
-          VLOG(6) << "peek onDataAvailable id=" << it.first
-                  << " len=" << copyBufLen
-                  << " offset=" << streamState.readOffset;
+          PRX_VLOG(6) << "peek onDataAvailable id=" << it.first
+                      << " len=" << copyBufLen
+                      << " offset=" << streamState.readOffset;
           ERROR_IF(streamState.readBufOffset < copyBufLen,
                    fmt::format("readOffset({}) is lower than current read "
                                "buffer offset({}) for streamId={}",

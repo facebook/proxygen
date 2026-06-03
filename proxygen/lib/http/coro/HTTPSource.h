@@ -11,9 +11,9 @@
 #include <folly/Function.h>
 #include <folly/ScopeGuard.h>
 #include <folly/coro/Task.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/coro/HTTPError.h>
 #include <proxygen/lib/http/coro/HTTPEvents.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -125,13 +125,13 @@ class HTTPSource {
 
 template <typename T>
 HTTPError getHTTPError(const folly::Try<T>& tryEvent) {
-  XCHECK(tryEvent.hasException());
+  PRX_CHECK(tryEvent.hasException());
   auto httpErr = tryEvent.template tryGetExceptionObject<HTTPError>();
   if (httpErr) {
     return std::move(*httpErr);
   }
   auto ex = tryEvent.tryGetExceptionObject();
-  XCHECK(ex);
+  PRX_CHECK(ex);
   return HTTPError(HTTPErrorCode::INTERNAL_ERROR, ex->what());
 }
 

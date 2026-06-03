@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/SocketAddress.h>
 
@@ -48,7 +48,7 @@ inline std::ostream& operator<<(std::ostream& os,
       os << "UDP";
       break;
     default:
-      LOG(FATAL) << "Unknown Acceptor type.";
+      PRX_LOG(FATAL) << "Unknown Acceptor type.";
   }
   return os;
 }

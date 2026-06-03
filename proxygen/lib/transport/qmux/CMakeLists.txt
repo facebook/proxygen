@@ -11,6 +11,7 @@ proxygen_add_library(proxygen_transport_qmux_qmux_framer
     QmuxFramer.cpp
   DEPS
     proxygen_http_codec_varint_utils
+    proxygen_utils_log_shim
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
   EXPORTED_DEPS
@@ -38,8 +39,8 @@ proxygen_add_library(proxygen_transport_qmux_qmux_session
     QmuxSession.cpp
   DEPS
     proxygen_transport_qmux_qmux_codec
+    proxygen_utils_log_shim
     Folly::folly_io_coro_socket
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_http_coro_util_CoroWtSession
     proxygen_http_webtransport_wt_stream_manager
@@ -52,12 +53,12 @@ proxygen_add_library(proxygen_transport_qmux_qmux_connector
   SRCS
     QmuxConnector.cpp
   DEPS
+    proxygen_utils_log_shim
     mvfst::mvfst_folly_utils
     Folly::folly_coro_timeout
     Folly::folly_futures_core
     Folly::folly_io_coro_socket
     Folly::folly_io_iobuf
-    Folly::folly_logging_logging
     fmt::fmt
   EXPORTED_DEPS
     proxygen_http_webtransport_wt_stream_manager

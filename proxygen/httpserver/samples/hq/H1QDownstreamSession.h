@@ -10,6 +10,7 @@
 
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/api/QuicStreamAsyncTransport.h>
 #include <quic/common/events/FollyQuicEventBase.h>
@@ -39,7 +40,7 @@ class H1QDownstreamSession : public quic::QuicSocket::ConnectionCallback {
     auto streamTransport =
         quic::QuicStreamAsyncTransport::createWithExistingStream(sock_, id);
     if (!streamTransport) {
-      LOG(ERROR) << "Failed to create stream transport";
+      PRX_LOG(ERROR) << "Failed to create stream transport";
       sock_->stopSending(
           id,
           quic::ApplicationErrorCode(
@@ -81,15 +82,15 @@ class H1QDownstreamSession : public quic::QuicSocket::ConnectionCallback {
                      quic::ApplicationErrorCode) noexcept override {
   }
   void onConnectionEnd() noexcept override {
-    LOG(INFO) << __func__;
+    PRX_LOG(INFO) << __func__;
     delete this;
   }
   void onConnectionError(quic::QuicError) noexcept override {
-    LOG(INFO) << __func__;
+    PRX_LOG(INFO) << __func__;
     delete this;
   }
   void onConnectionEnd(quic::QuicError /* error */) noexcept override {
-    LOG(INFO) << __func__;
+    PRX_LOG(INFO) << __func__;
     delete this;
   }
 

@@ -9,6 +9,7 @@
 #include <proxygen/lib/pools/generators/ServerListGenerator.h>
 
 #include <folly/io/async/EventBase.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::EventBase;
 using std::vector;
@@ -17,14 +18,14 @@ using std::chrono::milliseconds;
 namespace proxygen {
 
 void ServerListGeneratorIf::attachEventBase(EventBase* eventBase) {
-  CHECK(!eventBase_);
-  CHECK(eventBase->isInEventBaseThread());
+  PRX_CHECK(!eventBase_);
+  PRX_CHECK(eventBase->isInEventBaseThread());
 
   eventBase_ = eventBase;
 }
 
 void ServerListGeneratorIf::detachEventBase() {
-  CHECK(!eventBase_ || eventBase_->isInEventBaseThread());
+  PRX_CHECK(!eventBase_ || eventBase_->isInEventBaseThread());
 
   eventBase_ = nullptr;
 }
@@ -42,7 +43,7 @@ void ServerListGenerator::listServersBlocking(vector<ServerConfig>* results,
 
   if (callback.status != ServerListCallback::SUCCESS) {
     if (!callback.errorPtr) {
-      LOG(FATAL)
+      PRX_LOG(FATAL)
           << "ServerListGenerator finished without invoking callback, timeout:"
           << timeout.count();
     }

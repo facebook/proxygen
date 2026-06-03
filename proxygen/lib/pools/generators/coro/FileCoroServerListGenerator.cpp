@@ -8,6 +8,7 @@
 
 #include <folly/FileUtil.h>
 #include <proxygen/lib/pools/generators/coro/FileCoroServerListGenerator.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -17,7 +18,7 @@ FileCoroServerListGenerator::FileCoroServerListGenerator(std::string fileName)
 
 folly::coro::Task<std::vector<ServerConfig>>
 FileCoroServerListGenerator::listServers() {
-  VLOG(4) << "Looking up server list from File Handle " << fileName_;
+  PRX_VLOG(4) << "Looking up server list from File Handle " << fileName_;
 
   std::string content;
   if (!folly::readFile(fileName_.c_str(), content)) {
@@ -27,8 +28,8 @@ FileCoroServerListGenerator::listServers() {
 
   auto servers = parseFile(content);
 
-  VLOG(4) << "Found " << servers.size() << " usable servers from File "
-          << fileName_;
+  PRX_VLOG(4) << "Found " << servers.size() << " usable servers from File "
+              << fileName_;
   co_return servers;
 }
 

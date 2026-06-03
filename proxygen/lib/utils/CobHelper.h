@@ -11,7 +11,7 @@
 #include <atomic>
 #include <functional>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -28,7 +28,7 @@ class CobHelper {
   }
 
   void setError(const std::string& emsg) {
-    CHECK(!emsg.empty());
+    PRX_CHECK(!emsg.empty());
     emsg_ = emsg;
   }
 

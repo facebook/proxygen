@@ -14,6 +14,7 @@
 
 #include <proxygen/lib/http/sink/HTTPSink.h>
 
+#include <proxygen/lib/utils/LogShim.h>
 #include <string_view>
 #include <variant>
 
@@ -26,21 +27,21 @@ class HTTPMessageFilter
     , public folly::DestructorCheck {
  public:
   void setNextTransactionHandler(HTTPTransaction::Handler* next) {
-    nextTransactionHandler_ = CHECK_NOTNULL(next);
+    nextTransactionHandler_ = PRX_CHECK_NOTNULL(next);
   }
   virtual void setPrevFilter(HTTPMessageFilter* prev) noexcept {
     if (prev_.index() == 0 && std::get<HTTPMessageFilter*>(prev_) != prev &&
         prev && nextElementIsPaused_) {
       prev->pause();
     }
-    prev_ = CHECK_NOTNULL(prev);
+    prev_ = PRX_CHECK_NOTNULL(prev);
   }
   virtual void setPrevSink(HTTPSink* prev) noexcept {
     if (prev_.index() == 1 && std::get<HTTPSink*>(prev_) != prev && prev &&
         nextElementIsPaused_) {
       prev->pauseIngress();
     }
-    prev_ = CHECK_NOTNULL(prev);
+    prev_ = PRX_CHECK_NOTNULL(prev);
   }
   HTTPTransaction::Handler* getNextTransactionHandler() {
     return nextTransactionHandler_;
@@ -113,12 +114,12 @@ class HTTPMessageFilter
 
   // Doesn't need to propagate down a chain, call on head filter
   void detachHandlerFromSink(std::unique_ptr<HTTPSink> sink) noexcept {
-    CHECK_EQ(prev_.index(), 1);
+    PRX_CHECK_EQ(prev_.index(), 1u);
     auto prev = std::get<HTTPSink*>(prev_);
     if (prev) {
       // prev points to the transaction, detach the handler from the
       // transaction.
-      CHECK_EQ(prev, sink.get());
+      PRX_CHECK_EQ(prev, sink.get());
       prev->detachAndAbortIfIncomplete(std::move(sink));
       // Set the pointer to nullptr. It is not safe to use the pointer since
       // after this the transaction can be destroyed without notifying the

@@ -7,7 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/transport/CoroSSLTransport.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/io/Cursor.h>
 #include <folly/io/async/ssl/BasicTransportCertificate.h>
@@ -27,9 +27,9 @@ constexpr int CORO_SSL_TRANSPORT_RETRY = -1;
 
 CoroSSLTransport* transportFromBio(BIO* bio) {
   auto appData = OpenSSLUtils::getBioAppData(bio);
-  XCHECK(appData);
+  PRX_CHECK(appData);
   auto* transport = reinterpret_cast<CoroSSLTransport*>(appData);
-  XCHECK(transport);
+  PRX_CHECK(transport);
   return transport;
 }
 
@@ -183,7 +183,7 @@ folly::coro::Task<CoroSSLTransport::IOResult> waitForIO(
   currentDeadline.reset();
   if (res == TimedBaton::Status::cancelled) {
     // This can happen with outstanding writes in closeWithReset
-    XLOG(DBG6) << "IO wait cancelled";
+    PRX_VLOG(6) << "IO wait cancelled";
     co_yield folly::coro::co_error(folly::AsyncSocketException(
         folly::AsyncSocketException::CANCELED, "IO wait cancelled"));
   } else if (res == TimedBaton::Status::timedout) {
@@ -247,16 +247,16 @@ folly::coro::Task<void> CoroSSLTransport::connect(
     static const folly::Indestructible<AsyncSocketException> ex(
         AsyncSocketException::INTERNAL_ERROR,
         "error calling SSLContext::createSSL()");
-    XLOG(ERR) << "CoroSSLTransport::connect(this=" << this
-              << "): " << ex->what();
+    PRX_LOG(ERROR) << "CoroSSLTransport::connect(this=" << this
+                   << "): " << ex->what();
     throw(*ex);
   }
 
   if (!setupSSLBio()) {
     static const folly::Indestructible<AsyncSocketException> ex(
         AsyncSocketException::INTERNAL_ERROR, "error creating SSL bio");
-    XLOG(ERR) << "CoroSSLTransport::connect(this=" << this
-              << "): " << ex->what();
+    PRX_LOG(ERROR) << "CoroSSLTransport::connect(this=" << this
+                   << "): " << ex->what();
     co_yield folly::coro::co_error(*ex);
   }
 
@@ -264,8 +264,8 @@ folly::coro::Task<void> CoroSSLTransport::connect(
     static const folly::Indestructible<AsyncSocketException> ex(
         AsyncSocketException::INTERNAL_ERROR,
         "error applying the SSL verification options");
-    XLOG(ERR) << "CoroSSLTransport::connect(this=" << this
-              << "): " << ex->what();
+    PRX_LOG(ERROR) << "CoroSSLTransport::connect(this=" << this
+                   << "): " << ex->what();
     co_yield folly::coro::co_error(*ex);
   }
 
@@ -299,7 +299,7 @@ folly::coro::Task<void> CoroSSLTransport::doConnect(
       folly::annotate_ignore_thread_sanitizer_guard g(__FILE__, __LINE__);
       ret = SSL_connect(ssl_.get());
     }
-    XLOG(DBG6) << "SSL_connect returned=" << ret;
+    PRX_VLOG(6) << "SSL_connect returned=" << ret;
     if (ret <= 0) {
       auto res = co_await folly::coro::co_withCancellation(
           cancellationSource_.getToken(),
@@ -309,7 +309,7 @@ folly::coro::Task<void> CoroSSLTransport::doConnect(
             AsyncSocketException::END_OF_FILE, "EOF during handshake"));
       }
     } else {
-      XLOG(DBG3) << "CoroSSLTransport " << this << ": successfully connected";
+      PRX_VLOG(3) << "CoroSSLTransport " << this << ": successfully connected";
       co_return;
     }
   }
@@ -319,7 +319,8 @@ bool CoroSSLTransport::applyVerificationOptions(
     const folly::ssl::SSLUniquePtr& ssl) {
   // apply the settings specified in verifyPeer_
   if (verifyPeer_ == folly::SSLContext::SSLVerifyPeerEnum::USE_CTX) {
-    XLOG_IF(WARNING, transportOptions_.verifier) << "Verifier set but ignored";
+    PRX_LOG_IF(WARNING, transportOptions_.verifier)
+        << "Verifier set but ignored";
     if (ctx_->needsPeerVerification()) {
       if (ctx_->checkPeerName()) {
         std::string peerNameToVerify =
@@ -377,8 +378,8 @@ int CoroSSLTransport::sslVerifyCallback(int preverifyOk,
       x509Ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
   auto* self = getCoroSSLTransportFromSSL(ssl);
 
-  XLOG(DBG3) << "CoroSSLTransport::sslVerifyCallback() this=" << self << ", "
-             << ", preverifyOk=" << preverifyOk;
+  PRX_VLOG(3) << "CoroSSLTransport::sslVerifyCallback() this=" << self << ", "
+              << ", preverifyOk=" << preverifyOk;
 
   if (!preverifyOk) {
     // OpenSSL verification failure, no need to call CertificateIdentityVerifier
@@ -406,8 +407,9 @@ int CoroSSLTransport::sslVerifyCallback(int preverifyOk,
     self->peerCertData_ = std::move(verifiedCert);
   } catch (folly::CertificateIdentityVerifierException& e) {
 
-    XLOG(ERR) << "CoroSSLTransport::sslVerifyCallback(this=" << self
-              << ") Failed to verify leaf certificate identity(ies): " << e;
+    PRX_LOG(ERROR)
+        << "CoroSSLTransport::sslVerifyCallback(this=" << self
+        << ") Failed to verify leaf certificate identity(ies): " << e;
     return 0;
   }
 
@@ -417,7 +419,7 @@ int CoroSSLTransport::sslVerifyCallback(int preverifyOk,
 folly::coro::Task<size_t> CoroSSLTransport::read(
     folly::MutableByteRange buf, std::chrono::milliseconds timeout) {
   SCOPE_EXIT {
-    XLOG(DBG6) << "read complete";
+    PRX_VLOG(6) << "read complete";
   };
   if (buf.size() == 0) {
     co_return 0;
@@ -429,7 +431,7 @@ folly::coro::Task<size_t> CoroSSLTransport::read(
   auto readDeadline = deadlineFromTimeout(timeout);
   while (true) {
     auto ret = SSL_read(ssl_.get(), buf.data(), buf.size());
-    XLOG(DBG6) << "SSL_read returned=" << ret;
+    PRX_VLOG(6) << "SSL_read returned=" << ret;
     if (ret <= 0) {
       auto res = co_await folly::coro::co_withCancellation(
           cancellationSource_.getToken(),
@@ -459,7 +461,7 @@ folly::coro::Task<size_t> CoroSSLTransport::read(
 folly::coro::Task<CoroSSLTransport::IOResult>
 CoroSSLTransport::handleReturnMaybeIO(
     int ret, std::optional<std::chrono::steady_clock::time_point> deadline) {
-  XLOG(DBG6) << "handleReturnMaybeIO";
+  PRX_VLOG(6) << "handleReturnMaybeIO";
   int sslError;
   unsigned long errError;
   int errnoCopy = errno;
@@ -483,26 +485,27 @@ CoroSSLTransport::handleReturnMaybeIO(
 bool CoroSSLTransport::willBlock(int ret,
                                  int* sslErrorOut,
                                  unsigned long* errErrorOut) noexcept {
-  XLOG(DBG6) << "willBlock";
+  PRX_VLOG(6) << "willBlock";
   *errErrorOut = 0;
   int error = *sslErrorOut = SSL_get_error(ssl_.get(), ret);
   if (error == SSL_ERROR_WANT_READ) {
-    XLOG(DBG6) << "CoroSSLTransport(" << this << "): SSL_ERROR_WANT_READ";
+    PRX_VLOG(6) << "CoroSSLTransport(" << this << "): SSL_ERROR_WANT_READ";
     return true;
   }
   if (error == SSL_ERROR_WANT_WRITE) {
-    XLOG(DBG6) << "CoroSSLTransport(" << this << "): SSL_ERROR_WANT_WRITE";
+    PRX_VLOG(6) << "CoroSSLTransport(" << this << "): SSL_ERROR_WANT_WRITE";
     return true;
   }
 
   // No support yet for SSL_ERROR_WANT_ASYNC
   unsigned long lastError = *errErrorOut = ERR_get_error();
-  XLOG(DBG6) << "CoroSSLTransport(" << this << "): SSL error: " << error << ", "
-             << "errno: " << errno << ", " << "ret: " << ret << ", "
-             << "read: " << BIO_number_read(SSL_get_rbio(ssl_.get())) << ", "
-             << "written: " << BIO_number_written(SSL_get_wbio(ssl_.get()))
-             << ", " << "func: " << ERR_func_error_string(lastError) << ", "
-             << "reason: " << ERR_reason_error_string(lastError);
+  PRX_VLOG(6) << "CoroSSLTransport(" << this << "): SSL error: " << error
+              << ", "
+              << "errno: " << errno << ", " << "ret: " << ret << ", "
+              << "read: " << BIO_number_read(SSL_get_rbio(ssl_.get())) << ", "
+              << "written: " << BIO_number_written(SSL_get_wbio(ssl_.get()))
+              << ", " << "func: " << ERR_func_error_string(lastError) << ", "
+              << "reason: " << ERR_reason_error_string(lastError);
   return false;
 }
 
@@ -537,8 +540,8 @@ int CoroSSLTransport::bioRead(char* buf, size_t sz) {
   }
   folly::io::Cursor cursor(transportReadBuf_.front());
   auto nRead = cursor.pullAtMost(buf, sz);
-  XLOG(DBG6) << "transportReadBuf_ size=" << transportReadBuf_.chainLength()
-             << " returning nRead=" << nRead;
+  PRX_VLOG(6) << "transportReadBuf_ size=" << transportReadBuf_.chainLength()
+              << " returning nRead=" << nRead;
   transportReadBuf_.trimStart(nRead);
   return nRead;
 }
@@ -562,7 +565,7 @@ folly::coro::Task<folly::Unit> CoroSSLTransport::writeImpl(
     WriteInfo* writeInfo,
     bool writev) {
   if (!writev) {
-    XCHECK_EQ(writers_, 0UL) << "One write at a time please";
+    PRX_CHECK_EQ(writers_, 0UL) << "One write at a time please";
   }
   co_await folly::coro::co_safe_point;
   auto deadline = deadlineFromTimeout(timeout);
@@ -575,7 +578,7 @@ folly::coro::Task<folly::Unit> CoroSSLTransport::writeImpl(
       // bioWrite gets the timeout from here
       writesBlocked_.setTimeout(timeoutFromDeadline(deadline));
       auto rc = SSL_write(ssl_.get(), buf.data(), buf.size());
-      XLOG(DBG6) << "SSL_write returned=" << rc;
+      PRX_VLOG(6) << "SSL_write returned=" << rc;
       if (rc <= 0) {
         auto res = co_await handleReturnMaybeIO(rc, deadline);
         if (res == IOResult::EndOfFile) {
@@ -583,7 +586,7 @@ folly::coro::Task<folly::Unit> CoroSSLTransport::writeImpl(
               AsyncSocketException::END_OF_FILE, "EOF during write"));
         }
       } else {
-        XCHECK_EQ(static_cast<size_t>(rc), buf.size());
+        PRX_CHECK_EQ(static_cast<size_t>(rc), buf.size());
         break;
       }
     }
@@ -606,7 +609,7 @@ folly::coro::Task<folly::Unit> CoroSSLTransport::write(
     co_yield folly::coro::co_error(folly::AsyncSocketException(
         AsyncSocketException::END_OF_FILE, "write after shutdownWrite"));
   }
-  XCHECK_EQ(writers_, 0UL) << "One write at a time please";
+  PRX_CHECK_EQ(writers_, 0UL) << "One write at a time please";
   auto deadline = deadlineFromTimeout(timeout);
   do {
     // TODO: If data is smaller than kMinSSLWriteSize, we could skip the extra
@@ -645,11 +648,11 @@ int CoroSSLTransport::bioWrite(const char* buf, size_t sz) {
   // Maybe change Transport::write to do the setup inline
   int ret = sz;
   try {
-    XLOG(DBG6) << "transport_->write sz=" << sz;
+    PRX_VLOG(6) << "transport_->write sz=" << sz;
     if (transportBytesOutstanding_ > kMaxBufferSize) {
       if (writesBlocked_.getStatus() != TimedBaton::Status::notReady) {
-        XLOG(DBG6) << "Blocking writes, transportBytesOutstanding_="
-                   << transportBytesOutstanding_;
+        PRX_VLOG(6) << "Blocking writes, transportBytesOutstanding_="
+                    << transportBytesOutstanding_;
         writesBlocked_.reset();
       }
       return CORO_SSL_TRANSPORT_RETRY;
@@ -665,20 +668,20 @@ int CoroSSLTransport::bioWrite(const char* buf, size_t sz) {
         .via(getEventBase())
         .thenTry([this, sz, deleted = deleted_](
                      folly::Try<folly::Unit> result) {
-          XLOG(DBG6) << "Write completed sz=" << sz;
+          PRX_VLOG(6) << "Write completed sz=" << sz;
           if (!*deleted) {
-            XCHECK_GE(transportBytesOutstanding_, sz);
+            PRX_CHECK_GE(transportBytesOutstanding_, sz);
             transportBytesOutstanding_ -= sz;
-            XLOG(DBG6) << "transportBytesOutstanding_="
-                       << transportBytesOutstanding_;
+            PRX_VLOG(6) << "transportBytesOutstanding_="
+                        << transportBytesOutstanding_;
             if (result.hasException()) {
-              XLOG(ERR) << "Write error ex=" << result.exception().what();
+              PRX_LOG(ERROR) << "Write error ex=" << result.exception().what();
               transport_->closeWithReset();
               return;
             }
             if (transportBytesOutstanding_ <= kMaxBufferSize &&
                 writesBlocked_.getStatus() == TimedBaton::Status::notReady) {
-              XLOG(DBG6) << "Resuming writes";
+              PRX_VLOG(6) << "Resuming writes";
               writesBlocked_.signal();
             }
             if (pendingShutdown_) {
@@ -688,7 +691,7 @@ int CoroSSLTransport::bioWrite(const char* buf, size_t sz) {
         });
   } catch (const std::exception& ex) {
     // This is a catch-all so we don't jump past OpenSSL code
-    XLOG(ERR) << ex.what();
+    PRX_LOG(ERROR) << ex.what();
     return -1;
   }
   return ret;
@@ -731,17 +734,17 @@ void CoroSSLTransport::shutdownWrite() {
     if (writers_ > 0 || transportBytesOutstanding_ > 0) {
       // Can't call SSL_shutdown until SSL_write calls finish and flush
       if (!pendingShutdown_) {
-        XLOG(DBG6) << "Delayed shutdown with pending writes";
+        PRX_VLOG(6) << "Delayed shutdown with pending writes";
         pendingShutdown_ = true;
       }
       return;
     }
     pendingShutdown_ = false;
-    XLOG(DBG6) << "SSL_shutdown";
+    PRX_VLOG(6) << "SSL_shutdown";
     int rc = SSL_shutdown(ssl_.get());
     if (rc == 0) {
       // peer's notify has not yet been received
-      XLOG(DBG4) << "SSL writes shutdown";
+      PRX_VLOG(4) << "SSL writes shutdown";
       if (pendingClose_) {
         transport_->close();
       } else {
@@ -750,7 +753,7 @@ void CoroSSLTransport::shutdownWrite() {
     } else if (rc == 1) {
       // fully shutdown.  There shouldn't be a read in progress (would have
       // returned 0 already), but call shutdownRead in case.
-      XLOG(DBG4) << "SSL completely shutdown";
+      PRX_VLOG(4) << "SSL completely shutdown";
       shutdownRead();
       transport_->close();
     } else {
@@ -775,7 +778,7 @@ bool CoroSSLTransport::shutdownRead() {
   // interrupt any read coros
   cancellationSource_.requestCancellation();
   if (ssl_ && (SSL_get_shutdown(ssl_.get()) & SSL_RECEIVED_SHUTDOWN) == 0) {
-    XLOG(DBG6) << "Shutting down reads but CLOSE_NOTIFY not received";
+    PRX_VLOG(6) << "Shutting down reads but CLOSE_NOTIFY not received";
     return false;
   }
   return true;

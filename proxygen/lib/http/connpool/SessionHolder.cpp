@@ -10,6 +10,7 @@
 
 #include <folly/Random.h>
 #include <folly/io/async/AsyncSocket.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::AsyncSocket;
 using folly::SocketAddress;
@@ -24,8 +25,8 @@ SessionHolder::SessionHolder(HTTPSessionBase* sess,
                              Callback* parent,
                              Stats* stats,
                              Endpoint endpoint)
-    : session_(CHECK_NOTNULL(sess)),
-      parent_(CHECK_NOTNULL(parent)),
+    : session_(PRX_CHECK_NOTNULL(sess)),
+      parent_(PRX_CHECK_NOTNULL(parent)),
       stats_(stats),
       jitter_(folly::Random::randDouble(-kJitterPct, kJitterPct)),
       endpoint_(std::move(endpoint)),
@@ -34,9 +35,9 @@ SessionHolder::SessionHolder(HTTPSessionBase* sess,
 }
 
 SessionHolder::~SessionHolder() {
-  CHECK(state_ == ListState::DETACHED);
-  CHECK(!listHook.is_linked());
-  CHECK(!secondaryListHook.is_linked());
+  PRX_CHECK(state_ == ListState::DETACHED);
+  PRX_CHECK(!listHook.is_linked());
+  PRX_CHECK(!secondaryListHook.is_linked());
 }
 
 bool SessionHolder::isPoolable(const HTTPSessionBase* sess) {
@@ -67,7 +68,7 @@ std::chrono::steady_clock::time_point SessionHolder::getLastUseTime() const {
 }
 
 void SessionHolder::drain() {
-  VLOG(4) << "draining holder=" << *this;
+  PRX_VLOG(4) << "draining holder=" << *this;
   if (state_ != ListState::DETACHED) {
     unlink();
   }
@@ -107,8 +108,8 @@ void SessionHolder::closeWithReset() {
 }
 
 void SessionHolder::unlink() {
-  CHECK(parent_);
-  CHECK(listHook.is_linked());
+  PRX_CHECK(parent_);
+  PRX_CHECK(listHook.is_linked());
 
   switch (state_) {
     case ListState::IDLE:
@@ -121,19 +122,20 @@ void SessionHolder::unlink() {
       parent_->detachFilled(this);
       break;
     case ListState::DETACHED:
-      LOG(FATAL) << "Inconsistentency between listHook.is_linked() and state_";
+      PRX_LOG(FATAL)
+          << "Inconsistentency between listHook.is_linked() and state_";
   }
   state_ = ListState::DETACHED;
 }
 
 void SessionHolder::link() {
-  CHECK(state_ == ListState::DETACHED);
+  PRX_CHECK(state_ == ListState::DETACHED);
   if (!parent_) {
     return;
   }
 
   if (!isPoolable(session_)) {
-    VLOG(4) << *this << " Not pooling session since it is not poolable";
+    PRX_VLOG(4) << *this << " Not pooling session since it is not poolable";
     drain();
     return;
   }
@@ -153,7 +155,7 @@ void SessionHolder::link() {
 }
 
 void SessionHolder::onCreate(const HTTPSessionBase&) {
-  LOG(FATAL) << "onCreate() should not be reachable.";
+  PRX_LOG(FATAL) << "onCreate() should not be reachable.";
 }
 
 void SessionHolder::onIngressError(const HTTPSessionBase& session,
@@ -229,7 +231,7 @@ void SessionHolder::onDestroy(const HTTPSessionBase& session) {
   if (originalSessionInfoCb_) {
     originalSessionInfoCb_->onDestroy(session);
   }
-  VLOG(4) << *this << " connection to server was destroyed";
+  PRX_VLOG(4) << *this << " connection to server was destroyed";
   delete this;
 }
 
@@ -366,7 +368,7 @@ void SessionHolder::describe(std::ostream& os) const {
 }
 
 void SessionHolder::handleTransactionDetached() {
-  CHECK(state_ != ListState::DETACHED);
+  PRX_CHECK(state_ != ListState::DETACHED);
   unlink();
   link();
 }

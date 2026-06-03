@@ -10,7 +10,7 @@
 
 #include <folly/Indestructible.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 
@@ -140,7 +140,7 @@ namespace proxygen {
  */
 bool QPACKStaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
     HTTPHeaderCode /*headerCode*/) {
-  LOG(FATAL) << __func__ << " not supported for QPACK";
+  PRX_LOG(FATAL) << __func__ << " not supported for QPACK";
 }
 
 const StaticHeaderTable& QPACKStaticHeaderTable::get() {

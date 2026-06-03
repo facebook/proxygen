@@ -9,8 +9,8 @@
 #pragma once
 
 #include <chrono>
-#include <folly/logging/xlog.h>
 #include <glog/stl_logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <stdint.h>
 #include <vector>
 

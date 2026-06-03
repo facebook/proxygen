@@ -11,6 +11,7 @@
 #include <fizz/backend/openssl/certificate/CertUtils.h>
 #include <fizz/client/PskCache.h>
 #include <fizz/client/PskSerializationUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <wangle/client/persistence/FilePersistentCache.h>
 
 namespace proxygen {
@@ -63,7 +64,7 @@ class PersistentFizzPskCache : public fizz::client::PskCache {
                             err);
         return deserialized;
       } catch (const std::exception& ex) {
-        LOG(ERROR) << "Error deserializing PSK: " << ex.what();
+        PRX_LOG(ERROR) << "Error deserializing PSK: " << ex.what();
         cache_.remove(identity);
       }
     }
@@ -91,7 +92,7 @@ class PersistentFizzPskCache : public fizz::client::PskCache {
         }
         return deserialized;
       } catch (const std::exception& ex) {
-        LOG(ERROR) << "Error deserializing PSK: " << ex.what();
+        PRX_LOG(ERROR) << "Error deserializing PSK: " << ex.what();
         cache_.remove(identity);
       }
     }

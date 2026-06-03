@@ -19,6 +19,7 @@
 #include "proxygen/lib/http/coro/filters/FilterFactory.h"
 #include "proxygen/lib/http/coro/filters/MutateFilter.h"
 #include "proxygen/lib/http/coro/test/Mocks.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro::test {
 
@@ -111,7 +112,7 @@ class HTTPFilterFactoryHandlerTests : public ::testing::Test {
           .onHeaders([this](std::unique_ptr<HTTPMessage> msg,
                             bool /*final*/,
                             bool /*eom*/) {
-            CHECK(msg);
+            PRX_CHECK(msg);
             const auto& headers = msg->getHeaders();
             EXPECT_EQ(headers.getSingleOrEmpty("req-filter"),
                       expectedReqFilterValue_);

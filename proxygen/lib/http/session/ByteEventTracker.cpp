@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/session/ByteEventTracker.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -24,7 +25,7 @@ void ByteEventTracker::absorb(ByteEventTracker&& other) {
 bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
                                          uint64_t bytesWritten) {
   // update our local cache of the number of bytes written so far
-  DCHECK(bytesWritten >= bytesWritten_);
+  PRX_DCHECK(bytesWritten >= bytesWritten_);
   bytesWritten_ = bytesWritten;
 
   while (!byteEvents_.empty() &&
@@ -68,7 +69,7 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
     if (event.callback_) {
       event.callback_(event);
     }
-    VLOG(5) << " removing ByteEvent " << event;
+    PRX_VLOG(5) << " removing ByteEvent " << event;
     // explicitly remove from the list, in case delete event triggers a
     // callback that would absorb this ByteEventTracker.
     byteEvents_.pop_front_and_dispose([](ByteEvent* event) { delete event; });
@@ -90,7 +91,7 @@ size_t ByteEventTracker::drainByteEvents() {
 void ByteEventTracker::addLastByteEvent(HTTPTransaction* txn,
                                         uint64_t byteNo,
                                         ByteEvent::Callback callback) noexcept {
-  VLOG(5) << " adding last byte event for " << byteNo;
+  PRX_VLOG(5) << " adding last byte event for " << byteNo;
   auto* event =
       new TransactionByteEvent(byteNo, ByteEvent::LAST_BYTE, txn, callback);
   byteEvents_.push_back(*event);
@@ -100,7 +101,7 @@ void ByteEventTracker::addTrackedByteEvent(
     HTTPTransaction* txn,
     uint64_t byteNo,
     ByteEvent::Callback callback) noexcept {
-  VLOG(5) << " adding tracked byte event for " << byteNo;
+  PRX_VLOG(5) << " adding tracked byte event for " << byteNo;
   auto* event =
       new TransactionByteEvent(byteNo, ByteEvent::TRACKED_BYTE, txn, callback);
   byteEvents_.push_back(*event);
@@ -116,8 +117,8 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
   auto i = byteEvents_.rbegin();
   for (; i != byteEvents_.rend(); ++i) {
     if (i->byteOffset_ > bytesScheduled) {
-      VLOG(5) << "pushing back ByteEvent from " << *i << " to "
-              << ByteEvent(i->byteOffset_ + pingSize, i->eventType_);
+      PRX_VLOG(5) << "pushing back ByteEvent from " << *i << " to "
+                  << ByteEvent(i->byteOffset_ + pingSize, i->eventType_);
       i->byteOffset_ += pingSize;
     } else {
       break; // the rest of the events are already scheduled
@@ -131,7 +132,7 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
     byteEvents_.push_back(*be);
   } else {
     --i;
-    CHECK_GT(i->byteOffset_, bytesScheduled);
+    PRX_CHECK_GT(i->byteOffset_, bytesScheduled);
     byteEvents_.insert(i.base(), *be);
   }
 }

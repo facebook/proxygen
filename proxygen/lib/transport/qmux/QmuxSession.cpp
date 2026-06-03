@@ -9,8 +9,8 @@
 #include <proxygen/lib/transport/qmux/QmuxSession.h>
 
 #include <folly/io/coro/Transport.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/transport/qmux/QmuxCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 using namespace proxygen::qmux;
@@ -25,11 +25,11 @@ struct QmuxEventVisitor : proxygen::detail::WtEventVisitor {
   using WtEventVisitor::operator();
 
   void operator()(WtStreamManager::DrainSession) const noexcept {
-    XLOG(DBG6) << "QmuxEventVisitor DrainSession (no-op)";
+    PRX_VLOG(6) << "QmuxEventVisitor DrainSession (no-op)";
   }
 
   void operator()(WtStreamManager::CloseSession cs) noexcept {
-    XLOG(DBG6) << "QmuxEventVisitor cs.err=" << cs.err << " cs.msg=" << cs.msg;
+    PRX_VLOG(6) << "QmuxEventVisitor cs.err=" << cs.err << " cs.msg=" << cs.msg;
     sessionClosed = true;
     writeConnectionClose(egress,
                          QxConnectionClose{.errorCode = cs.err,
@@ -58,8 +58,8 @@ class QmuxCallback : public QmuxCodec::Callback {
 
   // QMUX-specific callbacks
   void onConnectionClose(QxConnectionClose c) noexcept override {
-    XLOG(DBG6) << __func__ << "; err=" << c.errorCode
-               << "; reason=" << c.reasonPhrase;
+    PRX_VLOG(6) << __func__ << "; err=" << c.errorCode
+                << "; reason=" << c.reasonPhrase;
     sm_.onCloseSession(
         WtStreamManager::CloseSession{.err = static_cast<uint64_t>(c.errorCode),
                                       .msg = std::move(c.reasonPhrase)});
@@ -69,21 +69,21 @@ class QmuxCallback : public QmuxCodec::Callback {
   // runs, so any TP frame reaching the steady-state codec is a peer protocol
   // violation.
   void onTransportParameters(QxTransportParams) noexcept override {
-    XLOG(DFATAL) << "unexpected QX_TRANSPORT_PARAMETERS after handshake";
+    PRX_LOG(DFATAL) << "unexpected QX_TRANSPORT_PARAMETERS after handshake";
   }
 
   void onPing(QxPing p) noexcept override {
-    XLOG(DBG6) << __func__ << "; seq=" << p.sequenceNumber;
+    PRX_VLOG(6) << __func__ << "; seq=" << p.sequenceNumber;
     session_.pendingPongs_.emplace_back(p);
     session_.wtSmEgressCb.waitForEvent.signal();
   }
 
   void onPong(QxPing p) noexcept override {
-    XLOG(DBG6) << __func__ << "; seq=" << p.sequenceNumber;
+    PRX_VLOG(6) << __func__ << "; seq=" << p.sequenceNumber;
   }
 
   void onConnectionError(QmuxErrorCode err) noexcept override {
-    XLOG(DBG6) << __func__ << "; err=" << static_cast<uint32_t>(err);
+    PRX_VLOG(6) << __func__ << "; err=" << static_cast<uint32_t>(err);
     sm_.onCloseSession(
         WtStreamManager::CloseSession{.err = 0, .msg = "onConnectionError"});
   }
@@ -93,7 +93,7 @@ class QmuxCallback : public QmuxCodec::Callback {
   // dropped when they cannot be promptly delivered, so dropping when no
   // handler is attached is acceptable.
   void onDatagram(DatagramCapsule dgram) noexcept override {
-    XLOG(DBG6) << __func__;
+    PRX_VLOG(6) << __func__;
     if (auto* handler = session_.wtHandler_) {
       handler->onDatagram(std::move(dgram.httpDatagramPayload));
     }
@@ -146,7 +146,7 @@ proxygen::detail::WtExpected<folly::Unit>::Type QmuxSession::sendDatagram(
 }
 
 void QmuxSession::start(Ptr self) {
-  XLOG(DBG4) << "QmuxSession::start dir=" << (peerAddr_.describe());
+  PRX_VLOG(4) << "QmuxSession::start dir=" << (peerAddr_.describe());
   if (wtHandler_) {
     wtHandler_->onWebTransportSession(self);
   }
@@ -157,7 +157,7 @@ void QmuxSession::start(Ptr self) {
 }
 
 folly::coro::Task<void> QmuxSession::readLoop(Ptr self) {
-  XLOG(DBG4) << "QmuxSession::readLoop started dir=" << peerAddr_.describe();
+  PRX_VLOG(4) << "QmuxSession::readLoop started dir=" << peerAddr_.describe();
   QmuxCallback qmuxCallback{sm, *self, *self};
   QmuxCodec codec{&qmuxCallback,
                   [&sm = this->sm](uint64_t streamId, uint64_t offset) {
@@ -184,7 +184,7 @@ folly::coro::Task<void> QmuxSession::readLoop(Ptr self) {
                            /*newAllocationSize=*/4000,
                            /*timeout=*/std::chrono::milliseconds(0)));
       if (readRes.hasException()) {
-        XLOG(DBG4) << __func__ << "; ex=" << readRes.exception();
+        PRX_VLOG(4) << __func__ << "; ex=" << readRes.exception();
         break;
       }
       eom = (*readRes == 0);
@@ -201,7 +201,7 @@ folly::coro::Task<void> QmuxSession::readLoop(Ptr self) {
     }
   }
   idleTimeout_.cancelTimeout();
-  XLOG(DBG4) << "QmuxSession::readLoop exiting";
+  PRX_VLOG(4) << "QmuxSession::readLoop exiting";
   sm.shutdown(WtStreamManager::CloseSession{.err = 0x00,
                                             .msg = "stream ingress closed"});
   readLoopFinished();
@@ -219,14 +219,14 @@ void QmuxSession::resetIdleTimeout() {
 }
 
 void QmuxSession::onIdleTimeout() {
-  XLOG(DBG4) << "QmuxSession::onIdleTimeout sess=" << this
-             << " effectiveMaxIdleTimeoutMs=" << effectiveMaxIdleTimeoutMs_;
+  PRX_VLOG(4) << "QmuxSession::onIdleTimeout sess=" << this
+              << " effectiveMaxIdleTimeoutMs=" << effectiveMaxIdleTimeoutMs_;
   cs_.requestCancellation();
   sm.shutdown(WtStreamManager::CloseSession{.err = 0, .msg = "idle timeout"});
 }
 
 folly::coro::Task<void> QmuxSession::writeLoop(Ptr self) {
-  XLOG(DBG4) << "QmuxSession::writeLoop started dir=" << peerAddr_.describe();
+  PRX_VLOG(4) << "QmuxSession::writeLoop started dir=" << peerAddr_.describe();
   folly::IOBufQueue egressBuf{folly::IOBufQueue::cacheChainLength()};
   QmuxEventVisitor eventVisitor{
       {.egress = egressBuf, .protocol = FrameProtocol::QMUX}};
@@ -235,11 +235,11 @@ folly::coro::Task<void> QmuxSession::writeLoop(Ptr self) {
   // sessionClosed flips to true once the visitor has serialized a
   // QxConnectionClose for sm's CloseSession event.
   while (!eventVisitor.sessionClosed) {
-    XLOG(DBG6) << "waiting for WtStreamManager event";
+    PRX_VLOG(6) << "waiting for WtStreamManager event";
     co_await waitForEventBaton.wait();
     waitForEventBaton.reset();
 
-    XLOG(DBG6) << "received WtStreamManager event";
+    PRX_VLOG(6) << "received WtStreamManager event";
     // Always write control frames first
     auto ctrl = sm.moveEvents();
     for (auto& ev : ctrl) {
@@ -259,7 +259,7 @@ folly::coro::Task<void> QmuxSession::writeLoop(Ptr self) {
         self->peerMaxRecordSize_ > kStreamFrameOverhead
             ? self->peerMaxRecordSize_ - kStreamFrameOverhead
             : 0;
-    XCHECK(!(wh && maxStreamData == 0))
+    PRX_CHECK(!(wh && maxStreamData == 0))
         << "peer max_record_size too small. The framer rejects undersized "
            "max_record_size at TP parse time";
     while (wh && egressBuf.chainLength() < kMaxWriteSize) {
@@ -300,7 +300,7 @@ folly::coro::Task<void> QmuxSession::writeLoop(Ptr self) {
       if (writeRes.hasException()) {
         sm.onCloseSession(
             WtStreamManager::CloseSession{.err = 0, .msg = "write error"});
-        XLOG(DBG4) << __func__ << "; ex=" << writeRes.exception();
+        PRX_VLOG(4) << __func__ << "; ex=" << writeRes.exception();
         break;
       }
       // QMux draft "Closing the Connection": endpoints reset the idle
@@ -310,7 +310,7 @@ folly::coro::Task<void> QmuxSession::writeLoop(Ptr self) {
     }
   }
 
-  XLOG(DBG4) << "QmuxSession::writeLoop exiting";
+  PRX_VLOG(4) << "QmuxSession::writeLoop exiting";
   transport_->shutdownWrite();
   writeLoopFinished();
   co_return;

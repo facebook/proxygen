@@ -10,6 +10,7 @@
 
 #include "proxygen/lib/http/coro/HTTPCoroSession.h"
 #include <proxygen/lib/utils/ConditionalGate.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -33,7 +34,7 @@ class ConnectSource : public HTTPSource {
     do {
       auto bodyEvent = co_await co_awaitTry(reqSource_.readBodyEvent(65535));
       if (bodyEvent.hasException()) {
-        XLOG(ERR) << "read exception:" << bodyEvent.exception().what();
+        PRX_LOG(ERROR) << "read exception:" << bodyEvent.exception().what();
         // This will break the server read loop
         transport_->closeWithReset();
         co_return;
@@ -42,19 +43,19 @@ class ConnectSource : public HTTPSource {
           !bodyEvent->event.body.empty()) {
         folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
         writeBuf.append(bodyEvent->event.body.move());
-        XLOG(DBG2) << "Got " << writeBuf.chainLength() << " client bytes";
+        PRX_VLOG(2) << "Got " << writeBuf.chainLength() << " client bytes";
         try {
           co_await transport_->write(writeBuf,
                                      std::chrono::milliseconds(writeTimeout_));
         } catch (const std::exception& ex) {
-          XLOG(ERR) << "Upstream write error: " << ex.what();
+          PRX_LOG(ERROR) << "Upstream write error: " << ex.what();
           transport_->closeWithReset();
           co_return;
         }
       } // else ignore any other events
       eom = bodyEvent->eom;
     } while (!eom);
-    XLOG(DBG2) << "Client read finished";
+    PRX_VLOG(2) << "Client read finished";
     transport_->shutdownWrite();
   }
 
@@ -78,11 +79,11 @@ class ConnectSource : public HTTPSource {
         transport_->read(readBuf, 1500, 4096, readTimeout_)));
     inRead_ = false;
     if (nread.hasException()) {
-      XLOG(ERR) << "read error: " << nread.exception().what();
+      PRX_LOG(ERROR) << "read error: " << nread.exception().what();
       gate_.set(Event::WriteResponseComplete);
       co_yield folly::coro::co_error(std::move(nread.exception()));
     }
-    XLOG(DBG2) << "Got " << *nread << " server bytes";
+    PRX_VLOG(2) << "Got " << *nread << " server bytes";
     if (*nread == 0) {
       gate_.set(Event::WriteResponseComplete);
     }

@@ -14,8 +14,8 @@ proxygen_add_library(proxygen_http_codec_direction
 proxygen_add_library(proxygen_http_codec_error_code
   SRCS
     ErrorCode.cpp
-  DEPS
-    glog::glog
+  EXPORTED_DEPS
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_codec_util
@@ -23,6 +23,7 @@ proxygen_add_library(proxygen_http_codec_util
     CodecUtil.cpp
   DEPS
     proxygen_http_http_headers
+    proxygen_utils_log_shim
     Folly::folly_string
   EXPORTED_DEPS
     proxygen_http_codec_compress_header_codec
@@ -44,7 +45,6 @@ proxygen_add_library(proxygen_http_codec_codec_common
   DEPS
     Folly::folly_conv
     Folly::folly_string
-    glog::glog
   EXPORTED_DEPS
     proxygen_error
     proxygen_http_codec_compress_fast_header_name
@@ -60,6 +60,7 @@ proxygen_add_library(proxygen_http_codec_codec_common
     proxygen_http_message
     proxygen_utils_export
     proxygen_utils_filter_chain
+    proxygen_utils_log_shim
     Folly::folly_io_iobuf
     Folly::folly_lang_assume
     Folly::folly_optional
@@ -74,6 +75,7 @@ proxygen_add_library(proxygen_http_codec_http1x_codec
   DEPS
     proxygen_http_codec_util
     proxygen_http_http_headers
+    proxygen_utils_log_shim
     Folly::folly_base64
     Folly::folly_random
     Folly::folly_ssl_openssl_hash
@@ -92,6 +94,7 @@ proxygen_add_library(proxygen_http_codec_http2_codec
   DEPS
     proxygen_http_codec_util
     proxygen_http_priority_functions
+    proxygen_utils_log_shim
     proxygen_utils_logging
     Folly::folly_base64
     Folly::folly_conv
@@ -116,12 +119,14 @@ proxygen_add_library(proxygen_http_codec_rate_limit_filters
     proxygen_http_codec_codec_common
     proxygen_http_codec_http2_codec
     proxygen_http_session_stats
+    proxygen_utils_log_shim
     Folly::folly_io_async_async_base
 )
 
 proxygen_add_library(proxygen_http_codec_debug_filter
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
+    proxygen_utils_log_shim
     proxygen_utils_logging
     Folly::folly_container_evicting_cache_map
 )
@@ -139,6 +144,7 @@ proxygen_add_library(proxygen_http_codec_codec_factory
   DEPS
     proxygen_http_codec_http1x_codec
     proxygen_http_codec_http2_codec
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
     proxygen_http_codec_direction
@@ -149,10 +155,10 @@ proxygen_add_library(proxygen_http_codec_h3_early_data_handler
     H3EarlyDataHandler.cpp
   DEPS
     proxygen_http_codec_hq_codec
+    proxygen_utils_log_shim
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
     Folly::folly_io_iobuf
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
     mvfst::mvfst_state_early_data_app_params_handler
@@ -181,6 +187,7 @@ proxygen_add_library(proxygen_http_codec_hq_codec
     proxygen_http_codec_util
     proxygen_http_h3_errors
     proxygen_http_http_utils
+    proxygen_utils_log_shim
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
     Folly::folly_function
@@ -194,6 +201,7 @@ proxygen_add_library(proxygen_http_codec_http_binary_codec
   SRCS
     HTTPBinaryCodec.cpp
   DEPS
+    proxygen_utils_log_shim
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
   EXPORTED_DEPS
@@ -212,8 +220,8 @@ proxygen_add_library(proxygen_http_codec_capsule_codec
   SRCS
     CapsuleCodec.cpp
   DEPS
+    proxygen_utils_log_shim
     mvfst::mvfst_folly_utils
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     Folly::folly_expected
     Folly::folly_io_iobuf

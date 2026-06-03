@@ -9,9 +9,9 @@
 #include <proxygen/lib/http/HQConnector.h>
 
 #include <folly/io/SocketOptionMap.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/H3EarlyDataHandler.h>
 #include <proxygen/lib/http/session/HQSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/common/events/FollyQuicEventBase.h>
 #include <quic/common/udpsocket/FollyQuicAsyncUDPSocket.h>
@@ -26,14 +26,14 @@ namespace proxygen {
 HQConnector::HQConnector(Callback* callback,
                          std::chrono::milliseconds transactionTimeout,
                          bool useConnectionEndWithErrorCallback)
-    : cb_(CHECK_NOTNULL(callback)),
+    : cb_(PRX_CHECK_NOTNULL(callback)),
       transactionTimeout_(transactionTimeout),
       useConnectionEndWithErrorCallback_(useConnectionEndWithErrorCallback) {
-  XLOG(DBG5) << "HQConnector";
+  PRX_VLOG(5) << "HQConnector";
 }
 
 HQConnector::~HQConnector() {
-  XLOG(DBG5) << "~HQConnector";
+  PRX_VLOG(5) << "~HQConnector";
   reset();
 }
 
@@ -45,7 +45,7 @@ std::chrono::microseconds HQConnector::timeElapsed() {
 }
 
 void HQConnector::reset() {
-  XLOG(DBG5) << "reset";
+  PRX_VLOG(5) << "reset";
   if (session_) {
     // This destroys the session
     session_->dropConnection();
@@ -76,8 +76,8 @@ void HQConnector::connect(
     std::shared_ptr<quic::LoopDetectorCallback> quicLoopDetectorCallback,
     std::shared_ptr<quic::QuicTransportStatsCallback>
         quicTransportStatsCallback) {
-  XLOG(DBG5) << "connect, timeout=" << connectTimeout.count() << "ms";
-  DCHECK(!isBusy());
+  PRX_VLOG(5) << "connect, timeout=" << connectTimeout.count() << "ms";
+  PRX_DCHECK(!isBusy());
   auto qEvb = std::make_shared<quic::FollyQuicEventBase>(eventBase);
   auto sock = std::make_unique<quic::FollyQuicAsyncUDPSocket>(qEvb);
   auto quicClient = quic::QuicClientTransport::newClient(
@@ -125,13 +125,13 @@ void HQConnector::connect(
   session_->setEarlyDataHandler(std::move(earlyDataHandler));
   session_->startNow();
 
-  VLOG(4) << "connecting to " << connectAddr.describe();
+  PRX_VLOG(4) << "connecting to " << connectAddr.describe();
   connectStart_ = getCurrentTime();
   quicClient->start(session_, session_);
 }
 
 void HQConnector::onReplaySafe() noexcept {
-  CHECK(session_);
+  PRX_CHECK(session_);
   if (cb_) {
     auto session = session_;
     session_ = nullptr;
@@ -140,8 +140,8 @@ void HQConnector::onReplaySafe() noexcept {
 }
 
 void HQConnector::connectError(quic::QuicError error) noexcept {
-  XLOG(DBG4) << "connectError, error=" << error.code;
-  CHECK(session_);
+  PRX_VLOG(4) << "connectError, error=" << error.code;
+  PRX_CHECK(session_);
   reset();
   if (cb_) {
     cb_->connectError(error.code);

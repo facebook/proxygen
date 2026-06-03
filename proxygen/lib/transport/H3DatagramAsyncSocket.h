@@ -12,6 +12,7 @@
 #include <folly/io/async/AsyncUDPSocket.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/client/QuicClientTransport.h>
 
@@ -89,21 +90,21 @@ class H3DatagramAsyncSocket
   }
 
   void connect(const folly::SocketAddress& address) override {
-    CHECK(options_.mode_ == Mode::CLIENT);
+    PRX_CHECK(options_.mode_ == Mode::CLIENT);
     connectAddress_ = address;
     startClient();
   }
 
   void setFD(folly::NetworkSocket /*fd*/, FDOwnership /*ownership*/) override {
-    LOG(FATAL) << __func__ << " not supported";
+    PRX_LOG(FATAL) << __func__ << " not supported";
   }
 
   void setCmsgs(const folly::SocketCmsgMap& /*cmsgs*/) override {
-    LOG(FATAL) << __func__ << " not supported";
+    PRX_LOG(FATAL) << __func__ << " not supported";
   }
 
   void appendCmsgs(const folly::SocketCmsgMap& /*cmsgs*/) override {
-    LOG(FATAL) << __func__ << " not supported";
+    PRX_LOG(FATAL) << __func__ << " not supported";
   }
 
   ssize_t write(const folly::SocketAddress& address,
@@ -171,7 +172,7 @@ class H3DatagramAsyncSocket
 
   folly::NetworkSocket getNetworkSocket() const override {
     // Not great but better than crashing.
-    VLOG(4) << "getNetworkSocket returning fake socket";
+    PRX_VLOG(4) << "getNetworkSocket returning fake socket";
     return {};
   }
 
@@ -200,7 +201,7 @@ class H3DatagramAsyncSocket
   }
 
   void setBusyPoll(int /*busyPollUs*/) override {
-    VLOG(4) << "busy poll not supported";
+    PRX_VLOG(4) << "busy poll not supported";
   }
 
   void dontFragment(bool /*df*/) override {
@@ -213,7 +214,7 @@ class H3DatagramAsyncSocket
 
   void setErrMessageCallback(ErrMessageCallback*) override {
     // TODO do we want to support this and convey errors this way?
-    VLOG(4) << "err message callback not supported";
+    PRX_VLOG(4) << "err message callback not supported";
   }
 
   bool isBound() const override {
@@ -225,12 +226,12 @@ class H3DatagramAsyncSocket
   }
 
   void detachEventBase() override {
-    LOG(FATAL) << __func__ << " unsupported";
+    PRX_LOG(FATAL) << __func__ << " unsupported";
     folly::assume_unreachable();
   }
 
   void attachEventBase(folly::EventBase* /*evb*/) override {
-    LOG(FATAL) << __func__ << " unsupported";
+    PRX_LOG(FATAL) << __func__ << " unsupported";
     folly::assume_unreachable();
   }
 
@@ -240,13 +241,13 @@ class H3DatagramAsyncSocket
 
   void setOverrideNetOpsDispatcher(
       std::shared_ptr<folly::netops::Dispatcher> /*dispatcher*/) override {
-    LOG(FATAL) << __func__ << " unsupported";
+    PRX_LOG(FATAL) << __func__ << " unsupported";
     folly::assume_unreachable();
   }
 
   std::shared_ptr<folly::netops::Dispatcher> getOverrideNetOpsDispatcher()
       const override {
-    LOG(FATAL) << __func__ << " unsupported";
+    PRX_LOG(FATAL) << __func__ << " unsupported";
     folly::assume_unreachable();
   }
 
@@ -275,7 +276,7 @@ class H3DatagramAsyncSocket
 
   // Set the HTTP/3 Session. for testing only
   void setUpstreamSession(proxygen::HQUpstreamSession* session) {
-    CHECK(!upstreamSession_);
+    PRX_CHECK(!upstreamSession_);
     upstreamSession_ = session;
     upstreamSession_->setConnectCallback(this);
     upstreamSession_->setInfoCallback(this);

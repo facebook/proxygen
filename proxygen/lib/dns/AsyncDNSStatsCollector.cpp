@@ -11,6 +11,7 @@
 #include <folly/Conv.h>
 
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 
 using facebook::fb303::AVG;
 using facebook::fb303::COUNT;
@@ -107,8 +108,8 @@ void AsyncDNSStatsCollector::recordSuccess(
           break;
 
         default:
-          LOG(INFO) << "Ignoring unexpected address family "
-                    << ans.address.getFamily();
+          PRX_LOG(INFO) << "Ignoring unexpected address family "
+                        << ans.address.getFamily();
           break;
       }
     } else if (ans.type == DNSResolver::Answer::AT_CNAME) {
@@ -137,7 +138,7 @@ void AsyncDNSStatsCollector::recordError(
 
   ew.with_exception([&](const DNSResolver::Exception& ex) {
     status = ex.status();
-    LOG_EVERY_N(WARNING, 100) << status << " : " << ex.what();
+    PRX_LOG_EVERY_N(WARNING, 100) << status << " : " << ex.what();
   });
 
   reqs_.add(1);
@@ -167,7 +168,7 @@ void AsyncDNSStatsCollector::recordError(
 void AsyncDNSStatsCollector::recordQueryResult(uint8_t rcode) noexcept {
   // RFC1035 defines the range of rcode values as [0, 16).
   if (rcode > 15) {
-    LOG(DFATAL) << "Invalid rcode: " << rcode;
+    PRX_LOG(DFATAL) << "Invalid rcode: " << rcode;
     return;
   }
 

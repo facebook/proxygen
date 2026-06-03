@@ -10,13 +10,14 @@
 
 #include <folly/io/Cursor.h>
 #include <limits>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::IOBuf;
 
 namespace proxygen {
 
 void ZlibStreamDecompressor::init(CompressionType type) {
-  DCHECK(type_ == CompressionType::NONE) << "Must be uninitialized";
+  PRX_DCHECK(type_ == CompressionType::NONE) << "Must be uninitialized";
   type_ = type;
   status_ = Z_OK;
   zlibStream_.zalloc = Z_NULL;
@@ -28,7 +29,7 @@ void ZlibStreamDecompressor::init(CompressionType type) {
   zlibStream_.avail_out = 0;
   zlibStream_.next_out = Z_NULL;
 
-  DCHECK(type == CompressionType::DEFLATE || type == CompressionType::GZIP);
+  PRX_DCHECK(type == CompressionType::DEFLATE || type == CompressionType::GZIP);
   auto windowBits =
       type_ == CompressionType::GZIP ? GZIP_WINDOW_BITS : DEFLATE_WINDOW_BITS;
   status_ = inflateInit2(&zlibStream_, windowBits);
@@ -61,7 +62,7 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
   size_t offset = 0;
   while (true) {
     // Advance to the next IOBuf if necessary
-    DCHECK_GE(crtBuf->length(), offset);
+    PRX_DCHECK_GE(crtBuf->length(), offset);
     if (crtBuf->length() == offset) {
       crtBuf = crtBuf->next();
       offset = 0;
@@ -75,14 +76,14 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
       // we convert this into a stream error
       status_ = Z_STREAM_ERROR;
       // we should probably bump up a counter here
-      LOG(ERROR) << "error uncompressing buffer: reached end of zlib data "
-                    "before the end of the buffer";
+      PRX_LOG(ERROR) << "error uncompressing buffer: reached end of zlib data "
+                        "before the end of the buffer";
       return nullptr;
     }
 
     // Ensure there is space in the output IOBuf
     appender.ensure(decompressor_buffer_minsize_);
-    DCHECK_GT(appender.length(), 0);
+    PRX_DCHECK_GT(appender.length(), 0u);
 
     const size_t origAvailIn = crtBuf->length() - offset;
     zlibStream_.next_in = const_cast<uint8_t*>(crtBuf->data() + offset);
@@ -91,7 +92,7 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
     zlibStream_.avail_out = appender.length();
     status_ = inflate(&zlibStream_, Z_PARTIAL_FLUSH);
     if (status_ != Z_OK && status_ != Z_STREAM_END) {
-      LOG(INFO) << "error uncompressing buffer: r=" << status_;
+      PRX_LOG(INFO) << "error uncompressing buffer: r=" << status_;
       return nullptr;
     }
 

@@ -11,6 +11,7 @@
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/lib/utils/CompressionFilterUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -33,8 +34,8 @@ class CompressionFilter : public Filter {
   CompressionFilter& operator=(CompressionFilter&&) = delete;
 
   void sendHeaders(HTTPMessage& msg) noexcept override {
-    DCHECK(compressor_ == nullptr);
-    DCHECK(header_ == false);
+    PRX_DCHECK(compressor_ == nullptr);
+    PRX_DCHECK(header_ == false);
 
     chunked_ = msg.getIsChunked();
     compress_ = CompressionFilterUtils::shouldCompress(msg, params_);
@@ -63,7 +64,7 @@ class CompressionFilter : public Filter {
 
   void sendChunkHeader(size_t len) noexcept override {
     // The headers should have always been sent since the message is chunked
-    DCHECK_EQ(header_, true) << "Headers should have already been sent.";
+    PRX_DCHECK_EQ(header_, true) << "Headers should have already been sent.";
 
     // If not compressing, pass downstream, otherwise "swallow" it
     // to send after compressing the body.
@@ -79,12 +80,12 @@ class CompressionFilter : public Filter {
   void sendBody(std::unique_ptr<folly::IOBuf> body) noexcept override {
     // If not compressing, pass the body through
     if (!compress_) {
-      DCHECK(header_ == true);
+      PRX_DCHECK(header_ == true);
       Filter::sendBody(std::move(body));
       return;
     }
 
-    CHECK(compressor_ && !compressor_->hasError());
+    PRX_CHECK(compressor_ && !compressor_->hasError());
 
     // If it's chunked, never write the trailer, it will be written on EOM
     auto compressed = compressor_->compress(body.get(), !chunked_);
@@ -99,8 +100,8 @@ class CompressionFilter : public Filter {
       Filter::sendChunkHeader(compressedBodyLength);
     } else {
       // Send the content length on compressed, non-chunked messages
-      DCHECK(header_ == false);
-      DCHECK(compress_ == true);
+      PRX_DCHECK(header_ == false);
+      PRX_DCHECK(compress_ == true);
       auto& headers = responseMessage_->getHeaders();
       headers.set(HTTP_HEADER_CONTENT_LENGTH,
                   folly::to<std::string>(compressedBodyLength));
@@ -117,7 +118,7 @@ class CompressionFilter : public Filter {
     // Need to send the trailer for compressed chunked messages
     if (compress_ && chunked_) {
       folly::IOBuf emptyBuf{};
-      CHECK(compressor_ && !compressor_->hasError());
+      PRX_CHECK(compressor_ && !compressor_->hasError());
       auto compressed = compressor_->compress(&emptyBuf, true);
 
       if (compressor_->hasError()) {

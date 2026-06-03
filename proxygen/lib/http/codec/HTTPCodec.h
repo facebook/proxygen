@@ -19,6 +19,7 @@
 #include <proxygen/lib/http/codec/TransportDirection.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -304,7 +305,7 @@ class HTTPCodec {
                                 HTTPCodec::StreamID id) {
     switch (protocol) {
       case CodecProtocol::HTTP_1_1:
-        DCHECK_NE(id, 0);
+        PRX_DCHECK_NE(id, 0u);
         return id - 1;
       case CodecProtocol::HTTP_2:
         return id / 2;
@@ -317,7 +318,7 @@ class HTTPCodec {
       case CodecProtocol::TUNNEL_LITE:
         [[fallthrough]];
       default:
-        LOG(FATAL) << "Unreachable";
+        PRX_LOG(FATAL) << "Unreachable";
     }
   }
 

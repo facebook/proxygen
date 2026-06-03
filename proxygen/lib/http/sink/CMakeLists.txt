@@ -15,7 +15,7 @@ proxygen_add_library(proxygen_http_sink_client_sink
     proxygen_http_observer_session_observer_container
     proxygen_http_session_http_transaction
     proxygen_http_sink_client_sink_interface
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_sink_flow_control_info)

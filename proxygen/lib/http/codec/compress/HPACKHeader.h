@@ -10,9 +10,9 @@
 
 #include <folly/Conv.h>
 #include <folly/FBString.h>
-#include <glog/logging.h>
 #include <ostream>
 #include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <string_view>
 
 namespace proxygen {
@@ -64,7 +64,7 @@ class HPACKHeader {
   }
 
   static uint32_t realBytes(uint64_t nameSize, uint64_t valueSize) {
-    DCHECK_LE(nameSize + valueSize, std::numeric_limits<uint32_t>::max());
+    PRX_DCHECK_LE(nameSize + valueSize, std::numeric_limits<uint32_t>::max());
     return folly::tryTo<uint32_t>(nameSize + valueSize)
         .value_or(std::numeric_limits<uint32_t>::max());
   }
@@ -77,8 +77,8 @@ class HPACKHeader {
   }
 
   static uint32_t bytes(uint64_t nameSize, uint64_t valueSize) {
-    DCHECK_LE(kMinLength + nameSize + valueSize,
-              std::numeric_limits<uint32_t>::max());
+    PRX_DCHECK_LE(kMinLength + nameSize + valueSize,
+                  std::numeric_limits<uint32_t>::max());
     return folly::tryTo<uint32_t>(kMinLength + realBytes(nameSize, valueSize))
         .value_or(std::numeric_limits<uint32_t>::max());
   }

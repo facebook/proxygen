@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/Window.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -29,8 +29,8 @@ class WindowContainer {
   }
 
   size_t processed(size_t amount) {
-    XCHECK_LE(amount, std::numeric_limits<uint32_t>::max());
-    XCHECK(recvWindow_.free(uint32_t(amount)));
+    PRX_CHECK_LE(amount, std::numeric_limits<uint32_t>::max());
+    PRX_CHECK(recvWindow_.free(uint32_t(amount)));
     recvToAck_ += amount;
     size_t ret = 0;
     if (recvToAck_ >= kMinThreshold ||
@@ -43,12 +43,12 @@ class WindowContainer {
 
   uint32_t setCapacity(uint32_t capacity) {
     if (capacity < recvWindow_.getCapacity()) {
-      XLOG(ERR) << "Can't shrink window capacity " << capacity << " < "
-                << recvWindow_.getCapacity();
+      PRX_LOG(ERROR) << "Can't shrink window capacity " << capacity << " < "
+                     << recvWindow_.getCapacity();
       return 0;
     } else {
       uint32_t delta = capacity - recvWindow_.getCapacity();
-      XCHECK(recvWindow_.setCapacity(capacity)) << "setCapacity overflow";
+      PRX_CHECK(recvWindow_.setCapacity(capacity)) << "setCapacity overflow";
       return delta;
     }
   }

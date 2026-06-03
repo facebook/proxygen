@@ -8,6 +8,7 @@
 
 #include "proxygen/lib/http/coro/filters/DecompressionFilterFactory.h"
 #include "proxygen/lib/http/coro/filters/DecompressionFilter.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -15,7 +16,7 @@ namespace {
 template <typename Filter>
 Filter* makeDecompressionFilter() {
   auto filter = std::make_unique<Filter>(/*source=*/nullptr);
-  XCHECK(filter);
+  PRX_CHECK(filter);
   filter->setHeapAllocated();
   return filter.release();
 }

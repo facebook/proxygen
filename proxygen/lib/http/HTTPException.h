@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
 #include <proxygen/lib/utils/Exception.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -97,7 +98,7 @@ class HTTPException : public proxygen::Exception {
     codecStatusCode_ = statusCode;
   }
   [[nodiscard]] ErrorCode getCodecStatusCode() const {
-    CHECK(hasCodecStatusCode());
+    PRX_CHECK(hasCodecStatusCode());
     return *codecStatusCode_;
   }
 

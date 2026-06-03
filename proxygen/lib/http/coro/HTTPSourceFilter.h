@@ -9,7 +9,7 @@
 #pragma once
 
 #include "proxygen/lib/http/coro/HTTPSource.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -64,12 +64,12 @@ class HTTPSourceFilter : public HTTPSource {
 
   [[nodiscard]] folly::Optional<uint64_t> getStreamID()
       const noexcept override {
-    XCHECK(source_);
+    PRX_CHECK(source_);
     return source_->getStreamID();
   }
 
   void setReadTimeout(std::chrono::milliseconds timeout) noexcept override {
-    XCHECK(source_);
+    PRX_CHECK(source_);
     source_->setReadTimeout(timeout);
   }
 

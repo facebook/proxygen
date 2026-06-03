@@ -15,6 +15,7 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace folly::io {
 class Cursor;
@@ -119,8 +120,8 @@ class HTTPParallelCodec : public HTTPCodec {
       }
       return true;
     } else {
-      VLOG(3) << "Suppressing " << cbName << " for stream=" << stream
-              << " egressGoawayAck_=" << egressGoawayAck_;
+      PRX_VLOG(3) << "Suppressing " << cbName << " for stream=" << stream
+                  << " egressGoawayAck_=" << egressGoawayAck_;
     }
     return false;
   }

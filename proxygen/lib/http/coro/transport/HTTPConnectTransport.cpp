@@ -7,7 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/transport/HTTPConnectTransport.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::AsyncSocketException;
 using AsyncSocketExceptionType =
@@ -45,7 +45,7 @@ void HTTPConnectTransport::scheduleAsyncRead(
       .startInlineUnsafe(
           [this, ingressSource, deleted = deleted_](
               folly::Try<HTTPBodyEvent> maybeBodyEvent) {
-            XLOG(DBG6) << "async readBodyEvent done";
+            PRX_VLOG(6) << "async readBodyEvent done";
             if (*deleted) {
               return;
             }
@@ -55,7 +55,7 @@ void HTTPConnectTransport::scheduleAsyncRead(
               maybeBodyEvent.emplaceException(AsyncSocketException(
                   AsyncSocketException::INTERNAL_ERROR, httpErr.describe()));
             }
-            XCHECK(bodyEvents_.try_enqueue(std::move(maybeBodyEvent)));
+            PRX_CHECK(bodyEvents_.try_enqueue(std::move(maybeBodyEvent)));
             pendingRead_ = false;
           },
           ct);
@@ -95,7 +95,7 @@ folly::coro::Task<size_t> HTTPConnectTransport::read(
         auto timeoutEx = folly::Try<HTTPBodyEvent>(
             AsyncSocketException(AsyncSocketException::TIMED_OUT,
                                  "Timed out waiting for body event"));
-        XCHECK(transportRef_.bodyEvents_.try_enqueue(std::move(timeoutEx)));
+        PRX_CHECK(transportRef_.bodyEvents_.try_enqueue(std::move(timeoutEx)));
       }
     }
 
@@ -204,7 +204,7 @@ folly::coro::Task<folly::Unit> HTTPConnectTransport::write(
   auto flowState =
       connectStream_->egressSource_->body(std::move(buf), 0, pendingEOM_);
   if (flowState != HTTPStreamSource::FlowControlState::OPEN) {
-    XLOG(DBG4) << "Blocking writes";
+    PRX_VLOG(4) << "Blocking writes";
     flowControlWindowOpen_.reset();
   }
   if (writeInfo) {
@@ -214,7 +214,7 @@ folly::coro::Task<folly::Unit> HTTPConnectTransport::write(
 }
 
 void HTTPConnectTransport::windowOpen(HTTPCodec::StreamID /*id*/) {
-  XLOG(DBG4) << "Resuming writes";
+  PRX_VLOG(4) << "Resuming writes";
   flowControlWindowOpen_.signal();
 }
 

@@ -17,6 +17,7 @@
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
 #include <proxygen/lib/http/codec/test/HQFramerTest.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -87,7 +88,7 @@ class HQCodecTestFixture : public T {
         codec = &downstreamControlCodec_;
         break;
       default:
-        LOG(FATAL) << "Unknown Control Codec type";
+        PRX_LOG(FATAL) << "Unknown Control Codec type";
         break;
     }
     auto ret = codec->onUnidirectionalIngress(queueCtrl_.move());
@@ -340,7 +341,7 @@ void HQCodecTestFixture<T>::qpackTest(bool blocked) {
     EXPECT_EQ(callbacks_.sessionErrors, 0);
   }
   TestStreamingCallback cb;
-  CHECK(!queue_.empty());
+  PRX_CHECK(!queue_.empty());
   upstreamCodec_->generateBody(
       queue_, streamId, folly::IOBuf::copyBuffer("ohai"), 0, false);
   upstreamCodec_->generateEOM(queue_, streamId);
@@ -355,7 +356,7 @@ void HQCodecTestFixture<T>::qpackTest(bool blocked) {
     EXPECT_EQ(callbacks_.sessionErrors, 0);
   }
   EXPECT_EQ(callbacks_.headersComplete, 1);
-  CHECK(callbacks_.msg);
+  PRX_CHECK(callbacks_.msg);
   if (blocked) {
     EXPECT_FALSE(queue_.empty());
     EXPECT_EQ(callbacks_.bodyCalls, 0);
@@ -904,7 +905,7 @@ std::string frameParamsToTestName(
       testName = "Downstream";
       break;
     default:
-      LOG(FATAL) << "Unknown Codec Type";
+      PRX_LOG(FATAL) << "Unknown Codec Type";
   }
   switch (info.param.frameType) {
     case FrameType::DATA:
@@ -980,7 +981,7 @@ TEST_P(HQCodecTestFrameAllowed, FrameAllowedOnCodec) {
       parse();
       break;
     default:
-      CHECK(false);
+      PRX_CHECK(false);
   }
   expectedFrames += GetParam().allowed ? 1 : 0;
   EXPECT_EQ(callbacks_.headerFrames, expectedFrames);
@@ -989,7 +990,7 @@ TEST_P(HQCodecTestFrameAllowed, FrameAllowedOnCodec) {
   // If an error was triggered, check that any additional parse call does not
   // raise another error, and that no new bytes are parsed
   if (!GetParam().allowed) {
-    CHECK(queueCtrl_.chainLength() != 0 || queue_.chainLength() != 0);
+    PRX_CHECK(queueCtrl_.chainLength() != 0 || queue_.chainLength() != 0);
     EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
               HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
     auto lenBefore = 0;
@@ -1012,7 +1013,7 @@ TEST_P(HQCodecTestFrameAllowed, FrameAllowedOnCodec) {
         lenAfter = queue_.chainLength();
         break;
       default:
-        CHECK(false);
+        PRX_CHECK(false);
     }
     EXPECT_EQ(lenBefore, lenAfter);
     EXPECT_EQ(callbacks_.headerFrames, expectedFrames);

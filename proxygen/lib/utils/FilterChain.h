@@ -10,8 +10,8 @@
 
 #include <folly/Function.h>
 #include <folly/Memory.h>
-#include <glog/logging.h>
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 #include <utility>
 
 namespace proxygen {
@@ -217,7 +217,7 @@ class FilterChain : private FilterType {
     static_assert(TakeOwnership,
                   "unique_ptr constructor only available "
                   "if the chain owns the filters.");
-    this->call_ = CHECK_NOTNULL(destination.release());
+    this->call_ = PRX_CHECK_NOTNULL(destination.release());
     this->callback_ = nullptr; // must call setCallback() explicitly
     this->callSource_ = this;
     this->callbackSource_ = this->call_;
@@ -228,7 +228,7 @@ class FilterChain : private FilterType {
     static_assert(!TakeOwnership,
                   "raw pointer constructor only available "
                   "if the chain doesn't own the filters.");
-    this->call_ = CHECK_NOTNULL(destination);
+    this->call_ = PRX_CHECK_NOTNULL(destination);
     this->callback_ = nullptr; // must call setCallback() explicitly
     this->callSource_ = this;
     this->callbackSource_ = this->call_;
@@ -294,7 +294,7 @@ class FilterChain : private FilterType {
     if (lastFilter->kWantsCallbacks_) {
       lastCallback = lastFilter;
     }
-    lastFilter->call_ = CHECK_NOTNULL(destination.release());
+    lastFilter->call_ = PRX_CHECK_NOTNULL(destination.release());
     lastCall->call_ = lastFilter->call_;
     lastCallback->callbackSource_ = lastFilter->call_;
     auto oldChainEnd = this->chainEnd_;

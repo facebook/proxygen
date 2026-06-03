@@ -7,16 +7,17 @@
  */
 
 #include <proxygen/lib/http/codec/compress/HPACKEncoderBase.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
 uint32_t HPACKEncoderBase::handlePendingContextUpdate(HPACKEncodeBuffer& buf,
                                                       uint32_t tableCapacity) {
-  CHECK_EQ(HPACK::TABLE_SIZE_UPDATE.code, HPACK::Q_TABLE_SIZE_UPDATE.code)
+  PRX_CHECK_EQ(HPACK::TABLE_SIZE_UPDATE.code, HPACK::Q_TABLE_SIZE_UPDATE.code)
       << "Code assumes these are equal";
   uint32_t encoded = 0;
   if (pendingContextUpdate_) {
-    VLOG(5) << "Encoding table size update size=" << tableCapacity;
+    PRX_VLOG(5) << "Encoding table size update size=" << tableCapacity;
     encoded = buf.encodeInteger(tableCapacity, HPACK::TABLE_SIZE_UPDATE);
     pendingContextUpdate_ = false;
   }

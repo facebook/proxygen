@@ -11,6 +11,7 @@
 #include <folly/coro/GmockHelpers.h>
 #include <folly/coro/GtestHelpers.h>
 #include <folly/io/async/ScopedEventBaseThread.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro::test {
 
@@ -187,7 +188,7 @@ TEST_F(TestKeepAlive, SimpleMemberAccess) {
   AwaitableNoop obj;
   // default constructed should be empty
   detail::KeepAlivePtr<AwaitableNoop> ka;
-  XCHECK(!ka);
+  PRX_CHECK(!ka);
 
   ka = obj.acquireKeepAlive();
   EXPECT_EQ(ka->val, 0);

@@ -10,6 +10,7 @@
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -51,7 +52,7 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
     while (ibuf.pos < ibuf.size) {
       status_ = ZstdStatusType::CONTINUE;
       appender.ensure(outBufAllocSize);
-      DCHECK_GT(appender.length(), 0);
+      PRX_DCHECK_GT(appender.length(), 0u);
 
       auto prevIbufPos = ibuf.pos;
       ZSTD_outBuffer obuf = {appender.writableData(), appender.length(), 0};

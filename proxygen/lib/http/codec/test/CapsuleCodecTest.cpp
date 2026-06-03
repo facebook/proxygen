@@ -10,6 +10,7 @@
 #include <folly/portability/GTest.h>
 #include <gmock/gmock.h>
 #include <proxygen/lib/http/codec/CapsuleCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/common/BufUtil.h>
 
@@ -63,10 +64,10 @@ quic::BufQueue generateStringCapsule(uint64_t type,
   quic::BufAppender appender(buf.get(), 1024);
   auto typeResult =
       quic::encodeQuicInteger(type, [&](auto val) { appender.writeBE(val); });
-  CHECK(typeResult.has_value());
+  PRX_CHECK(typeResult.has_value());
   auto lengthResult =
       quic::encodeQuicInteger(length, [&](auto val) { appender.writeBE(val); });
-  CHECK(lengthResult.has_value());
+  PRX_CHECK(lengthResult.has_value());
   quic::BufQueue queue(std::move(buf));
   auto str = folly::IOBuf::copyBuffer(value);
   queue.append(std::move(str));
@@ -118,7 +119,7 @@ TEST_F(CapsuleCodecTest, ParseUnderflowLength) {
   quic::BufAppender appender(buf.get(), 1024);
   auto typeResult =
       quic::encodeQuicInteger(0x01, [&](auto val) { appender.writeBE(val); });
-  CHECK(typeResult.has_value());
+  PRX_CHECK(typeResult.has_value());
   quic::BufQueue capsule(std::move(buf));
   EXPECT_CALL(*callback_, onCapsule(_, _)).Times(0);
   EXPECT_CALL(*callback_,
@@ -152,10 +153,10 @@ TEST_F(CapsuleCodecTest, ParseUnderflowAndNotEom) {
   quic::BufAppender appender(buf.get(), 1024);
   auto typeResult =
       quic::encodeQuicInteger(0x01, [&](auto val) { appender.writeBE(val); });
-  CHECK(typeResult.has_value());
+  PRX_CHECK(typeResult.has_value());
   auto lengthResult =
       quic::encodeQuicInteger(3, [&](auto val) { appender.writeBE(val); });
-  CHECK(lengthResult.has_value());
+  PRX_CHECK(lengthResult.has_value());
   quic::BufQueue capsule1(std::move(buf));
   EXPECT_CALL(*callback_, onCapsule(0x01, 3));
   EXPECT_CALL(*callback_, onConnectionError(_)).Times(0);

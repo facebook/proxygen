@@ -15,6 +15,7 @@
 #include "proxygen/lib/http/coro/HTTPSourceHolder.h"
 #include <folly/coro/Sleep.h>
 #include <folly/io/IOBufQueue.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro::test {
 
@@ -242,8 +243,8 @@ class ByteEventFilter : public HTTPSourceFilter {
     auto ev = co_await HTTPSourceFilter::readBodyEventImpl(std::min(max_, max));
     for (auto eventType : HTTPByteEvent::kByteEventTypes) {
       if (bodyEvents_ & folly::to_underlying(eventType)) {
-        XLOG(DBG4) << "registering for event t="
-                   << folly::to_underlying(eventType);
+        PRX_VLOG(4) << "registering for event t="
+                    << folly::to_underlying(eventType);
         HTTPByteEventRegistration reg;
         reg.events = folly::to_underlying(eventType);
 
@@ -290,7 +291,7 @@ class YieldExceptionSource : public HTTPSource {
 
   folly::coro::Task<HTTPBodyEvent> readBodyEvent(
       uint32_t max = std::numeric_limits<uint32_t>::max()) override {
-    XCHECK(stage_ == BodyEvent);
+    PRX_CHECK(stage_ == BodyEvent);
     [[maybe_unused]] auto guard = folly::makeGuard([this] {
       if (heapAllocated_) {
         delete this;

@@ -11,7 +11,7 @@
 #include "proxygen/lib/http/coro/client/HTTPCoroSessionPool.h"
 #include <fizz/client/SynchronizedLruPskCache.h>
 #include <folly/container/EvictingCacheMap.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -67,10 +67,10 @@ class HTTPClientConnectionCache : public HTTPSessionFactory {
   }
 
   void setConnParams(HTTPCoroConnector::ConnectionParams connParams) {
-    XCHECK(connParams.sslContext ||
-           connParams.fizzContextAndVerifier.fizzContext)
+    PRX_CHECK(connParams.sslContext ||
+              connParams.fizzContextAndVerifier.fizzContext)
         << "Must set secure ConnectionParams";
-    XCHECK(!usingProxy() || useConnectForProxy_)
+    PRX_CHECK(!usingProxy() || useConnectForProxy_)
         << "Cannot set connParams with non CONNECT proxy";
     connParams_ = std::move(connParams);
   }

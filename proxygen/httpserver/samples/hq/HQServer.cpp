@@ -20,6 +20,7 @@
 #include <proxygen/httpserver/samples/hq/H1QDownstreamSession.h>
 #include <proxygen/httpserver/samples/hq/HQLoggerHelper.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/server/QuicSharedUDPSocketFactory.h>
 
 using fizz::server::FizzServerContext;
@@ -232,7 +233,7 @@ void HQServerTransportFactory::onQuicTransportReady(
 
 void HQServerTransportFactory::onConnectionSetupError(
     std::shared_ptr<quic::QuicSocket>, quic::QuicError code) {
-  LOG(ERROR) << "Failed to accept QUIC connection: " << code.message;
+  PRX_LOG(ERROR) << "Failed to accept QUIC connection: " << code.message;
 }
 
 wangle::ConnectionManager* HQServerTransportFactory::getConnectionManager(
@@ -319,8 +320,8 @@ HQServer::HQServer(
 
   server_->setQuicExperimentHandlerFn(
       [](quic::QuicConnectionStateBase& /* conn */, uint16_t experimentId) {
-        VLOG(2) << "quic_experiment handler fired: experimentId="
-                << experimentId;
+        PRX_VLOG(2) << "quic_experiment handler fired: experimentId="
+                    << experimentId;
       });
 
   // Apply UDP socket buffer size options if specified
@@ -363,7 +364,7 @@ void HQServer::start(const folly::SocketAddress& localAddress,
 const folly::SocketAddress HQServer::getAddress() const {
   server_->waitUntilInitialized();
   const auto& boundAddr = server_->getAddress();
-  LOG(INFO) << "HQ server started at: " << boundAddr.describe();
+  PRX_LOG(INFO) << "HQ server started at: " << boundAddr.describe();
   return boundAddr;
 }
 

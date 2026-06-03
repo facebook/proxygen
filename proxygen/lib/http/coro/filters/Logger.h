@@ -12,8 +12,8 @@
 #include "proxygen/lib/http/coro/HTTPSourceFilter.h"
 #include <folly/coro/Collect.h>
 #include <folly/coro/Promise.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/sampling/Sampled.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -46,7 +46,7 @@ class Logger {
   explicit Logger(HTTPSessionContextPtr sessionCtx,
                   std::shared_ptr<SampledLogger> logImpl = nullptr,
                   bool logOnDestroy = true) {
-    XCHECK(sessionCtx);
+    PRX_CHECK(sessionCtx);
     sessionCtx_ = std::move(sessionCtx);
     localAddr = sessionCtx_->getLocalAddress();
     peerAddr = sessionCtx_->getPeerAddress();

@@ -12,6 +12,7 @@
 
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace testing;
 using folly::IOBuf;
@@ -194,7 +195,7 @@ void RFC1867Base::testSimple(unique_ptr<IOBuf> data,
     // been added
     parsedDataBuf->coalesce();
   }
-  CHECK_EQ(fileLength, fileSize);
+  PRX_CHECK_EQ(fileLength, fileSize);
 }
 
 TEST_F(RFC1867Test, TestSimplePost) {

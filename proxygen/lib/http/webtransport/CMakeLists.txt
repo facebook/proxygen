@@ -9,6 +9,8 @@
 proxygen_add_library(proxygen_http_webtransport
   SRCS
     WebTransport.cpp
+  DEPS
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     mvfst::mvfst_api_quic_callbacks
     mvfst::mvfst_api_transport_info
@@ -39,7 +41,7 @@ proxygen_add_library(proxygen_http_webtransport_webtransportimpl
   SRCS
     WebTransportImpl.cpp
   DEPS
-    glog::glog
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
     proxygen_http_webtransport
@@ -52,8 +54,8 @@ proxygen_add_library(proxygen_http_webtransport_quicwebtransport
     QuicWebTransport.cpp
   EXPORTED_DEPS
     proxygen_http_webtransport_webtransportimpl
+    proxygen_utils_log_shim
     mvfst::mvfst_api_transport
-    Folly::folly_logging_logging
 )
 
 proxygen_add_library(proxygen_http_webtransport_quic_wt_session
@@ -65,20 +67,19 @@ proxygen_add_library(proxygen_http_webtransport_quic_wt_session
     proxygen_http_webtransport
     proxygen_http_webtransport_wt_stream_manager
     proxygen_http_webtransport_wt_util
+    proxygen_utils_log_shim
     mvfst::mvfst_api_transport
     mvfst::mvfst_priority_http_priority_queue
-    Folly::folly_logging_logging
 )
 
 proxygen_add_library(proxygen_http_webtransport_wt_stream_manager
   SRCS
     WtEgressContainer.cpp
     WtStreamManager.cpp
-  DEPS
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_http_webtransport
     proxygen_http_webtransport_flow_controller
+    proxygen_utils_log_shim
     mvfst::mvfst_priority_priority_queue
     Folly::folly_container_f14_hash
     Folly::folly_io_iobuf
@@ -89,7 +90,7 @@ proxygen_add_library(proxygen_http_webtransport_wt_util
     WtUtils.cpp
   DEPS
     proxygen_http_codec_codec_common
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_codec_direction
     proxygen_http_codec_webtransport_webtransport_capsule_codec
@@ -99,6 +100,8 @@ proxygen_add_library(proxygen_http_webtransport_wt_util
 proxygen_add_library(proxygen_http_webtransport_webtransport_session
   SRCS
     WebTransportSession.cpp
+  DEPS
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_session_http_transaction
     proxygen_http_webtransport_wt_stream_manager
@@ -109,6 +112,8 @@ proxygen_add_library(proxygen_http_webtransport_webtransport_session
 proxygen_add_library(proxygen_http_webtransport_wt_hq_session
   SRCS
     HqWtSession.cpp
+  DEPS
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_http_webtransport_quic_wt_session
     proxygen_http_webtransport_webtransport_session

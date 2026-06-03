@@ -10,6 +10,7 @@
 
 #include <folly/Expected.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -43,7 +44,7 @@ class PushHandler;
 class ResponseHandler {
  public:
   explicit ResponseHandler(RequestHandler* upstream)
-      : upstream_(CHECK_NOTNULL(upstream)) {
+      : upstream_(PRX_CHECK_NOTNULL(upstream)) {
   }
 
   virtual ~ResponseHandler() = default;

@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/webtransport/HTTPWebTransport.h>
 #include <proxygen/lib/http/webtransport/WebTransportSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::SocketAddress;
 using wangle::TransportInfo;
@@ -106,8 +107,8 @@ bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain,
                                  HTTPTransaction* txn) {
   DestructorGuard dg(this);
   auto oldSize = pendingReadSize_;
-  CHECK_LE(pendingReadSize_,
-           std::numeric_limits<uint32_t>::max() - length - padding);
+  PRX_CHECK_LE(pendingReadSize_,
+               std::numeric_limits<uint32_t>::max() - length - padding);
   pendingReadSize_ += length + padding;
   if (httpSessionActivityTracker_) {
     httpSessionActivityTracker_->onIngressBody(length + padding);
@@ -119,8 +120,8 @@ bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain,
   if (oldSize < pendingReadSize_) {
     // Transaction must have buffered something and not called
     // notifyBodyProcessed() on it.
-    VLOG(4) << *this << " Enqueued ingress. Ingress buffer uses "
-            << pendingReadSize_ << " of " << readBufLimit_ << " bytes.";
+    PRX_VLOG(4) << *this << " Enqueued ingress. Ingress buffer uses "
+                << pendingReadSize_ << " of " << readBufLimit_ << " bytes.";
     if (ingressLimitExceeded() && oldSize <= readBufLimit_) {
       if (infoCallback_) {
         infoCallback_->onIngressLimitExceeded(*this);
@@ -132,16 +133,16 @@ bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain,
 }
 
 bool HTTPSessionBase::notifyBodyProcessed(uint32_t bytes) {
-  CHECK_GE(pendingReadSize_, bytes);
+  PRX_CHECK_GE(pendingReadSize_, bytes);
   auto oldSize = pendingReadSize_;
   pendingReadSize_ -= bytes;
   if (sessionStats_) {
     sessionStats_->recordPendingBufferedReadBytes(-1 * (int64_t)bytes);
   }
 
-  VLOG(4) << *this << " Dequeued " << bytes << " bytes of ingress. "
-          << "Ingress buffer uses " << pendingReadSize_ << " of "
-          << readBufLimit_ << " bytes.";
+  PRX_VLOG(4) << *this << " Dequeued " << bytes << " bytes of ingress. "
+              << "Ingress buffer uses " << pendingReadSize_ << " of "
+              << readBufLimit_ << " bytes.";
   if (oldSize > readBufLimit_ && pendingReadSize_ <= readBufLimit_) {
     return true;
   }
@@ -150,7 +151,7 @@ bool HTTPSessionBase::notifyBodyProcessed(uint32_t bytes) {
 
 bool HTTPSessionBase::notifyEgressBodyBuffered(int64_t bytes, bool update) {
   pendingWriteSizeDelta_ += bytes;
-  VLOG(4) << __func__ << " pwsd=" << pendingWriteSizeDelta_;
+  PRX_VLOG(4) << __func__ << " pwsd=" << pendingWriteSizeDelta_;
   // any net change requires us to update pause/resume state in the
   // loop callback
   if (pendingWriteSizeDelta_ >= 0 && update) {
@@ -166,7 +167,7 @@ void HTTPSessionBase::updateWriteBufSize(int64_t delta) {
   // the sock_'s write buffer.
   delta += pendingWriteSizeDelta_;
   pendingWriteSizeDelta_ = 0;
-  DCHECK(delta >= 0 || uint64_t(-delta) <= pendingWriteSize_);
+  PRX_DCHECK(delta >= 0 || uint64_t(-delta) <= pendingWriteSize_);
   if (sessionStats_) {
     sessionStats_->recordPendingBufferedWriteBytes(delta);
   }
@@ -181,8 +182,8 @@ void HTTPSessionBase::updatePendingWrites() {
 
 void HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
                                           const HTTPException& error) {
-  VLOG(4) << *this << " creating direct error handler";
-  DCHECK(txn);
+  PRX_VLOG(4) << *this << " creating direct error handler";
+  PRX_DCHECK(txn);
   auto handler = getParseErrorHandler(txn, error);
   if (!handler) {
     txn->sendAbort();
@@ -260,12 +261,12 @@ using WtReqResult = std::unique_ptr<HTTPMessage>;
 folly::SemiFuture<std::unique_ptr<HTTPMessage>>
 HTTPSessionBase::sendWebTransportRequest(
     const HTTPMessage& req, WebTransportHandler::Ptr wtHandler) noexcept {
-  CHECK(isUpstream(codec_->getTransportDirection()));
+  PRX_CHECK(isUpstream(codec_->getTransportDirection()));
   bool supportsWt = supportsWebTransport();
   bool validWtReq = HTTPWebTransport::isConnectMessage(req);
   if (!(supportsWt && validWtReq)) {
     auto err = !validWtReq ? kInvalidWtReq : kWtNotSupported;
-    VLOG(4) << __func__ << " err=" << err << "; sess=" << *this;
+    PRX_VLOG(4) << __func__ << " err=" << err << "; sess=" << *this;
     return makeHttpEx(std::string(err));
   }
 

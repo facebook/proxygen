@@ -12,9 +12,9 @@ proxygen_add_library(proxygen_http_coro_server_coro_acceptor
   DEPS
     proxygen_coro
     proxygen_http_session_http_session_codec_factory
+    proxygen_utils_log_shim
     mvfst::mvfst_api_transport
     mvfst::mvfst_common_events_folly_eventbase
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_error
     proxygen_http_codec_compress_header_codec
@@ -39,13 +39,13 @@ proxygen_add_library(proxygen_http_coro_server_coro_httpserver
     proxygen_http_coro_filters_ServerFilterFactory
     proxygen_http_coro_server_coro_acceptor
     proxygen_sampling
+    proxygen_utils_log_shim
     mvfst::mvfst_server
     mvfst::mvfst_server_quic_handshake_socket_holder
     wangle::wangle_acceptor
     Folly::folly_container_f14_hash
     Folly::folly_executors_io_thread_pool_executor
     Folly::folly_io_async_async_signal_handler
-    Folly::folly_logging_logging
 )
 
 proxygen_add_library(proxygen_http_coro_server_scope_coro_httpserver

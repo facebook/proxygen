@@ -8,7 +8,6 @@
 
 #include <folly/Conv.h>
 #include <folly/portability/GTest.h>
-#include <glog/logging.h>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
@@ -17,6 +16,7 @@
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -40,7 +40,7 @@ TEST_F(HPACKContextTests, GetIndex) {
   HPACKHeader method(":method", "POST");
 
   // this will get it from the static table
-  CHECK_EQ(context.getIndex(method).first, 3);
+  PRX_CHECK_EQ(context.getIndex(method).first, 3u);
 }
 
 TEST_F(HPACKContextTests, IsStatic) {
@@ -67,10 +67,10 @@ TEST_F(HPACKContextTests, StaticTable) {
   const HPACKHeader& last = table.getHeader(table.size());
 
   // there are 61 entries in the spec
-  CHECK_EQ(table.size(), 61);
-  CHECK_EQ(methodPost, HPACKHeader(":method", "POST"));
-  CHECK_EQ(first.name.get(), ":authority");
-  CHECK_EQ(last.name.get(), "www-authenticate");
+  PRX_CHECK_EQ(table.size(), 61u);
+  PRX_CHECK_EQ(methodPost, HPACKHeader(":method", "POST"));
+  PRX_CHECK_EQ(first.name.get(), ":authority");
+  PRX_CHECK_EQ(last.name.get(), "www-authenticate");
 }
 
 TEST_F(HPACKContextTests, StaticTableHeaderNamesAreCommon) {
@@ -283,8 +283,8 @@ TEST_F(HPACKContextTests, ExcludeHeadersLargerThanTable) {
   HPACKHeader header1(longer, "header");
   HPACKHeader header2("Short", "header");
 
-  CHECK_GT(header1.bytes(), 128);
-  CHECK_LT(header2.bytes(), 128);
+  PRX_CHECK_GT(header1.bytes(), 128u);
+  PRX_CHECK_LT(header2.bytes(), 128u);
 
   vector<HPACKHeader> headers;
   headers.push_back(std::move(header2));
@@ -292,8 +292,8 @@ TEST_F(HPACKContextTests, ExcludeHeadersLargerThanTable) {
 
   encoder.encode(headers);
 
-  CHECK_EQ(encoder.getIndex(headers[1]).first, 0);
-  CHECK_EQ(encoder.getIndex(headers[0]).first, 62);
+  PRX_CHECK_EQ(encoder.getIndex(headers[1]).first, 0u);
+  PRX_CHECK_EQ(encoder.getIndex(headers[0]).first, 62u);
 }
 
 TEST_F(HPACKContextTests, EncodeToWriteBuf) {

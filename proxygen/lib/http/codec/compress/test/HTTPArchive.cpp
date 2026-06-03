@@ -12,8 +12,8 @@
 #include <folly/io/IOBuf.h>
 #include <folly/json/json.h>
 #include <fstream>
-#include <glog/logging.h>
 #include <ios>
+#include <proxygen/lib/utils/LogShim.h>
 #include <string>
 
 using folly::IOBuf;
@@ -121,13 +121,13 @@ std::unique_ptr<IOBuf> readFileToIOBuf(const std::string& filename) {
   // read the contents of the file
   ifstream file(filename);
   if (!file.is_open()) {
-    LOG(ERROR) << "could not open file '" << filename << "'";
+    PRX_LOG(ERROR) << "could not open file '" << filename << "'";
     return nullptr;
   }
   file.seekg(0, ios::end);
   int64_t size = file.tellg();
   if (size < 0) {
-    LOG(ERROR) << "failed to fetch the position at the end of the file";
+    PRX_LOG(ERROR) << "failed to fetch the position at the end of the file";
     return nullptr;
   }
   file.seekg(0, ios::beg);
@@ -136,8 +136,8 @@ std::unique_ptr<IOBuf> readFileToIOBuf(const std::string& filename) {
   buffer->writableData()[size] = 0;
   buffer->append(size + 1);
   if (!file) {
-    LOG(ERROR) << "error occurred, was able to read only " << file.gcount()
-               << " bytes out of " << size;
+    PRX_LOG(ERROR) << "error occurred, was able to read only " << file.gcount()
+                   << " bytes out of " << size;
     return nullptr;
   }
   return buffer;

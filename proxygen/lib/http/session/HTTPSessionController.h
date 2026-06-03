@@ -9,8 +9,8 @@
 #pragma once
 
 #include <chrono>
-#include <glog/logging.h>
 #include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace folly {
 class SocketAddress;
@@ -116,7 +116,7 @@ class HTTPSessionController {
 class HTTPUpstreamSessionController : public HTTPSessionController {
   HTTPTransactionHandler* getRequestHandler(HTTPTransaction& /*txn*/,
                                             HTTPMessage* /*msg*/) final {
-    LOG(FATAL) << "Unreachable";
+    PRX_LOG(FATAL) << "Unreachable";
   }
 
   /**
@@ -129,7 +129,7 @@ class HTTPUpstreamSessionController : public HTTPSessionController {
       HTTPTransaction* /*txn*/,
       const HTTPException& /*error*/,
       const folly::SocketAddress& /*localAddress*/) final {
-    LOG(FATAL) << "Unreachable";
+    PRX_LOG(FATAL) << "Unreachable";
   }
 
   /**
@@ -138,7 +138,7 @@ class HTTPUpstreamSessionController : public HTTPSessionController {
   HTTPTransactionHandler* getTransactionTimeoutHandler(
       HTTPTransaction* /*txn*/,
       const folly::SocketAddress& /*localAddress*/) final {
-    LOG(FATAL) << "Unreachable";
+    PRX_LOG(FATAL) << "Unreachable";
   }
 };
 

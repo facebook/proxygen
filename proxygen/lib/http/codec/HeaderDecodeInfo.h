@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
 
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -26,7 +27,7 @@ class HeaderDecodeInfo {
             bool validate,
             bool strictValidation,
             bool allowEmptyPath) {
-    CHECK(!msg);
+    PRX_CHECK(!msg);
     msg = std::make_unique<HTTPMessage>();
     isRequest_ = isRequestIn;
     isRequestTrailers_ = isRequestTrailers;

@@ -16,6 +16,7 @@
 
 #include "EchoHandler.h"
 #include "EchoStats.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace EchoService;
 using namespace proxygen;
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_threads <= 0) {
     FLAGS_threads = folly::available_concurrency();
-    CHECK(FLAGS_threads > 0);
+    PRX_CHECK(FLAGS_threads > 0);
   }
 
   HTTPServerOptions options;

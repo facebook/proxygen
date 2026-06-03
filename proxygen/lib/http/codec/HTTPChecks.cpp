@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 
 #include <proxygen/lib/http/RFC2616.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -40,8 +41,8 @@ void HTTPChecks::generateHeader(
     HTTPHeaderSize* sizeOut,
     const folly::Optional<HTTPHeaders>& extraHeaders) {
   if (msg.isRequest() && RFC2616::bodyImplied(msg.getHeaders())) {
-    CHECK(RFC2616::isRequestBodyAllowed(msg.getMethod()) !=
-          RFC2616::BodyAllowed::NOT_ALLOWED);
+    PRX_CHECK(RFC2616::isRequestBodyAllowed(msg.getMethod()) !=
+              RFC2616::BodyAllowed::NOT_ALLOWED);
     // We could also add a "strict" mode that disallows sending body on GET
     // requests here too.
   }

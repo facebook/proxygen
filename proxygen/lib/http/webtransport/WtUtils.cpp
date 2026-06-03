@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/http/webtransport/WtUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 constexpr uint64_t kWtInitMaxData = std::numeric_limits<uint16_t>::max();
@@ -84,7 +84,7 @@ WtStreamManager::WtConfig getWtConfig(const HTTPSettings* ingress,
   WtStreamManager::WtConfig config;
   // either both ingress&egress are nullptr (e.g. http/1.1) or both non-nullptr
   if (egress || ingress) {
-    XCHECK(egress && ingress);
+    PRX_CHECK(egress && ingress);
     // set peer's WtConfig via ingress HTTPSettings
     config.peerMaxConnData =
         ingress->getSetting(SettingsId::WT_INITIAL_MAX_DATA, /*defaultVal=*/0);
@@ -114,13 +114,13 @@ WtStreamManager::WtConfig getWtConfig(const HTTPSettings* ingress,
                            /*defaultVal=*/0);
   }
 
-  XLOG(DBG6) << config.selfMaxStreamsBidi << "; " << config.selfMaxStreamsUni
-             << "; " << config.selfMaxConnData << "; "
-             << config.selfMaxStreamDataBidi << "; "
-             << config.selfMaxStreamDataUni << "; " << config.peerMaxStreamsBidi
-             << "; " << config.peerMaxStreamsUni << "; "
-             << config.peerMaxConnData << "; " << config.peerMaxStreamDataBidi
-             << "; " << config.peerMaxStreamDataUni;
+  PRX_VLOG(6)
+      << config.selfMaxStreamsBidi << "; " << config.selfMaxStreamsUni << "; "
+      << config.selfMaxConnData << "; " << config.selfMaxStreamDataBidi << "; "
+      << config.selfMaxStreamDataUni << "; " << config.peerMaxStreamsBidi
+      << "; " << config.peerMaxStreamsUni << "; " << config.peerMaxConnData
+      << "; " << config.peerMaxStreamDataBidi << "; "
+      << config.peerMaxStreamDataUni;
 
   return config;
 }
@@ -165,8 +165,8 @@ bool supportsH3Wt(TransportDirection dir,
 
 void WtEventVisitor::operator()(
     WtStreamManager::ResetStream rst) const noexcept {
-  XLOG(DBG6) << kWtEventVisitor << " rst.id=" << rst.streamId
-             << "; rst.err=" << rst.err;
+  PRX_VLOG(6) << kWtEventVisitor << " rst.id=" << rst.streamId
+              << "; rst.err=" << rst.err;
   writeWTResetStream(
       egress,
       WTResetStreamCapsule{.streamId = rst.streamId,
@@ -177,8 +177,8 @@ void WtEventVisitor::operator()(
 
 void WtEventVisitor::operator()(
     WtStreamManager::StopSending ss) const noexcept {
-  XLOG(DBG6) << kWtEventVisitor << " ss.id=" << ss.streamId
-             << "; ss.err=" << ss.err;
+  PRX_VLOG(6) << kWtEventVisitor << " ss.id=" << ss.streamId
+              << "; ss.err=" << ss.err;
   writeWTStopSending(
       egress,
       WTStopSendingCapsule{.streamId = ss.streamId,
@@ -188,14 +188,14 @@ void WtEventVisitor::operator()(
 
 void WtEventVisitor::operator()(
     WtStreamManager::MaxConnData md) const noexcept {
-  XLOG(DBG6) << kWtEventVisitor << " md.offset=" << md.maxData;
+  PRX_VLOG(6) << kWtEventVisitor << " md.offset=" << md.maxData;
   writeWTMaxData(egress, WTMaxDataCapsule{md.maxData}, protocol);
 }
 
 void WtEventVisitor::operator()(
     WtStreamManager::MaxStreamData msd) const noexcept {
-  XLOG(DBG6) << kWtEventVisitor << " msd.id=" << msd.streamId
-             << " msd.offset=" << msd.maxData;
+  PRX_VLOG(6) << kWtEventVisitor << " msd.id=" << msd.streamId
+              << " msd.offset=" << msd.maxData;
   writeWTMaxStreamData(egress,
                        WTMaxStreamDataCapsule{.streamId = msd.streamId,
                                               .maximumStreamData = msd.maxData},
@@ -204,7 +204,7 @@ void WtEventVisitor::operator()(
 
 void WtEventVisitor::operator()(
     WtStreamManager::MaxStreamsBidi ms) const noexcept {
-  XLOG(DBG6) << kWtEventVisitor << " msd.maxStreamsBidi=" << ms.maxStreams;
+  PRX_VLOG(6) << kWtEventVisitor << " msd.maxStreamsBidi=" << ms.maxStreams;
   writeWTMaxStreams(egress,
                     WTMaxStreamsCapsule{.maximumStreams = ms.maxStreams},
                     /*isBidi=*/true,
@@ -213,7 +213,7 @@ void WtEventVisitor::operator()(
 
 void WtEventVisitor::operator()(
     WtStreamManager::MaxStreamsUni ms) const noexcept {
-  XLOG(DBG6) << kWtEventVisitor << " msd.maxStreamsUni=" << ms.maxStreams;
+  PRX_VLOG(6) << kWtEventVisitor << " msd.maxStreamsUni=" << ms.maxStreams;
   writeWTMaxStreams(egress,
                     WTMaxStreamsCapsule{.maximumStreams = ms.maxStreams},
                     /*isBidi=*/false,
@@ -221,12 +221,13 @@ void WtEventVisitor::operator()(
 }
 
 void WtEventVisitor::operator()(WtStreamManager::DrainSession) const noexcept {
-  XLOG(DBG6) << kWtEventVisitor << " ds";
+  PRX_VLOG(6) << kWtEventVisitor << " ds";
   writeDrainWebTransportSession(egress);
 }
 
 void WtEventVisitor::operator()(WtStreamManager::CloseSession cs) noexcept {
-  XLOG(DBG6) << kWtEventVisitor << " cs.err=" << cs.err << " cs.msg=" << cs.msg;
+  PRX_VLOG(6) << kWtEventVisitor << " cs.err=" << cs.err
+              << " cs.msg=" << cs.msg;
   sessionClosed = true;
   writeCloseWebTransportSession(
       egress,
@@ -240,8 +241,8 @@ void WtCapsuleCallback::onPadding(PaddingCapsule) noexcept {
 }
 
 void WtCapsuleCallback::onResetStream(WTResetStreamCapsule c) noexcept {
-  XLOG(DBG6) << __func__ << "; id=" << c.streamId
-             << "; err=" << c.appProtocolErrorCode;
+  PRX_VLOG(6) << __func__ << "; id=" << c.streamId
+              << "; err=" << c.appProtocolErrorCode;
   sm_.onResetStream(
       WtStreamManager::ResetStream{.streamId = c.streamId,
                                    .err = c.appProtocolErrorCode,
@@ -249,33 +250,33 @@ void WtCapsuleCallback::onResetStream(WTResetStreamCapsule c) noexcept {
 }
 
 void WtCapsuleCallback::onStopSending(WTStopSendingCapsule c) noexcept {
-  XLOG(DBG6) << __func__ << "; id=" << c.streamId
-             << "; err=" << c.appProtocolErrorCode;
+  PRX_VLOG(6) << __func__ << "; id=" << c.streamId
+              << "; err=" << c.appProtocolErrorCode;
   sm_.onStopSending(WtStreamManager::StopSending{
       .streamId = c.streamId, .err = c.appProtocolErrorCode});
 }
 
 void WtCapsuleCallback::onStream(WTStreamCapsule c) noexcept {
-  XLOG(DBG6) << __func__ << "; id=" << c.streamId;
+  PRX_VLOG(6) << __func__ << "; id=" << c.streamId;
   if (auto* rh = sm_.getOrCreateIngressHandle(c.streamId)) {
     sm_.enqueue(*rh, {std::move(c.streamData), c.fin});
   }
 }
 
 void WtCapsuleCallback::onMaxData(WTMaxDataCapsule c) noexcept {
-  XLOG(DBG6) << __func__ << "; offset=" << c.maximumData;
+  PRX_VLOG(6) << __func__ << "; offset=" << c.maximumData;
   sm_.onMaxData(WtStreamManager::MaxConnData{.maxData = c.maximumData});
 }
 
 void WtCapsuleCallback::onMaxStreamData(WTMaxStreamDataCapsule c) noexcept {
-  XLOG(DBG6) << __func__ << "; id=" << c.streamId
-             << "; offset=" << c.maximumStreamData;
+  PRX_VLOG(6) << __func__ << "; id=" << c.streamId
+              << "; offset=" << c.maximumStreamData;
   sm_.onMaxData(
       WtStreamManager::MaxStreamData{{c.maximumStreamData}, c.streamId});
 }
 
 void WtCapsuleCallback::onMaxStreamsBidi(WTMaxStreamsCapsule c) noexcept {
-  XLOG(DBG6) << __func__ << "; max=" << c.maximumStreams;
+  PRX_VLOG(6) << __func__ << "; max=" << c.maximumStreams;
   bool wasAvail = sm_.canCreateBidi();
   sm_.onMaxStreams(WtStreamManager::MaxStreamsBidi{c.maximumStreams});
   if (!wasAvail && sm_.canCreateBidi()) {
@@ -284,7 +285,7 @@ void WtCapsuleCallback::onMaxStreamsBidi(WTMaxStreamsCapsule c) noexcept {
 }
 
 void WtCapsuleCallback::onMaxStreamsUni(WTMaxStreamsCapsule c) noexcept {
-  XLOG(DBG6) << __func__ << "; max=" << c.maximumStreams;
+  PRX_VLOG(6) << __func__ << "; max=" << c.maximumStreams;
   bool wasAvail = sm_.canCreateUni();
   sm_.onMaxStreams(WtStreamManager::MaxStreamsUni{c.maximumStreams});
   if (!wasAvail && sm_.canCreateUni()) {
@@ -293,49 +294,49 @@ void WtCapsuleCallback::onMaxStreamsUni(WTMaxStreamsCapsule c) noexcept {
 }
 
 void WtCapsuleCallback::onDataBlocked(WTDataBlockedCapsule) noexcept {
-  XLOG(DBG6) << __func__;
+  PRX_VLOG(6) << __func__;
 }
 
 void WtCapsuleCallback::onStreamDataBlocked(
     WTStreamDataBlockedCapsule) noexcept {
-  XLOG(DBG6) << __func__;
+  PRX_VLOG(6) << __func__;
 }
 
 void WtCapsuleCallback::onStreamsBlockedBidi(WTStreamsBlockedCapsule) noexcept {
-  XLOG(DBG6) << __func__;
+  PRX_VLOG(6) << __func__;
 }
 
 void WtCapsuleCallback::onStreamsBlockedUni(WTStreamsBlockedCapsule) noexcept {
-  XLOG(DBG6) << __func__;
+  PRX_VLOG(6) << __func__;
 }
 
 void WtCapsuleCallback::onDatagram(DatagramCapsule dgram) noexcept {
-  XLOG(DBG6) << __func__;
+  PRX_VLOG(6) << __func__;
   wtSess_.onDatagram(std::move(dgram.httpDatagramPayload));
 }
 
 void WtCapsuleCallback::onCloseSession(
     CloseWebTransportSessionCapsule c) noexcept {
-  XLOG(DBG6) << __func__ << "; err=" << c.applicationErrorCode
-             << "; c.msg=" << c.applicationErrorMessage;
+  PRX_VLOG(6) << __func__ << "; err=" << c.applicationErrorCode
+              << "; c.msg=" << c.applicationErrorMessage;
   sm_.onCloseSession(WtStreamManager::CloseSession{
       .err = c.applicationErrorCode, .msg = c.applicationErrorMessage});
 }
 
 void WtCapsuleCallback::onDrainSession(
     DrainWebTransportSessionCapsule) noexcept {
-  XLOG(DBG6) << __func__;
+  PRX_VLOG(6) << __func__;
   sm_.onDrainSession(WtStreamManager::DrainSession{});
 }
 
 void WtCapsuleCallback::onCapsule(uint64_t capsuleType,
                                   uint64_t capsuleLength) noexcept {
-  XLOG(DBG7) << __func__ << "; capsuleType=" << capsuleType
-             << "; capsuleLength=" << capsuleLength;
+  PRX_VLOG(7) << __func__ << "; capsuleType=" << capsuleType
+              << "; capsuleLength=" << capsuleLength;
 }
 
 void WtCapsuleCallback::onConnectionError(CapsuleCodec::ErrorCode) noexcept {
-  XLOG(DBG6) << __func__;
+  PRX_VLOG(6) << __func__;
   sm_.onCloseSession(
       WtStreamManager::CloseSession{.err = 0, .msg = "onConnectionError"});
 }
@@ -343,7 +344,7 @@ void WtCapsuleCallback::onConnectionError(CapsuleCodec::ErrorCode) noexcept {
 NotifyPeerStreamsGuard::~NotifyPeerStreamsGuard() noexcept {
   auto peerIds = std::move(cb.peerStreams);
   for (auto id : peerIds) {
-    VLOG(6) << "new peer wt stream id=" << id;
+    PRX_VLOG(6) << "new peer wt stream id=" << id;
     auto handle = sm.getOrCreateBidiHandle(id);
     if (handle.writeHandle) { // write handle iff bidi stream
       wtHandler.onNewBidiStream(handle);
@@ -371,7 +372,7 @@ WtExpected<StreamWriteHandle*>::Type WtSessionBase::createUniStream() noexcept {
 WtExpected<BidiStreamHandle>::Type WtSessionBase::createBidiStream() noexcept {
   auto res = sm_.createBidiHandle();
   if (res.readHandle || res.writeHandle) {
-    XCHECK(res.readHandle && res.writeHandle);
+    PRX_CHECK(res.readHandle && res.writeHandle);
     return BidiStreamHandle{res.readHandle, res.writeHandle};
   }
   return folly::makeUnexpected(WtErrCode::STREAM_CREATION_ERROR);

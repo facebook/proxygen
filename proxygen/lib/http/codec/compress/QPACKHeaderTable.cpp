@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/codec/compress/QPACKHeaderTable.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 // For tables 0..384     minFree = 48
@@ -44,23 +44,26 @@ QPACKHeaderTable::QPACKHeaderTable(uint32_t capacityVal, bool trackReferences)
 
 bool QPACKHeaderTable::add(HPACKHeader header) {
   if (insertCount_ == std::numeric_limits<uint32_t>::max()) {
-    LOG(ERROR) << "Cowardly refusing to add more entries since insertCount_ "
-                  " would wrap";
+    PRX_LOG(ERROR)
+        << "Cowardly refusing to add more entries since insertCount_ "
+           " would wrap";
     return false;
   }
 
-  DVLOG(6) << "Adding header=" << header << " absIndex=" << insertCount_ + 1;
+  PRX_DVLOG(6) << "Adding header=" << header
+               << " absIndex=" << insertCount_ + 1;
   if (!HeaderTable::add(std::move(header))) {
     return false;
   }
-  DCHECK_EQ(internalToAbsolute(head_), insertCount_);
+  PRX_DCHECK_EQ(internalToAbsolute(head_), insertCount_);
   // Increase minUsable_ until the free space + drainedBytes is >= minFree.
   // For HPACK, minFree is 0 and this is a no-op.
   while (capacity_ - bytes_ + drainedBytes_ < minFree_ &&
          minUsable_ <= insertCount_) {
     auto bytes = table_[absoluteToInternal(minUsable_)].bytes();
-    VLOG(5) << "Draining absolute index " << minUsable_ << " bytes=" << bytes
-            << " drainedBytes_= " << (drainedBytes_ + bytes);
+    PRX_VLOG(5) << "Draining absolute index " << minUsable_
+                << " bytes=" << bytes
+                << " drainedBytes_= " << (drainedBytes_ + bytes);
     drainedBytes_ += bytes;
     minUsable_++;
   }
@@ -126,23 +129,23 @@ uint32_t QPACKHeaderTable::nameIndex(const HPACKHeaderName& headerName,
 
 const HPACKHeader& QPACKHeaderTable::getHeader(uint32_t index,
                                                uint32_t base) const {
-  CHECK(isValid(index, base));
+  PRX_CHECK(isValid(index, base));
   return table_[toInternal(index, base)];
 }
 
 uint32_t QPACKHeaderTable::removeLast() {
   auto idx = tail();
   if (trackReferences_) {
-    CHECK_LT(internalToAbsolute(idx), minInUseIndex_)
+    PRX_CHECK_LT(internalToAbsolute(idx), minInUseIndex_)
         << "Removed in use header";
   }
   auto removedBytes = HeaderTable::removeLast();
   // Only non-zero when minUsable_ > insertCount_ - size_.
   if (drainedBytes_ > 0) {
-    VLOG(5) << "Removing draining entry=" << idx << " size=" << removedBytes
-            << " drainedBytes_=" << drainedBytes_
-            << " new drainedBytes_=" << (int32_t(drainedBytes_) - removedBytes);
-    CHECK_GE(drainedBytes_, removedBytes);
+    PRX_VLOG(5) << "Removing draining entry=" << idx << " size=" << removedBytes
+                << " drainedBytes_=" << drainedBytes_ << " new drainedBytes_="
+                << (int32_t(drainedBytes_) - removedBytes);
+    PRX_CHECK_GE(drainedBytes_, removedBytes);
     drainedBytes_ -= removedBytes;
   } else {
     // Keep minUsable_ as a valid index when evicting an undrained header
@@ -158,8 +161,8 @@ uint32_t QPACKHeaderTable::removeLast() {
 void QPACKHeaderTable::increaseTableLengthTo(uint32_t newLength) {
   HeaderTable::increaseTableLengthTo(newLength);
   if (size_ > 0) {
-    DCHECK_EQ(internalToAbsolute(head_), insertCount_);
-    DCHECK_EQ(internalToAbsolute(tail()), insertCount_ - size_ + 1);
+    PRX_DCHECK_EQ(internalToAbsolute(head_), insertCount_);
+    PRX_DCHECK_EQ(internalToAbsolute(tail()), insertCount_ - size_ + 1);
   }
 }
 
@@ -186,8 +189,8 @@ bool QPACKHeaderTable::canEvict(uint32_t needed) {
     i = next(i);
   }
   if (freeable < needed) {
-    DVLOG(5) << "header=" << table_[i].name << ":" << table_[i].value
-             << " blocked eviction, minInUseIndex_=" << minInUseIndex_;
+    PRX_DVLOG(5) << "header=" << table_[i].name << ":" << table_[i].value
+                 << " blocked eviction, minInUseIndex_=" << minInUseIndex_;
     return false;
   }
   return true;
@@ -214,14 +217,14 @@ std::pair<bool, uint32_t> QPACKHeaderTable::maybeDuplicate(
   if (relativeIndex == UNACKED) {
     return {false, 0};
   }
-  DCHECK(isValid(relativeIndex));
+  PRX_DCHECK(isValid(relativeIndex));
   uint32_t absIndex = relativeToAbsolute(relativeIndex);
-  DCHECK(!isVulnerable(absIndex) || allowVulnerable);
+  PRX_DCHECK(!isVulnerable(absIndex) || allowVulnerable);
   if (absIndex < minUsable_) {
     // draining
     const HPACKHeader& header = getHeader(relativeIndex);
     if (canIndex(header.name, header.value)) {
-      CHECK(add(header.copy()));
+      PRX_CHECK(add(header.copy()));
       if (allowVulnerable) {
         return {true, insertCount_};
       } else {

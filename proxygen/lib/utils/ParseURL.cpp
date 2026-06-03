@@ -15,6 +15,7 @@
 #include <proxygen/lib/utils/UtilInl.h>
 
 #include <proxygen/external/http_parser/http_parser.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 
@@ -90,7 +91,7 @@ std::optional<std::string> ParseURL::getRedirectDestination(
     std::string_view headerHost) noexcept {
   auto newUrl = ParseURL::parseURL(location);
   if (!newUrl) {
-    DLOG(INFO) << "Unparsable location header=" << location;
+    PRX_DLOG(INFO) << "Unparsable location header=" << location;
     return std::nullopt;
   }
   if (!newUrl->hasHost()) {
@@ -100,9 +101,9 @@ std::optional<std::string> ParseURL::getRedirectDestination(
       // Old URL was relative, try host header
       oldURL = ParseURL::parseURL(headerHost);
       if (!oldURL || !oldURL->hasHost()) {
-        VLOG(2) << "Cannot determine destination for relative redirect "
-                << "location=" << location << " orig url=" << url
-                << " host=" << headerHost;
+        PRX_VLOG(2) << "Cannot determine destination for relative redirect "
+                    << "location=" << location << " orig url=" << url
+                    << " host=" << headerHost;
         return std::nullopt;
       }
     } // else oldURL was absolute and has a host

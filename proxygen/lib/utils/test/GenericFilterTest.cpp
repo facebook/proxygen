@@ -11,6 +11,7 @@
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/utils/FilterChain.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <stdlib.h>
 
 using namespace proxygen;
@@ -146,7 +147,7 @@ class GenericFilterTest : public testing::Test {
                                           &TesterInterface::setCallback,
                                           Owned>>(getTester<Owned>());
     chain().setCallback(&callback_);
-    actor_ = CHECK_NOTNULL(static_cast<MockTester*>(chain_->call()));
+    actor_ = PRX_CHECK_NOTNULL(static_cast<MockTester*>(chain_->call()));
   }
   FilterChain<TesterInterface,
               TesterInterface::Callback,
@@ -213,7 +214,7 @@ void GenericFilterTest<Owned>::basicTest() {
 
   // Now poke the callback side
   EXPECT_CALL(callback_, onA());
-  CHECK_NOTNULL(actor_->cb_);
+  PRX_CHECK_NOTNULL(actor_->cb_);
   actor_->cb_->onA();
 }
 
@@ -231,7 +232,7 @@ void GenericFilterTest<Owned>::testFilters(
   // Callback
   if (expectedCb) {
     EXPECT_CALL(*expectedCb, onA());
-    CHECK_NOTNULL(actor_->cb_);
+    PRX_CHECK_NOTNULL(actor_->cb_);
     actor_->cb_->onA();
   }
   for (auto f : filters) {
@@ -412,7 +413,7 @@ TEST_F(OwnedGenericFilterTest, SetNullCb) {
   // nullptr. So in this case, we need to make sure it propagates
   auto filters = getRandomFilters(100);
   chain().setCallback(nullptr);
-  CHECK(nullptr == actor_->cb_);
+  PRX_CHECK(nullptr == actor_->cb_);
 
   testFilters(filters, nullptr);
 
@@ -436,7 +437,8 @@ TEST_F(OwnedGenericFilterTest, SetNullCb) {
 class TestFilterOddDeleteDo : public TestFilter<false> {
  public:
   explicit TestFilterOddDeleteDo(int* deletions)
-      : TestFilter<false>(true, true), deletions_(CHECK_NOTNULL(deletions)) {
+      : TestFilter<false>(true, true),
+        deletions_(PRX_CHECK_NOTNULL(deletions)) {
   }
   ~TestFilterOddDeleteDo() override {
     ++*deletions_;
@@ -478,7 +480,7 @@ template <bool Owned = false>
 class TestFilterOddDeleteOn : public TestFilter<Owned> {
  public:
   explicit TestFilterOddDeleteOn(int* deletions)
-      : deletions_(CHECK_NOTNULL(deletions)) {
+      : deletions_(PRX_CHECK_NOTNULL(deletions)) {
   }
   ~TestFilterOddDeleteOn() override {
     ++*deletions_;

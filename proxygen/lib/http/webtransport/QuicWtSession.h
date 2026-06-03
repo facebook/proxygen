@@ -8,10 +8,10 @@
 
 #pragma once
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/webtransport/WebTransport.h>
 #include <proxygen/lib/http/webtransport/WtStreamManager.h>
 #include <proxygen/lib/http/webtransport/WtUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/priority/HTTPPriorityQueue.h>
 
@@ -43,7 +43,7 @@ class QuicWtSessionBase
     , private quic::StreamWriteCallback {
  public:
   [[nodiscard]] quic::TransportInfo getTransportInfo() const noexcept override {
-    XCHECK(quicSocket_);
+    PRX_CHECK(quicSocket_);
     return quicSocket_->getTransportInfo();
   }
 

@@ -10,6 +10,7 @@
 
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <utility>
 
 using namespace folly;
@@ -39,15 +40,15 @@ void WebSocketClient::setupRequest() {
 }
 
 void WebSocketClient::sendRequest(HTTPTransaction* txn) {
-  VLOG(4) << fmt::format("Connecting to {}", url_.getUrl());
+  PRX_VLOG(4) << fmt::format("Connecting to {}", url_.getUrl());
   txn_ = txn;
   setupRequest();
   txn_->sendHeaders(request_);
 }
 
 void WebSocketClient::connectError(const folly::AsyncSocketException& ex) {
-  LOG(ERROR) << "Failed to connect to " << url_.getHostAndPort() << ":"
-             << ex.what();
+  PRX_LOG(ERROR) << "Failed to connect to " << url_.getHostAndPort() << ":"
+                 << ex.what();
 }
 
 void WebSocketClient::setTransaction(HTTPTransaction*) noexcept {
@@ -61,27 +62,27 @@ void WebSocketClient::onHeadersComplete(unique_ptr<HTTPMessage> msg) noexcept {
 }
 
 void WebSocketClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
-  LOG(INFO) << "got server reply: " << chain->moveToFbString();
+  PRX_LOG(INFO) << "got server reply: " << chain->moveToFbString();
   // Close the connection.
   txn_->sendEOM();
 }
 
 void WebSocketClient::onTrailers(std::unique_ptr<HTTPHeaders>) noexcept {
-  CHECK(false) << "unexpected trailers";
+  PRX_CHECK(false) << "unexpected trailers";
 }
 
 void WebSocketClient::onEOM() noexcept {
-  LOG(INFO) << "connection closed by server";
+  PRX_LOG(INFO) << "connection closed by server";
 }
 
 void WebSocketClient::onUpgrade(UpgradeProtocol) noexcept {
-  LOG(INFO) << "websocket connect successful; sending data";
+  PRX_LOG(INFO) << "websocket connect successful; sending data";
   auto data = folly::IOBuf::copyBuffer("websocket | framed | stream | data");
   txn_->sendBody(std::move(data));
 }
 
 void WebSocketClient::onError(const HTTPException& error) noexcept {
-  LOG(ERROR) << "An error occurred: " << error.what();
+  PRX_LOG(ERROR) << "An error occurred: " << error.what();
 }
 
 } // namespace websocketclient

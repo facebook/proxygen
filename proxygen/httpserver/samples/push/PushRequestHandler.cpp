@@ -13,6 +13,7 @@
 #include <proxygen/httpserver/PushHandler.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 
@@ -32,7 +33,7 @@ std::string createLargeBody() {
 
 PushRequestHandler::PushRequestHandler(PushStats* stats) : stats_(stats) {
   if (gPushBody.empty()) {
-    CHECK(folly::readFile(kPushFileName.c_str(), gPushBody))
+    PRX_CHECK(folly::readFile(kPushFileName.c_str(), gPushBody))
         << "Failed to read push file=" << kPushFileName;
   }
 }
@@ -43,13 +44,14 @@ void PushRequestHandler::onRequest(
   if (!headers->getHeaders().getSingleOrEmpty("X-PushIt").empty()) {
     const auto downstreamPush = downstream_->newPushedResponse(new PushHandler);
     if (downstreamPush.hasError()) {
-      LOG(ERROR) << "can't push: " << getErrorString(downstreamPush.error());
+      PRX_LOG(ERROR) << "can't push: "
+                     << getErrorString(downstreamPush.error());
       return;
     }
     downstreamPush_ = downstreamPush.value();
 
     if (headers->getPathAsStringPiece() == "/requestLargePush") {
-      LOG(INFO) << "sending large push ";
+      PRX_LOG(INFO) << "sending large push ";
 
       ResponseBuilder(downstreamPush_)
           .promise("/largePush",
@@ -62,7 +64,7 @@ void PushRequestHandler::onRequest(
           .body(createLargeBody())
           .sendWithEOM();
     } else {
-      LOG(INFO) << "sending small push ";
+      PRX_LOG(INFO) << "sending small push ";
 
       ResponseBuilder(downstreamPush_)
           .promise("/pusheen",

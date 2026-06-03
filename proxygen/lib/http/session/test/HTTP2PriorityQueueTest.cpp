@@ -15,6 +15,7 @@
 #include <folly/io/async/test/UndelayedDestruction.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace std::placeholders;
 using namespace testing;
@@ -691,7 +692,7 @@ TEST_F(QueueTest, ChromeTest) {
       HTTPCodec::StreamID dep = pris[pri];
       txn = nextId;
       nextId += 2;
-      VLOG(2) << "Adding txn=" << txn << " with dep=" << dep;
+      PRX_VLOG(2) << "Adding txn=" << txn << " with dep=" << dep;
       addTransaction(
           txn,
           {.streamDependency = (uint32_t)dep, .exclusive = true, .weight = 99});
@@ -701,7 +702,7 @@ TEST_F(QueueTest, ChromeTest) {
       // signal an inactive txn
       idx = rand32(inactive.size(), gen);
       txn = inactive[idx];
-      VLOG(2) << "Activating txn=" << txn;
+      PRX_VLOG(2) << "Activating txn=" << txn;
       signalEgress(txn, true);
       inactive.erase(inactive.begin() + idx);
       active.push_back(txn);
@@ -709,7 +710,7 @@ TEST_F(QueueTest, ChromeTest) {
       // clear an active transaction
       idx = rand32(active.size(), gen);
       txn = active[idx];
-      VLOG(2) << "Deactivating txn=" << txn;
+      PRX_VLOG(2) << "Deactivating txn=" << txn;
       signalEgress(txn, false);
       active.erase(active.begin() + idx);
       inactive.push_back(txn);
@@ -717,7 +718,7 @@ TEST_F(QueueTest, ChromeTest) {
       // remove a transaction
       idx = rand32(txns.size(), gen);
       txn = txns[idx];
-      VLOG(2) << "Removing txn=" << txn;
+      PRX_VLOG(2) << "Removing txn=" << txn;
       removeTransaction(txn);
       txns.erase(txns.begin() + idx);
       auto it = std::find(active.begin(), active.end(), txn);
@@ -729,7 +730,7 @@ TEST_F(QueueTest, ChromeTest) {
         inactive.erase(it);
       }
     }
-    VLOG(2) << "Active nodes=" << q_.numPendingEgress();
+    PRX_VLOG(2) << "Active nodes=" << q_.numPendingEgress();
     if (!q_.empty()) {
       nextEgress();
       EXPECT_GT(nodes_.size(), 0);

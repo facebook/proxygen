@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/experimental/RFC1867.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/Logging.h>
 
 using folly::IOBuf;
@@ -69,7 +70,7 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
             *input_.front(), 0, boundary_.data() + 1, boundary_.length() - 1);
         if (br == BoundaryResult::NO) {
           if (callback_) {
-            LOG(ERROR) << "Invalid starting sequence";
+            PRX_LOG(ERROR) << "Invalid starting sequence";
             callback_->onError();
           }
           state_ = ParserState::ERROR;
@@ -115,7 +116,7 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
       }
         headerParser_.setParserPaused(false);
         headerParser_.onIngress(*dummyBuf);
-        CHECK(!parseError_);
+        PRX_CHECK(!parseError_);
         state_ = ParserState::HEADERS;
         [[fallthrough]];
 
@@ -128,8 +129,8 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
         }
         if (parseError_) {
           if (callback_) {
-            LOG(ERROR) << "Error parsing header data: ";
-            VLOG(3) << IOBufPrinter::printHexFolly(input_.front());
+            PRX_LOG(ERROR) << "Error parsing header data: ";
+            PRX_VLOG(3) << IOBufPrinter::printHexFolly(input_.front());
             callback_->onError();
           }
           state_ = ParserState::ERROR;
@@ -142,7 +143,7 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
         value_.append(result.move());
         if (!value_.empty() && callback_) {
           if (callback_->onFieldData(value_.move(), bytesProcessed_) < 0) {
-            LOG(ERROR) << "Callback returned error";
+            PRX_LOG(ERROR) << "Callback returned error";
             state_ = ParserState::ERROR;
             return nullptr;
           }
@@ -154,8 +155,8 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
           state_ = ParserState::HEADERS_START;
         } else {
           if (input_.chainLength() > 0) {
-            VLOG(5) << "Trailing input="
-                    << IOBufPrinter::printHexFolly(input_.front());
+            PRX_VLOG(5) << "Trailing input="
+                        << IOBufPrinter::printHexFolly(input_.front());
           }
           return input_.move();
         }
@@ -195,13 +196,13 @@ void RFC1867Codec::onHeadersComplete(HTTPCodec::StreamID /*stream*/,
         } else if (parameter == kFilename) {
           filename = value.str();
         } else if (parameter != kFormData) {
-          LOG(WARNING) << "Ignoring parameter " << parameter << " value \""
-                       << value << '"';
+          PRX_LOG(WARNING) << "Ignoring parameter " << parameter << " value \""
+                           << value << '"';
         }
       });
   if (name.empty()) {
     if (callback_) {
-      LOG(ERROR) << "name empty";
+      PRX_LOG(ERROR) << "name empty";
       callback_->onError();
     }
     state_ = ParserState::ERROR;
@@ -211,7 +212,7 @@ void RFC1867Codec::onHeadersComplete(HTTPCodec::StreamID /*stream*/,
     if (callback_ && callback_->onFieldStart(
                          name, filename, std::move(msg), bytesProcessed_) < 0) {
       field_ = name;
-      LOG(WARNING) << "Callback returned error";
+      PRX_LOG(WARNING) << "Callback returned error";
       state_ = ParserState::ERROR;
     }
   }
@@ -234,7 +235,7 @@ IOBufQueue RFC1867Codec::readToBoundary(bool& foundBoundary) {
       boundaryResult =
           isBoundary(*head, readlen, boundary_.data(), boundary_.length());
       if (boundaryResult == BoundaryResult::YES) {
-        CHECK(readlen < head->length());
+        PRX_CHECK(readlen < head->length());
         bool hasCr = false;
         if (readlen == 0 && pendingCR_) {
           pendingCR_.reset();
@@ -277,7 +278,7 @@ IOBufQueue RFC1867Codec::readToBoundary(bool& foundBoundary) {
     // to result, except maybe the last char if it's a CR.
     if (resultLen > 0 && head->data()[resultLen - 1] == '\r') {
       result.append(input_.split(resultLen - 1));
-      CHECK(!pendingCR_);
+      PRX_CHECK(!pendingCR_);
       pendingCR_ = input_.split(1);
     } else {
       result.append(input_.split(resultLen));
@@ -293,7 +294,7 @@ IOBufQueue RFC1867Codec::readToBoundary(bool& foundBoundary) {
 
 void RFC1867Codec::onIngressEOM() {
   if (state_ == ParserState::FIELD_DATA) {
-    LOG(WARNING) << "Field not terminated by boundary";
+    PRX_LOG(WARNING) << "Field not terminated by boundary";
     if (callback_) {
       callback_->onFieldEnd(false, bytesProcessed_);
     }
@@ -301,7 +302,7 @@ void RFC1867Codec::onIngressEOM() {
   if (state_ != ParserState::HEADERS_START && state_ != ParserState::ERROR &&
       state_ != ParserState::DONE) {
     if (callback_) {
-      LOG(ERROR) << "onIngressEOM with state_=" << (uint8_t)state_;
+      PRX_LOG(ERROR) << "onIngressEOM with state_=" << (uint8_t)state_;
       callback_->onError();
     }
   }

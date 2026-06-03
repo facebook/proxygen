@@ -10,7 +10,7 @@
 
 #include <limits>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
@@ -127,13 +127,13 @@ class QPACKHeaderTable : public HeaderTable {
     // compare this way to avoid overflow
     if (numInserts > insertCount_ ||
         ackedInsertCount_ > insertCount_ - numInserts) {
-      LOG(ERROR)
+      PRX_LOG(ERROR)
           << "Decoder ack'd too much: ackedInsertCount_=" << ackedInsertCount_
           << " insertCount_=" << insertCount_ << " numInserts=" << numInserts;
       return false;
     }
     ackedInsertCount_ += numInserts;
-    CHECK_LE(ackedInsertCount_, insertCount_);
+    PRX_CHECK_LE(ackedInsertCount_, insertCount_);
     return true;
   }
 
@@ -141,7 +141,7 @@ class QPACKHeaderTable : public HeaderTable {
     if (ackInsertCount < ackedInsertCount_) {
       return;
     }
-    CHECK_LE(ackInsertCount, insertCount_);
+    PRX_CHECK_LE(ackInsertCount, insertCount_);
     ackedInsertCount_ = ackInsertCount;
   }
 
@@ -149,7 +149,7 @@ class QPACKHeaderTable : public HeaderTable {
    * Convert a relative index to an absolute index
    */
   [[nodiscard]] uint32_t relativeToAbsolute(uint32_t relativeIndex) const {
-    DCHECK(isValid(relativeIndex, 0));
+    PRX_DCHECK(isValid(relativeIndex, 0));
     return insertCount_ - relativeIndex + 1;
   }
 
@@ -157,7 +157,7 @@ class QPACKHeaderTable : public HeaderTable {
    * Convert an absolute index to a relative index
    */
   [[nodiscard]] uint32_t absoluteToRelative(uint32_t absIndex) const {
-    CHECK_LE(absIndex, insertCount_);
+    PRX_CHECK_LE(absIndex, insertCount_);
     return insertCount_ - absIndex + 1;
   }
 

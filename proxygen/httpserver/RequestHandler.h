@@ -9,6 +9,7 @@
 #pragma once
 
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -30,7 +31,7 @@ class RequestHandler {
    *      mess with these things.
    */
   virtual void setResponseHandler(ResponseHandler* handler) noexcept {
-    downstream_ = CHECK_NOTNULL(handler);
+    downstream_ = PRX_CHECK_NOTNULL(handler);
   }
 
   /**

@@ -94,15 +94,53 @@ find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Threads)
 find_package(Cares REQUIRED)
-find_package(Glog REQUIRED)
 
-# Propagate glog's required compile definition to all proxygen targets.
-# glog 0.7+ requires GLOG_USE_GLOG_EXPORT but since glog::glog is linked
-# PRIVATE on the monolithic library, OBJECT libraries don't inherit it.
-get_target_property(_glog_defs glog::glog INTERFACE_COMPILE_DEFINITIONS)
-if(_glog_defs)
-  add_compile_definitions(${_glog_defs})
+# Set install-dir defaults before any install() rule references them. The
+# matching defaults below (LIB_INSTALL_DIR / CMAKE_INSTALL_DIR) stay where they
+# are since nothing earlier in this file consumes them.
+if (NOT DEFINED INCLUDE_INSTALL_DIR)
+    set(INCLUDE_INSTALL_DIR "include")
 endif()
+
+# Logging backend selection. Default is glog (preserves historical behavior);
+# downstream builds can opt in to folly::xlog or fully disable logging.
+# Interpolated into lib/utils/proxygen-config.h.in as
+# `#define PRX_LOGGING_@PROXYGEN_LOGGING_BACKEND@ 1` and consumed from
+# proxygen/lib/utils/LogShim.h.
+set(PROXYGEN_LOGGING_BACKEND "GLOG" CACHE STRING
+  "Logging backend. Valid choices: GLOG, XLOG, DISABLED")
+set_property(CACHE PROXYGEN_LOGGING_BACKEND PROPERTY STRINGS GLOG XLOG DISABLED)
+if(NOT PROXYGEN_LOGGING_BACKEND MATCHES "^(GLOG|XLOG|DISABLED)$")
+  message(FATAL_ERROR
+    "PROXYGEN_LOGGING_BACKEND must be one of: GLOG, XLOG, DISABLED "
+    "(got '${PROXYGEN_LOGGING_BACKEND}')")
+endif()
+
+# Glog is only required in the default GLOG backend; XLOG routes through
+# folly::xlog and DISABLED strips logging entirely.
+if(PROXYGEN_LOGGING_BACKEND STREQUAL "GLOG")
+  find_package(Glog REQUIRED)
+
+  # Propagate glog's required compile definition to all proxygen targets.
+  # glog 0.7+ requires GLOG_USE_GLOG_EXPORT but since glog::glog is linked
+  # PRIVATE on the monolithic library, OBJECT libraries don't inherit it.
+  get_target_property(_glog_defs glog::glog INTERFACE_COMPILE_DEFINITIONS)
+  if(_glog_defs)
+    add_compile_definitions(${_glog_defs})
+  endif()
+endif()
+
+# Generate <proxygen/proxygen-config.h> for this build. The template
+# interpolates PROXYGEN_LOGGING_BACKEND into a
+# `#define PRX_LOGGING_<BACKEND> 1`, which proxygen/lib/utils/LogShim.h
+# consumes to pick the macro implementations.
+# Generated into PROXYGEN_GENERATED_ROOT which is already on every proxygen
+# target's include path (see ProxygenFunctions.cmake).
+configure_file(
+  proxygen/lib/utils/proxygen-config.h.in
+  ${PROXYGEN_GENERATED_ROOT}/proxygen/proxygen-config.h)
+install(FILES ${PROXYGEN_GENERATED_ROOT}/proxygen/proxygen-config.h
+  DESTINATION ${INCLUDE_INSTALL_DIR}/proxygen/)
 
 list(APPEND
     _PROXYGEN_COMMON_COMPILE_OPTIONS
@@ -172,6 +210,19 @@ include(ProxygenFunctions)
 set(PROXYGEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proxygen)
 
 add_subdirectory(proxygen)
+
+# The generated lib/utils/CMakeLists.txt lists both Folly::folly_glog and
+# Folly::folly_logging_logging as unconditional INTERFACE deps for the log
+# shim. Narrow that to match the selected backend so downstream code doesn't
+# pull in libraries it isn't actually using.
+if(PROXYGEN_LOGGING_BACKEND STREQUAL "XLOG")
+  set_target_properties(proxygen_utils_log_shim PROPERTIES
+    INTERFACE_LINK_LIBRARIES
+    "proxygen_utils_config;Folly::folly_logging_logging")
+elseif(PROXYGEN_LOGGING_BACKEND STREQUAL "DISABLED")
+  set_target_properties(proxygen_utils_log_shim PROPERTIES
+    INTERFACE_LINK_LIBRARIES "proxygen_utils_config")
+endif()
 
 # Resolve deferred dependencies for granular libraries
 # (monolithic proxygen target is manually maintained in proxygen/lib/CMakeLists.txt)

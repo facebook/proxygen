@@ -13,6 +13,7 @@
 #include <folly/SingletonThreadLocal.h>
 #include <folly/String.h>
 #include <mutex>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::StringPiece;
 using std::pair;
@@ -245,7 +246,7 @@ void HTTPMessage::setMethod(HTTPMethod method) {
 }
 
 void HTTPMessage::setMethod(folly::StringPiece method) {
-  VLOG(9) << "setMethod: " << method;
+  PRX_VLOG(9) << "setMethod: " << method;
   Request& req = request();
   folly::Optional<HTTPMethod> result = stringToMethod(method);
   if (result) {
@@ -401,7 +402,7 @@ void HTTPMessage::constructDirectResponse(const pair<uint8_t, uint8_t>& version,
 }
 
 void HTTPMessage::parseCookies() const {
-  DCHECK(!parsedCookies_);
+  PRX_DCHECK(!parsedCookies_);
   parsedCookies_ = true;
 
   headers_.forEachValueOfHeader(
@@ -476,7 +477,7 @@ void HTTPMessage::removeCookie(const string& name) {
 }
 
 void HTTPMessage::parseQueryParams() const {
-  DCHECK(!parsedQueryParams_);
+  PRX_DCHECK(!parsedQueryParams_);
   const Request& req = request();
 
   parsedQueryParams_ = true;
@@ -555,7 +556,8 @@ std::string HTTPMessage::getDecodedQueryParam(const std::string& name) const {
   try {
     folly::uriUnescape(val, result, folly::UriEscapeMode::QUERY);
   } catch (const std::exception& ex) {
-    LOG(WARNING) << "Invalid escaped query param: " << folly::exceptionStr(ex);
+    PRX_LOG(WARNING) << "Invalid escaped query param: "
+                     << folly::exceptionStr(ex);
   }
   return result;
 }
@@ -590,7 +592,7 @@ bool HTTPMessage::setQueryStringImpl(const std::string& query,
     return !strict || res.valid();
   }
 
-  DVLOG(4) << "Error parsing URL during setQueryString: " << request().url_;
+  PRX_DVLOG(4) << "Error parsing URL during setQueryString: " << request().url_;
   return false;
 }
 
@@ -750,7 +752,7 @@ std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg) {
 }
 
 void HTTPMessage::dumpMessage(int vlogLevel) const {
-  DVLOG(vlogLevel) << *this;
+  PRX_DVLOG_LEVEL(vlogLevel) << *this;
 }
 
 void HTTPMessage::describe(std::ostream& os) const {
@@ -995,14 +997,14 @@ ParseURL HTTPMessage::setURLImplInternal(bool unparse, bool strict) {
   auto& req = request();
   auto u = ParseURL::parseURLMaybeInvalid(req.url_, strict);
   if (u.valid()) {
-    DVLOG(9) << "set path: " << u.path() << " query:" << u.query();
+    PRX_DVLOG(9) << "set path: " << u.path() << " query:" << u.query();
     req.path_ = u.path();
     req.query_ = u.query();
     if (req.path_.empty()) {
       req.path_.reset("/", 1);
     }
   } else {
-    DVLOG(4) << "Error in parsing URL: " << req.url_;
+    PRX_DVLOG(4) << "Error in parsing URL: " << req.url_;
     req.path_.clear();
     req.query_.clear();
   }

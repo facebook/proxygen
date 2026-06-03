@@ -13,7 +13,7 @@
 #include "proxygen/lib/http/coro/HTTPSourceFilterChain.h"
 #include "proxygen/lib/http/coro/HTTPSourceHolder.h"
 #include "proxygen/lib/http/coro/util/TimedBaton.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 

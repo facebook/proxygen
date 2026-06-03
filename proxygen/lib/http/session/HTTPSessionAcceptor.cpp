@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 
 #include <proxygen/lib/http/session/HTTPDefaultSessionCodecFactory.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::SocketAddress;
 using std::string;
@@ -55,7 +56,7 @@ void HTTPSessionAcceptor::onNewConnection(folly::AsyncTransport::UniquePtr sock,
       !sock->getSecurityProtocol().empty());
 
   if (!codec) {
-    VLOG(2) << "codecFactory_ failed to provide codec";
+    PRX_VLOG(2) << "codecFactory_ failed to provide codec";
     onSessionCreationError(ProxygenError::kErrorUnsupportedScheme);
     return;
   }
@@ -69,7 +70,7 @@ void HTTPSessionAcceptor::onNewConnection(folly::AsyncTransport::UniquePtr sock,
   try {
     sock->getLocalAddress(&localAddress);
   } catch (...) {
-    VLOG(3) << "couldn't get local address for socket";
+    PRX_VLOG(3) << "couldn't get local address for socket";
     localAddress = unknownSocketAddress_;
   }
 
@@ -80,12 +81,12 @@ void HTTPSessionAcceptor::onNewConnection(folly::AsyncTransport::UniquePtr sock,
     } else {
       localAddress = unknownSocketAddress_;
     }
-    VLOG(4) << "set localAddress=" << localAddress.describe();
+    PRX_VLOG(4) << "set localAddress=" << localAddress.describe();
   }
 
   auto sessionInfoCb = sessionInfoCb_ ? sessionInfoCb_ : this;
-  VLOG(4) << "Created new " << nextProtocol << " session for peer "
-          << *peerAddress;
+  PRX_VLOG(4) << "Created new " << nextProtocol << " session for peer "
+              << *peerAddress;
   auto codecProtocol = codec->getProtocol();
   auto* session = new HTTPDownstreamSession(getTransactionTimeoutSet(),
                                             std::move(sock),
@@ -124,7 +125,7 @@ void HTTPSessionAcceptor::onNewConnection(folly::AsyncTransport::UniquePtr sock,
 
 size_t HTTPSessionAcceptor::dropIdleConnections(size_t num) {
   // release in batch for more efficiency
-  VLOG(6) << "attempt to drop downstream idle connections";
+  PRX_VLOG(6) << "attempt to drop downstream idle connections";
   return downstreamConnectionManager_->dropIdleConnections(num);
 }
 

@@ -9,6 +9,7 @@
 #include "proxygen/lib/http/coro/HTTPBodyEventQueue.h"
 
 #include <folly/Conv.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::coro::co_error;
 using folly::coro::co_nothrow;
@@ -31,14 +32,14 @@ folly::coro::Task<HTTPHeaderEvent> HTTPBodyEventQueue::readHeaderEvent() {
 
 folly::coro::Task<HTTPBodyEventQueue::ReadBodyResult>
 HTTPBodyEventQueue::readBodyEvent(uint32_t max) {
-  XCHECK(source_);
-  XLOG(DBG4) << "Waiting for buffer space";
+  PRX_CHECK(source_);
+  PRX_VLOG(4) << "Waiting for buffer space";
   auto bufferSpace = availableBuffer();
   if (!bufferSpace) {
     bufferSpace = co_await co_nothrow(waitAvailableBuffer());
   }
-  XLOG(DBG4) << "Got buffer space len=" << bufferSpace
-             << " waiting for body event";
+  PRX_VLOG(4) << "Got buffer space len=" << bufferSpace
+              << " waiting for body event";
   max = std::min(max, uint32_t(bufferSpace));
   auto bodyEvent = co_await co_nothrow(source_.readBodyEvent(max));
   const auto& ct = co_await folly::coro::co_current_cancellation_token;
@@ -67,7 +68,7 @@ void HTTPBodyEventQueue::setExpectedEgressContentLength(
 
   auto convResult = folly::tryTo<uint64_t>(contentLen);
   if (convResult.hasError()) {
-    XLOG(ERR)
+    PRX_LOG(ERROR)
         << "Invalid content-length: " << contentLen << ", ex="
         << folly::makeConversionError(convResult.error(), contentLen).what();
     shouldValidateContentLength_ = false;
@@ -93,13 +94,13 @@ void HTTPBodyEventQueue::clear(const HTTPError& err) {
 }
 
 HTTPBodyEvent HTTPBodyEventQueue::dequeueBodyEvent(uint32_t max) {
-  XCHECK(!bodyQueue_.empty());
+  PRX_CHECK(!bodyQueue_.empty());
   auto bodyEvent = std::move(bodyQueue_.front());
   bodyQueue_.pop_front();
   if (auto* body = asBodyEv(bodyEvent)) {
     auto length = body->chainLength();
     auto toReturn = std::min(max, uint32_t(length));
-    XCHECK_GE(bufferedBodyBytes_, toReturn);
+    PRX_CHECK_GE(bufferedBodyBytes_, toReturn);
     bool wasOverLimit = bufferedBodyBytes_ >= limit_;
     bufferedBodyBytes_ -= toReturn;
     if (wasOverLimit && bufferedBodyBytes_ < limit_) {
@@ -131,7 +132,7 @@ folly::coro::Task<size_t> HTTPBodyEventQueue::waitAvailableBuffer() {
 }
 
 bool HTTPBodyEventQueue::processBodyEvent(HTTPBodyEvent&& bodyEvent) {
-  XLOG(DBG4) << "Queuing body event";
+  PRX_VLOG(4) << "Queuing body event";
   for (auto& reg : bodyEvent.byteEventRegistrations) {
     if (!reg.streamID) {
       reg.streamID = id_;

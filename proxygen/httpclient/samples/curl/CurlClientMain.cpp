@@ -14,6 +14,7 @@
 #include <folly/portability/GFlags.h>
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/lib/http/HTTPConnector.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace CurlService;
 using namespace folly;
@@ -63,7 +64,7 @@ int main(int argc, char* argv[]) {
 
   auto httpMethod = stringToMethod(FLAGS_http_method);
   if (!httpMethod) {
-    LOG(ERROR) << "Unsupported http_method=" << FLAGS_http_method;
+    PRX_LOG(ERROR) << "Unsupported http_method=" << FLAGS_http_method;
     return EXIT_FAILURE;
   }
 
@@ -72,8 +73,8 @@ int main(int argc, char* argv[]) {
       File f(FLAGS_input_filename);
       (void)f;
     } catch (const std::system_error& se) {
-      LOG(ERROR) << "Couldn't open file for POST method";
-      LOG(ERROR) << se.what();
+      PRX_LOG(ERROR) << "Couldn't open file for POST method";
+      PRX_LOG(ERROR) << se.what();
       return EXIT_FAILURE;
     }
   }
@@ -97,7 +98,7 @@ int main(int argc, char* argv[]) {
   } else {
     addr = SocketAddress(url.getHost(), url.getPort(), true);
   }
-  LOG(INFO) << "Trying to connect to " << addr;
+  PRX_LOG(INFO) << "Trying to connect to " << addr;
 
   HTTPConnector connector(
       &curlClient,

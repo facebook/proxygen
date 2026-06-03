@@ -12,7 +12,7 @@
 #include <folly/io/async/EventHandler.h>
 #include <folly/io/async/HHWheelTimer.h>
 #include <folly/portability/Sockets.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/Time.h>
 
 using namespace proxygen;
@@ -88,8 +88,8 @@ CAresResolver::Query::Query(CAresResolver* resolver,
 
 void CAresResolver::Query::resolve(ResolutionCallback* cb,
                                    std::chrono::milliseconds timeout) {
-  CHECK(callback_ == nullptr);
-  CHECK(cb != nullptr);
+  PRX_CHECK(callback_ == nullptr);
+  PRX_CHECK(cb != nullptr);
 
   dnsEvent_.start(*timeUtil_);
 
@@ -97,8 +97,8 @@ void CAresResolver::Query::resolve(ResolutionCallback* cb,
   callback_->insertQuery(this);
   startTime_ = getCurrentTime();
   if (timeout.count() > 0 && !scheduleTimeout(timeout.count())) {
-    LOG(DFATAL) << "Failed to schedule timeout for query " << name_
-                << " with type " << static_cast<int>(type_);
+    PRX_LOG(DFATAL) << "Failed to schedule timeout for query " << name_
+                    << " with type " << static_cast<int>(type_);
   }
   resolver_->query(name_, type_, Query::queryCallback, this);
 }
@@ -417,9 +417,9 @@ void CAresResolver::Query::queryCallback(
     }
 
     default:
-      LOG(ERROR) << "Couldn't handle answer for query type "
-                 << static_cast<int>(self->type_) << ", during resolving "
-                 << self->name_;
+      PRX_LOG(ERROR) << "Couldn't handle answer for query type "
+                     << static_cast<int>(self->type_) << ", during resolving "
+                     << self->name_;
       self->fail(
           PARSE_ERROR,
           folly::to<std::string>("Failed to parse answer for query type: ",
@@ -483,9 +483,9 @@ class CAresResolver::MultiQuery
   void resolve(ResolutionCallback* callback,
                const std::list<Query*>& queries,
                std::chrono::milliseconds timeout) {
-    CHECK(callback_ == nullptr);
-    CHECK(callback != nullptr);
-    CHECK_EQ(0, queries_);
+    PRX_CHECK(callback_ == nullptr);
+    PRX_CHECK(callback != nullptr);
+    PRX_CHECK_EQ(0, queries_);
 
     callback_ = callback;
     callback_->insertQuery(this);
@@ -653,12 +653,12 @@ CAresResolver::~CAresResolver() {
 
   // Once ares_destroy() has run, it should have invoked dnsSocketReady() on
   // all of our sockets to clean them up
-  LOG_IF(DFATAL, !socketHandlers_.empty())
+  PRX_LOG_IF(DFATAL, !socketHandlers_.empty())
       << "Found orphaned sockets after ares_destroy()";
 }
 
 void CAresResolver::attachEventBase(EventBase* base) {
-  LOG_IF(DFATAL, base_ != nullptr)
+  PRX_LOG_IF(DFATAL, base_ != nullptr)
       << "Overwriting existing non-nullptr EventBase";
 
   base_ = base;
@@ -699,8 +699,8 @@ void CAresResolver::noteCAresQueryStarted() {
 
 void CAresResolver::noteCAresQueryCompleted() {
   if (caresActiveQueries_ == 0) {
-    LOG(ERROR) << "Invalid c-ares active query count in "
-                  "`CAresResolver::queryCallback()`";
+    PRX_LOG(ERROR) << "Invalid c-ares active query count in "
+                      "`CAresResolver::queryCallback()`";
     return;
   }
   --caresActiveQueries_;
@@ -776,7 +776,7 @@ void CAresResolver::updateAresTimeout() {
   aresTimeoutHandler_->schedule(timeoutMs);
 }
 void CAresResolver::init() {
-  CHECK(base_ != nullptr);
+  PRX_CHECK(base_ != nullptr);
 
   // Initialize our channel
   int optmask = 0;
@@ -815,7 +815,7 @@ void CAresResolver::init() {
 
   int err = ares_init_options(&channel_, &opts, optmask);
   if (err != ARES_SUCCESS) {
-    LOG(DFATAL) << "ares_init_options() failed: " << ares_strerror(err);
+    PRX_LOG(DFATAL) << "ares_init_options() failed: " << ares_strerror(err);
     return;
   }
 
@@ -847,8 +847,8 @@ void CAresResolver::init() {
         }
 
         default:
-          LOG(DFATAL) << "Unknown address type " << ares_addr->family
-                      << "; failing to change nameservers";
+          PRX_LOG(DFATAL) << "Unknown address type " << ares_addr->family
+                          << "; failing to change nameservers";
           return;
       }
 
@@ -857,7 +857,7 @@ void CAresResolver::init() {
 
     err = ares_set_servers(channel_, ares_addrs.get());
     if (err != ARES_SUCCESS) {
-      LOG(DFATAL) << "ares_set_servers() failed: " << ares_strerror(err);
+      PRX_LOG(DFATAL) << "ares_set_servers() failed: " << ares_strerror(err);
       return;
     }
   }
@@ -867,14 +867,14 @@ void CAresResolver::resolveAddress(DNSResolver::ResolutionCallback* cb,
                                    const SocketAddress& address,
                                    std::chrono::milliseconds timeout) {
   if (timeout > kMaxTimeout) {
-    LOG(WARNING) << "Attempt to resolve " << address.getAddressStr()
-                 << " specified with " << "timeout of " << timeout.count()
-                 << "ms; " << "clamping to " << kMaxTimeout.count() << "ms";
+    PRX_LOG(WARNING) << "Attempt to resolve " << address.getAddressStr()
+                     << " specified with " << "timeout of " << timeout.count()
+                     << "ms; " << "clamping to " << kMaxTimeout.count() << "ms";
     timeout = kMaxTimeout;
   }
 
   if (address.getFamily() != AF_INET && address.getFamily() != AF_INET6) {
-    LOG(ERROR) << "Unsupported address family " << address.getFamily();
+    PRX_LOG(ERROR) << "Unsupported address family " << address.getFamily();
     auto ew = folly::make_exception_wrapper<Exception>(
         INVALID,
         folly::to<std::string>("Unsupported address family: ",
@@ -962,9 +962,9 @@ void CAresResolver::resolveHostname(DNSResolver::ResolutionCallback* cb,
   }
 
   if (timeout > kMaxTimeout) {
-    LOG(WARNING) << "Attempt to resolve " << host << " specified with "
-                 << "timeout of " << timeout.count() << "ms; clamping to "
-                 << kMaxTimeout.count() << "ms";
+    PRX_LOG(WARNING) << "Attempt to resolve " << host << " specified with "
+                     << "timeout of " << timeout.count() << "ms; clamping to "
+                     << kMaxTimeout.count() << "ms";
     timeout = kMaxTimeout;
   }
 
@@ -1031,7 +1031,7 @@ void CAresResolver::resolveHostname(DNSResolver::ResolutionCallback* cb,
                 std::chrono::milliseconds(timeout));
     issuedQuery = true;
   } else {
-    LOG(DFATAL) << "Unsupported family specified: " << family;
+    PRX_LOG(DFATAL) << "Unsupported family specified: " << family;
     auto ew = folly::make_exception_wrapper<Exception>(
         INVALID,
         folly::to<std::string>("Unsupported address family: ", family));
@@ -1047,9 +1047,9 @@ void CAresResolver::resolveMailExchange(DNSResolver::ResolutionCallback* cb,
                                         const std::string& domain,
                                         std::chrono::milliseconds timeout) {
   if (timeout > kMaxTimeout) {
-    LOG(WARNING) << "Attempt to resolve mail exchange info for " << domain
-                 << " specified with " << "timeout of " << timeout.count()
-                 << "ms; " << "clamping to " << kMaxTimeout.count() << "ms";
+    PRX_LOG(WARNING) << "Attempt to resolve mail exchange info for " << domain
+                     << " specified with " << "timeout of " << timeout.count()
+                     << "ms; " << "clamping to " << kMaxTimeout.count() << "ms";
     timeout = kMaxTimeout;
   }
 
@@ -1118,7 +1118,8 @@ void CAresResolver::query(const std::string& name,
 
 void CAresResolver::queryFinished() {
   if (channelRefcnt_ == 0) {
-    LOG(ERROR) << "Invalid channel refcount in CAresResolver::queryFinished()";
+    PRX_LOG(ERROR)
+        << "Invalid channel refcount in CAresResolver::queryFinished()";
     return;
   }
   if (--channelRefcnt_ == 0) {
@@ -1137,7 +1138,7 @@ void CAresResolver::dnsSocketReady(void* data,
 
   // Ares is done with this socket; stop watching it
   if (!read && !write) {
-    LOG_IF(DFATAL, it == self->socketHandlers_.end())
+    PRX_LOG_IF(DFATAL, it == self->socketHandlers_.end())
         << "dnsSocketReady() asked to close a socket that we don't kow about";
     if (it != self->socketHandlers_.end()) {
       self->socketHandlers_.erase(it);
@@ -1165,7 +1166,7 @@ void CAresResolver::dnsSocketReady(void* data,
   events |= (read) ? EventHandler::READ : 0;
   events |= (write) ? EventHandler::WRITE : 0;
   if (!shp->registerHandler(events)) {
-    LOG(DFATAL) << "Failed to register SocketHandler";
+    PRX_LOG(DFATAL) << "Failed to register SocketHandler";
   }
   if (inserted) {
     self->recordSocketOpened();
@@ -1175,7 +1176,7 @@ void CAresResolver::dnsSocketReady(void* data,
 
 void CAresResolver::initGlobal() {
   int err = ares_library_init(ARES_LIB_INIT_ALL);
-  LOG_IF(FATAL, err != 0) << "ares_library_init() failed";
+  PRX_LOG_IF(FATAL, err != 0) << "ares_library_init() failed";
 }
 
 void CAresResolver::destroyGlobal() {

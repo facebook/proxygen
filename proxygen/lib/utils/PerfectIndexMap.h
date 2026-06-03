@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/FBVector.h>
 #include <folly/Optional.h>
@@ -67,7 +67,7 @@ class PerfectIndexMap {
 
   [[nodiscard]] folly::Optional<std::string> getSingleOtherKeyOrNone(
       const std::string &keyStr) const {
-    CHECK(PerfectHashStrToKey(keyStr) == OtherKey);
+    PRX_CHECK(PerfectHashStrToKey(keyStr) == OtherKey);
     const std::string *result = getSingleOtherKey(keyStr);
     return (result == nullptr ? folly::none
                               : folly::Optional<std::string>(*result));
@@ -76,7 +76,7 @@ class PerfectIndexMap {
   bool update(Key key,
               const std::string &checkValue,
               const std::string &newValue) {
-    CHECK(key != OtherKey && key != NoneKey);
+    PRX_CHECK(key != OtherKey && key != NoneKey);
     std::string *getResult = getSingleKeyForUpdate(key);
     if (getResult != nullptr && stringsEqual(*getResult, checkValue)) {
       *getResult = newValue;
@@ -86,7 +86,7 @@ class PerfectIndexMap {
   }
 
   folly::Optional<std::string> getSingleOrNone(Key key) const {
-    CHECK(key != OtherKey && key != NoneKey);
+    PRX_CHECK(key != OtherKey && key != NoneKey);
     const std::string *result = getSingleKey(key);
     return (result == nullptr ? folly::none
                               : folly::Optional<std::string>(*result));
@@ -95,7 +95,7 @@ class PerfectIndexMap {
   // Adders into the underlying map.
 
   void add(const std::string &keyStr, const std::string &value) {
-    CHECK(AllowDuplicates);
+    PRX_CHECK(AllowDuplicates);
     auto key = PerfectHashStrToKey(keyStr);
     if (key == OtherKey) {
       addOtherKeyToIndex(keyStr, value);
@@ -105,7 +105,7 @@ class PerfectIndexMap {
   }
 
   void add(Key key, const std::string &value) {
-    CHECK(AllowDuplicates && key != OtherKey && key != NoneKey);
+    PRX_CHECK(AllowDuplicates && key != OtherKey && key != NoneKey);
     addKeyToIndex(key, value);
   }
 
@@ -123,7 +123,7 @@ class PerfectIndexMap {
   }
 
   void set(Key key, const std::string &value) {
-    CHECK(key != OtherKey && key != NoneKey);
+    PRX_CHECK(key != OtherKey && key != NoneKey);
     setKey(key, value);
   }
 
@@ -140,7 +140,7 @@ class PerfectIndexMap {
     }
   }
   bool remove(Key key) {
-    CHECK(key != OtherKey && key != NoneKey);
+    PRX_CHECK(key != OtherKey && key != NoneKey);
     return removeKey(key);
   }
 
@@ -335,7 +335,7 @@ class PerfectIndexMap {
 
   // Utility methods for removing from our index.
   void removeAtIndex(std::ptrdiff_t index) {
-    CHECK(keys_[index] != NoneKey);
+    PRX_CHECK(keys_[index] != NoneKey);
     if (keys_[index] == OtherKey) {
       --otherKeyCount_;
     }

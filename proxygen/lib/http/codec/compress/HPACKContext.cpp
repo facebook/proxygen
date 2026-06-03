@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -108,7 +109,7 @@ const HPACKHeader& HPACKContext::getHeader(uint32_t index) {
 
 void HPACKContext::seedHeaderTable(std::vector<HPACKHeader>& headers) {
   for (auto& header : headers) {
-    CHECK(table_.add(std::move(header)));
+    PRX_CHECK(table_.add(std::move(header)));
   }
 }
 

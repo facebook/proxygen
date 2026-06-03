@@ -12,6 +12,7 @@
 #include <proxygen/httpserver/samples/hq/HQServerModule.h>
 #include <proxygen/httpserver/samples/hq/SampleHandlers.h>
 #include <proxygen/lib/http/session/HQSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 
@@ -25,12 +26,13 @@ void sendKnobFrame(HQSession* session, const folly::StringPiece str) {
   quic::BufPtr buf(folly::IOBuf::create(str.size()));
   memcpy(buf->writableData(), str.data(), str.size());
   buf->append(str.size());
-  VLOG(10) << "Sending Knob Frame to peer. KnobSpace: " << std::hex << knobSpace
-           << " KnobId: " << std::dec << knobId << " Knob Blob" << str;
+  PRX_VLOG(10) << "Sending Knob Frame to peer. KnobSpace: " << std::hex
+               << knobSpace << " KnobId: " << std::dec << knobId << " Knob Blob"
+               << str;
   const auto knobSent = session->sendKnob(0xfaceb00c, 200, std::move(buf));
   if (knobSent.hasError()) {
-    LOG(ERROR) << "Failed to send Knob frame to peer. Received error: "
-               << knobSent.error();
+    PRX_LOG(ERROR) << "Failed to send Knob frame to peer. Received error: "
+                   << knobSent.error();
   }
 }
 } // namespace

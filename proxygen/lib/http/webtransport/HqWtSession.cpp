@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/webtransport/HqWtSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 using namespace proxygen;
@@ -18,28 +19,28 @@ struct H3CapsuleCodecCb final : public WebTransportCapsuleCodec::Callback {
   }
 
   void onMaxData(WTMaxDataCapsule c) noexcept override {
-    VLOG(4) << __func__;
+    PRX_VLOG(4) << __func__;
     wtSess.onConnMaxData({.maxData = c.maximumData});
   }
   void onMaxStreamsBidi(WTMaxStreamsCapsule c) noexcept override {
-    VLOG(4) << __func__;
+    PRX_VLOG(4) << __func__;
     wtSess.onMaxStreams(WtStreamManager::MaxStreamsBidi{c.maximumStreams});
   }
   void onMaxStreamsUni(WTMaxStreamsCapsule c) noexcept override {
-    VLOG(4) << __func__;
+    PRX_VLOG(4) << __func__;
     wtSess.onMaxStreams(WtStreamManager::MaxStreamsUni{c.maximumStreams});
   }
   void onDrainSession(DrainWebTransportSessionCapsule) noexcept override {
-    VLOG(4) << __func__;
+    PRX_VLOG(4) << __func__;
     wtSess.onDrainSession({});
   }
   void onCloseSession(CloseWebTransportSessionCapsule c) noexcept override {
-    VLOG(4) << __func__;
+    PRX_VLOG(4) << __func__;
     wtSess.onCloseSession(WtStreamManager::CloseSession{
         c.applicationErrorCode, std::move(c.applicationErrorMessage)});
   }
   void onConnectionError(CapsuleCodec::ErrorCode error) noexcept override {
-    VLOG(4) << __func__;
+    PRX_VLOG(4) << __func__;
     onCloseSession({uint8_t(error), "onConnectionError"});
   }
 
@@ -92,8 +93,8 @@ struct WtReadLooper : public WtLooper {
 
 void WtReadLooper::runLoopCallback() noexcept {
   auto [buf, eom] = wtTxnHandler_.moveBufferedIngress();
-  VLOG(4) << "WtReadLooper buf=" << buf.get() << "; eom=" << eom
-          << "; ex=" << wtTxnHandler_.ex_;
+  PRX_VLOG(4) << "WtReadLooper buf=" << buf.get() << "; eom=" << eom
+              << "; ex=" << wtTxnHandler_.ex_;
   codec_.onIngress(std::move(buf), eom);
   const bool ingressDone = eom || wtTxnHandler_.ex_;
   if (ingressDone) {
@@ -135,14 +136,14 @@ void WtWriteLooper::runLoopCallback() noexcept {
   // serialize all control frames
   auto* txn = wtTxnHandler_.txn_;
   const bool canWrite = !wtSess_.writesDone_ && txn;
-  VLOG(4) << "WtWriteLooper canWrite=" << canWrite;
+  PRX_VLOG(4) << "WtWriteLooper canWrite=" << canWrite;
   if (!canWrite) {
     return;
   }
   txn->sendBody(buf_.move());
   // if we've visited CloseSession, send eom & mark writes done
   if (visitor.sessionClosed) {
-    VLOG(4) << "WtWriteLooper sessionClosed";
+    PRX_VLOG(4) << "WtWriteLooper sessionClosed";
     txn->sendEOM();
     wtSess_.writesDone();
   }
@@ -164,13 +165,13 @@ HqWtSession::HqWtSession(WtLooper& readLooper,
 }
 
 void HqWtSession::onHttpError(const HTTPException& err) noexcept {
-  VLOG(4) << __func__ << "; err=" << err.describe();
+  PRX_VLOG(4) << __func__ << "; err=" << err.describe();
   wtSess_.onCloseSession({WebTransport::kInternalError, err.describe()});
   WtHttpSession::onHttpError(err);
 }
 
 void HqWtSession::onDone() noexcept {
-  VLOG(4) << __func__;
+  PRX_VLOG(4) << __func__;
   wtSess_.closeSession(folly::none);
 }
 

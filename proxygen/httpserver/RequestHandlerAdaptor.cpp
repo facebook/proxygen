@@ -12,6 +12,7 @@
 #include <proxygen/httpserver/PushHandler.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -202,13 +203,13 @@ RequestHandlerAdaptor::newPushedResponse(PushHandler* pushHandler) noexcept {
   auto pushTxn = txn_->newPushedTransaction(pushHandler->getHandler(), &error);
   if (!pushTxn) {
     // Codec doesn't support push
-    VLOG(4) << "Failed to create newPushedResponse: "
-            << static_cast<uint8_t>(error) << " " << getErrorString(error);
+    PRX_VLOG(4) << "Failed to create newPushedResponse: "
+                << static_cast<uint8_t>(error) << " " << getErrorString(error);
     return folly::makeUnexpected(error);
   }
   auto pushHandlerAdaptor = new RequestHandlerAdaptor(pushHandler);
   if (!pushHandlerAdaptor) {
-    VLOG(4) << "Failed to create RequestHandlerAdaptor!";
+    PRX_VLOG(4) << "Failed to create RequestHandlerAdaptor!";
     return folly::makeUnexpected(kErrorUnknown);
   }
   pushHandlerAdaptor->setTransaction(pushTxn);

@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::hq {
 
@@ -36,8 +37,8 @@ class HQMultiCodec : public HQControlCodec {
                        StreamDirection::INGRESS, /* to match settings */
                        ingressSettings_,
                        UnidirectionalStreamType::CONTROL) {
-    VLOG(4) << "creating " << getTransportDirectionString(direction)
-            << " HQMultiCodec for stream " << streamId_;
+    PRX_VLOG(4) << "creating " << getTransportDirectionString(direction)
+                << " HQMultiCodec for stream " << streamId_;
     // Has to be explicitly enabled
     doubleGoaway_ = false;
     minUnseenStreamID_ = 0;
@@ -67,14 +68,14 @@ class HQMultiCodec : public HQControlCodec {
   }
 
   bool isStreamIngressEgressAllowed(StreamID streamId) const {
-    CHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
+    PRX_CHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
     return streamId < egressGoawayAck_;
   }
 
   HTTPCodec& addCodec(StreamID streamId) {
     if (transportDirection_ == TransportDirection::DOWNSTREAM &&
         (streamId & 0x3) == 0 && streamId >= minUnseenStreamID_) {
-      CHECK_LT(streamId, egressGoawayAck_)
+      PRX_CHECK_LT(streamId, egressGoawayAck_)
           << "Don't addCodec for refused stream";
       // only bump for client initiated bidi streams, for now
       minUnseenStreamID_ = streamId + 4;
@@ -242,7 +243,7 @@ class HQMultiCodec : public HQControlCodec {
   }
 
   uint64_t nextPushID() {
-    CHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
+    PRX_CHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
     return nextPushID_++;
   }
 
@@ -266,13 +267,13 @@ class HQMultiCodec : public HQControlCodec {
 
   HQStreamCodec& getCodec(StreamID stream) {
     auto it = codecs_.find(stream);
-    CHECK(it != codecs_.end()) << "stream=" << stream;
+    PRX_CHECK(it != codecs_.end()) << "stream=" << stream;
     return *it->second;
   }
 
   const HQStreamCodec& getCodec(StreamID stream) const {
     auto it = codecs_.find(stream);
-    CHECK(it != codecs_.end()) << "stream=" << stream;
+    PRX_CHECK(it != codecs_.end()) << "stream=" << stream;
     return *it->second;
   }
 

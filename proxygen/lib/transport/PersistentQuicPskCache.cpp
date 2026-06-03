@@ -12,6 +12,7 @@
 #include <fizz/record/Types.h>
 #include <folly/Conv.h>
 #include <folly/json/dynamic.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/client/handshake/CachedServerTransportParametersSerialization.h>
 
 namespace {
@@ -73,7 +74,7 @@ quic::Optional<quic::QuicCachedPsk> PersistentQuicPskCache::getPsk(
     }
     return std::move(quicCachedPsk);
   } catch (const std::exception& ex) {
-    LOG(ERROR) << "Error deserializing PSK: " << ex.what();
+    PRX_LOG(ERROR) << "Error deserializing PSK: " << ex.what();
     cache_.remove(identity);
     return std::nullopt;
   }

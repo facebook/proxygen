@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/connpool/ThreadIdleSessionController.h>
 
 #include <folly/io/async/EventBaseManager.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -36,7 +37,7 @@ SessionPool::~SessionPool() {
   drainSessionList(idleSessionList_);
   drainSessionList(unfilledSessionList_);
   drainSessionList(fullSessionList_);
-  DCHECK(empty());
+  PRX_DCHECK(empty());
 }
 
 void SessionPool::setMaxIdleSessions(uint32_t num) {
@@ -111,7 +112,7 @@ HTTPTransaction* SessionPool::getTransaction(
 void SessionPool::purgeExcessIdleSessions() {
   auto thresh = std::chrono::steady_clock::now() - getTimeout();
 
-  CHECK_LE(idleSessionList_.size(), std::numeric_limits<uint32_t>::max());
+  PRX_CHECK_LE(idleSessionList_.size(), std::numeric_limits<uint32_t>::max());
   int64_t excess =
       static_cast<int64_t>(idleSessionList_.size()) - getMaxIdleSessions();
   while (!idleSessionList_.empty()) {
@@ -127,7 +128,7 @@ void SessionPool::purgeExcessIdleSessions() {
 HTTPSessionBase* FOLLY_NULLABLE SessionPool::removeOldestIdleSession() {
   if (!idleSessionList_.empty()) {
     SessionHolder* holder = &idleSessionList_.front();
-    CHECK_NOTNULL(holder);
+    PRX_CHECK_NOTNULL(holder);
     return holder->release();
   }
   return nullptr;

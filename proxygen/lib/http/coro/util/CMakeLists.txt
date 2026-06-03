@@ -8,12 +8,12 @@
 
 proxygen_add_library(proxygen_http_coro_util_timed_baton
   EXPORTED_DEPS
+    proxygen_utils_log_shim
     Folly::folly_cancellation_token
     Folly::folly_coro_baton
     Folly::folly_coro_task
     Folly::folly_io_async_async_base
     Folly::folly_io_async_destructor_check
-    Folly::folly_logging_logging
 )
 
 proxygen_add_library(proxygen_http_coro_util_cancellable_baton
@@ -21,28 +21,28 @@ proxygen_add_library(proxygen_http_coro_util_cancellable_baton
     CancellableBaton.cpp
   EXPORTED_DEPS
     proxygen_http_coro_util_timed_baton
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_coro_util_awaitable_keepalive
   EXPORTED_DEPS
     proxygen_http_coro_util_cancellable_baton
+    proxygen_utils_log_shim
     Folly::folly_coro_baton
     Folly::folly_coro_task
-    Folly::folly_logging_logging
 )
 
 proxygen_add_library(proxygen_http_coro_util_window_contiainer
   EXPORTED_DEPS
     proxygen_http_window
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_coro_util_DetachableExecutor
   SRCS
     DetachableExecutor.cpp
-  DEPS
-    Folly::folly_logging_logging
   EXPORTED_DEPS
+    proxygen_utils_log_shim
     Folly::folly_intrusive_list
     Folly::folly_io_async_async_base
 )
@@ -51,9 +51,9 @@ proxygen_add_library(proxygen_http_coro_util_Transport
   SRCS
     Transport.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_io_async_async_base
     Folly::folly_io_coro_transport_callbacks
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     Folly::folly_io_coro_socket
 )
@@ -63,14 +63,15 @@ proxygen_add_library(proxygen_http_coro_util_executor_source_filter
     ExecutorSourceFilter.cpp
   EXPORTED_DEPS
     proxygen_coro_source
+    proxygen_utils_log_shim
 )
 
 proxygen_add_library(proxygen_http_coro_util_CoroWtSession
   SRCS
     CoroWtSession.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_io_coro_socket
-    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_coro_source
     proxygen_http_codec_webtransport_webtransport_capsule_codec

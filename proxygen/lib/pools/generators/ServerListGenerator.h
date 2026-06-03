@@ -14,7 +14,7 @@
 
 #include <folly/SocketAddress.h>
 #include <folly/io/async/AsyncTimeout.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <proxygen/lib/pools/generators/MemberGroupConfig.h>
 #include <proxygen/lib/pools/generators/ServerConfig.h>
@@ -152,7 +152,7 @@ class ServerListGenerator : public ServerListGeneratorIf {
       if ((gen_ == nullptr) && (g == nullptr)) {
         return;
       }
-      CHECK((gen_ == nullptr) ^ (g == nullptr)) << gen_ << " " << g;
+      PRX_CHECK((gen_ == nullptr) ^ (g == nullptr)) << gen_ << " " << g;
 
       // Subclasses first call resetGenerator(gen, takeOwnership) after creating
       // a generator. After a success/error/timeout callback is called, this

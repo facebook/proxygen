@@ -10,6 +10,7 @@
 #include "proxygen/lib/http/coro/HTTPFixedSource.h"
 #include "proxygen/lib/http/coro/HTTPSourceFilterChain.h"
 #include "proxygen/lib/http/coro/filters/FilterFactory.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -33,7 +34,7 @@ folly::coro::Task<HTTPSourceHolder> HTTPFilterFactoryHandler::handleRequest(
   }
 
   // hand off request to the next handler
-  CHECK(getNextHandler());
+  PRX_CHECK(getNextHandler());
   auto nextHandlerResult = co_await co_awaitTry(
       getNextHandler()->handleRequest(evb, std::move(ctx), reqChain.release()));
 

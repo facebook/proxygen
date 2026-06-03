@@ -8,18 +8,18 @@
 
 #include <proxygen/lib/http/coro/client/CertReloadSessionPool.h>
 
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
 CertReloadSessionPool::~CertReloadSessionPool() {
-  XCHECK(getEventBase()->isInEventBaseThread());
+  PRX_CHECK(getEventBase()->isInEventBaseThread());
 }
 
 void CertReloadSessionPool::setTimerCallback(
     std::function<void(HTTPCoroSessionPool&)> cb,
     std::chrono::milliseconds interval) {
-  XCHECK(getEventBase()->isInEventBaseThread());
+  PRX_CHECK(getEventBase()->isInEventBaseThread());
   if (interval.count() > 0) {
     reloadTimer_.emplace(*this, std::move(cb), interval);
   }

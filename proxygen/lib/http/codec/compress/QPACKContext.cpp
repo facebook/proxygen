@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/codec/compress/QPACKContext.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -25,7 +25,7 @@ const HPACKHeader& QPACKContext::getHeader(bool isStatic,
     return getStaticTable().getHeader(index);
   }
   if (aboveBase) {
-    CHECK_LE(base, std::numeric_limits<uint32_t>::max() - index);
+    PRX_CHECK_LE(base, std::numeric_limits<uint32_t>::max() - index);
     base += index;
     index = 1;
   }
@@ -34,7 +34,7 @@ const HPACKHeader& QPACKContext::getHeader(bool isStatic,
 
 void QPACKContext::seedHeaderTable(std::vector<HPACKHeader>& headers) {
   for (auto& header : headers) {
-    CHECK(table_.add(std::move(header)));
+    PRX_CHECK(table_.add(std::move(header)));
   }
 }
 

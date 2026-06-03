@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/session/HQStreamDispatcher.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -221,7 +222,7 @@ class MockHQSession : public HQSession {
         direction_(direction.value_or(getMockDefaultDirection())),
         quicProtocolInfo_(std::make_shared<QuicProtocolInfo>()),
         quicStreamProtocolInfo_(std::make_shared<QuicStreamProtocolInfo>()) {
-    LOG(INFO) << "Creating mock transaction on stream " << lastStreamId_;
+    PRX_LOG(INFO) << "Creating mock transaction on stream " << lastStreamId_;
     makeMockTransaction(lastStreamId_++);
 
     ON_CALL(*this, newTransaction(::testing::_))
@@ -229,8 +230,8 @@ class MockHQSession : public HQSession {
             ::testing::SaveArg<0>(&handler_),
             ::testing::WithArgs<0>(
                 ::testing::Invoke([&](HTTPTransaction::Handler* handler) {
-                  CHECK(txn_);
-                  LOG(INFO) << "Setting transaction handler to " << handler;
+                  PRX_CHECK(txn_);
+                  PRX_LOG(INFO) << "Setting transaction handler to " << handler;
                   txn_->HTTPTransaction::setHandler(handler);
                 })),
             ::testing::Return(txn_.get())));
@@ -301,7 +302,7 @@ class MockHQSession : public HQSession {
   MOCK_CONST_METHOD0(getQuicSocket, quic::QuicSocket*());
 
   MockHTTPTransaction* makeMockTransaction(HTTPCodec::StreamID id) {
-    LOG(INFO) << "Creating mocked transaction on stream " << id;
+    PRX_LOG(INFO) << "Creating mocked transaction on stream " << id;
 
     txn_ = std::make_unique<::testing::StrictMock<MockHTTPTransaction>>(
         direction_,
@@ -311,13 +312,13 @@ class MockHQSession : public HQSession {
         nullptr, /* timer */
         transactionTimeout_);
 
-    LOG(INFO) << "Setting default handlers on the new transaction "
-              << txn_.get();
+    PRX_LOG(INFO) << "Setting default handlers on the new transaction "
+                  << txn_.get();
 
     EXPECT_CALL(*txn_, setHandler(::testing::_))
         .WillRepeatedly(
             ::testing::Invoke([txn = txn_.get()](HTTPTransactionHandler* hdlr) {
-              LOG(INFO) << "Setting handler on " << txn << " to " << hdlr;
+              PRX_LOG(INFO) << "Setting handler on " << txn << " to " << hdlr;
               txn->HTTPTransaction::setHandler(hdlr);
             }));
 
@@ -336,7 +337,7 @@ class MockHQSession : public HQSession {
                 })),
             ::testing::Return(true)));
 
-    LOG(INFO) << "Returning the new mocked transaction " << txn_.get();
+    PRX_LOG(INFO) << "Returning the new mocked transaction " << txn_.get();
 
     return txn_.get();
   }

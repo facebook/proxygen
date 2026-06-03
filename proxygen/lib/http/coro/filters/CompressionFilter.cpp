@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/filters/CompressionFilter.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 using folly::coro::co_error;
@@ -72,7 +73,7 @@ folly::coro::Task<HTTPBodyEvent> CompressionFilter::readBodyEvent(
 
   // try to compress body, validate success
   if (auto* body = asBodyEv(*bodyEvent)) {
-    CHECK(compressor_);
+    PRX_CHECK(compressor_);
     folly::IOBuf emptyBuf{};
     auto* pBuf = bodyEvent->event.body.empty() ? &emptyBuf : body->front();
     auto compressed = compressor_->compress(pBuf, bodyEvent->eom);
@@ -100,7 +101,7 @@ folly::coro::Task<HTTPBodyEvent> CompressionFilter::readBodyEvent(
     }
 
     // need to buffer trailers, dismiss guard as mentioned above
-    CHECK(!pendingBodyEvent_);
+    PRX_CHECK(!pendingBodyEvent_);
     pendingBodyEvent_.emplace(std::move(*bodyEvent));
     guard.dismiss();
     // eom=false; there's a pending event to be delivered via next

@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
 
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -48,7 +49,7 @@ folly::Optional<HTTPPriority> httpPriorityFromString(
   bool logBadHeader = false;
   SCOPE_EXIT {
     if (logBadHeader) {
-      LOG_EVERY_N(ERROR, 100)
+      PRX_LOG_EVERY_N(ERROR, 100)
           << "Received ill-formated priority header=" << priority;
     }
   };

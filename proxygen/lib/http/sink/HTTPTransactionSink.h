@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/observer/HTTPSessionObserverContainer.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include "proxygen/lib/http/sink/HTTPSink.h"
 
@@ -23,7 +23,7 @@ class HTTPTransactionSink : public HTTPSink {
  public:
   explicit HTTPTransactionSink(HTTPTransaction* clientTxn)
       : httpTransaction_{clientTxn} {
-    XCHECK(clientTxn)
+    PRX_CHECK(clientTxn)
         << "HTTPTransactionSink must be created with a valid clientTxn.";
     if (httpTransaction_->getSequenceNumber() > 0) {
       // TODO: There can be a gap between session open and first req
@@ -76,7 +76,7 @@ class HTTPTransactionSink : public HTTPSink {
     return httpTransaction_->getCompressionInfo();
   }
   void detachAndAbortIfIncomplete(std::unique_ptr<HTTPSink> self) override {
-    CHECK_EQ(self.get(), this);
+    PRX_CHECK_EQ(self.get(), this);
     httpTransaction_->setTransportCallback(nullptr);
     httpTransaction_->setHandler(nullptr);
     if (!(httpTransaction_->isEgressComplete() ||

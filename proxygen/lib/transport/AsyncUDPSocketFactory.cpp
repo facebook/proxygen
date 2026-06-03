@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/transport/AsyncUDPSocketFactory.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -15,7 +16,7 @@ AsyncUDPSocketFactory::AsyncUDPSocketFactory(
     folly::SocketAddress v6Address,
     std::optional<folly::SocketAddress> v4Address)
     : v6Address_(std::move(v6Address)), v4Address_(std::move(v4Address)) {
-  CHECK(eventBase);
+  PRX_CHECK(eventBase);
   eventBase_ = eventBase;
 }
 

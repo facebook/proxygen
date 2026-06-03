@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/codec/HTTPParallelCodec.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -22,7 +22,7 @@ HTTPParallelCodec::HTTPParallelCodec(TransportDirection direction)
       nextEgressStreamID_ = 1;
       break;
     default:
-      LOG(FATAL) << "Unknown transport direction.";
+      PRX_LOG(FATAL) << "Unknown transport direction.";
   }
 }
 
@@ -50,8 +50,8 @@ void HTTPParallelCodec::enableDoubleGoawayDrain() {
   if (sessionClosing_ == ClosingState::OPEN) {
     sessionClosing_ = ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED;
   } else {
-    VLOG(3) << "Cannot enable double goaway because the session is already "
-               "draining or closed";
+    PRX_VLOG(3) << "Cannot enable double goaway because the session is already "
+                   "draining or closed";
   }
 }
 
@@ -59,8 +59,8 @@ void HTTPParallelCodec::disableDoubleGoawayDrain() {
   if (sessionClosing_ == ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED) {
     sessionClosing_ = ClosingState::OPEN;
   } else {
-    VLOG(3) << "Cannot enable double goaway because the session is already "
-               "draining or closed, or never enabled GRACEFUL_DRAIN";
+    PRX_VLOG(3) << "Cannot enable double goaway because the session is already "
+                   "draining or closed, or never enabled GRACEFUL_DRAIN";
   }
 }
 

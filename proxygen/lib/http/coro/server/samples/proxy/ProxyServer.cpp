@@ -12,9 +12,9 @@
 #include "proxygen/lib/http/coro/client/HTTPCoroSessionPool.h"
 #include "proxygen/lib/http/coro/server/HTTPServer.h"
 #include <folly/init/Init.h>
-#include <folly/logging/xlog.h>
 #include <folly/portability/GFlags.h>
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 
 DEFINE_int32(port, 8082, "What port to listen on");
 DEFINE_string(cert, "", "Certificate file");
@@ -63,14 +63,14 @@ class ProxyHandler : public proxygen::coro::HTTPHandler {
     }
 
     auto& pool = getPool(evb);
-    XLOG(DBG4) << "Sending request upstream";
+    PRX_VLOG(4) << "Sending request upstream";
     if (FLAGS_fbssl && !FLAGS_backend_tls) {
       headerEvent->headers->getHeaders().add("FBSSL", "ON");
     }
     // any exceptions are propagated
     auto res = co_await co_awaitTry(pool.getSessionWithReservation());
     if (res.hasException()) {
-      XLOG(ERR)
+      PRX_LOG(ERROR)
           << "Failed to connect err="
           << uint64_t(
                  res.tryGetExceptionObject<HTTPCoroSessionPool::Exception>()
@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
     try {
       tlsConfig.setCertificate(FLAGS_cert, FLAGS_key, "");
     } catch (const std::exception& ex) {
-      XLOG(ERR) << "Invalid certificate file or key file: %s" << ex.what();
+      PRX_LOG(ERROR) << "Invalid certificate file or key file: %s" << ex.what();
     }
     httpServerConfig.socketConfig.sslContextConfigs.emplace_back(
         std::move(tlsConfig));
@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
       httpServerConfig.quicConfig = HTTPServer::QuicConfig();
     }
   } else if (FLAGS_quic) {
-    XLOG(ERR) << "QUIC requires a cert and key";
+    PRX_LOG(ERROR) << "QUIC requires a cert and key";
     return 1;
   }
   HTTPServer server(std::move(httpServerConfig),

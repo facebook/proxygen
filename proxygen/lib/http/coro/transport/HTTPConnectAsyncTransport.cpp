@@ -7,7 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/transport/HTTPConnectAsyncTransport.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -18,7 +18,7 @@ HTTPConnectAsyncTransport::HTTPConnectAsyncTransport(
 }
 
 HTTPConnectAsyncTransport::~HTTPConnectAsyncTransport() {
-  XLOG(DBG4) << "~HTTPConnectAsyncTransport";
+  PRX_VLOG(4) << "~HTTPConnectAsyncTransport";
   if (auto* readCb = resetReadCb()) {
     folly::AsyncSocketException ex(
         folly::AsyncSocketException::AsyncSocketExceptionType::END_OF_FILE,
@@ -50,7 +50,7 @@ void HTTPConnectAsyncTransport::setReadCB(ReadCallback* callback) {
                         cancellationSource_.getToken(), read()))
         .start();
   } else {
-    XCHECK(!inRead_) << "Cannot clear the read callback while reading";
+    PRX_CHECK(!inRead_) << "Cannot clear the read callback while reading";
     readCallback_ = callback;
   }
 }
@@ -58,7 +58,7 @@ void HTTPConnectAsyncTransport::setReadCB(ReadCallback* callback) {
 folly::coro::Task<void> HTTPConnectAsyncTransport::read() {
   co_await folly::coro::co_safe_point;
   if (deferredEof_) {
-    CHECK_NOTNULL(resetReadCb())->readEOF();
+    PRX_CHECK_NOTNULL(resetReadCb())->readEOF();
     co_return;
   }
   const auto& cancelToken = co_await folly::coro::co_current_cancellation_token;
@@ -73,15 +73,15 @@ folly::coro::Task<void> HTTPConnectAsyncTransport::read() {
     }
     // This is not interruptible without an unrecoverable abort
     inRead_ = true;
-    XLOG(DBG5) << "ingressSource->readBodyEvent";
+    PRX_VLOG(5) << "ingressSource->readBodyEvent";
     auto bodyEvent = co_await co_awaitTry(ingressSource->readBodyEvent(size));
-    XLOG(DBG5) << "ingressSource->readBodyEvent done";
+    PRX_VLOG(5) << "ingressSource->readBodyEvent done";
     if (cancelToken.isCancellationRequested()) {
       co_return;
     }
     inRead_ = false;
     if (bodyEvent.hasException()) {
-      XLOG(DBG3) << "readBodyEvent exception";
+      PRX_VLOG(3) << "readBodyEvent exception";
       ingressError_ = getHTTPError(bodyEvent);
       if (auto* readCb = resetReadCb()) {
         folly::AsyncSocketException ex(
@@ -91,14 +91,14 @@ folly::coro::Task<void> HTTPConnectAsyncTransport::read() {
       }
       co_return;
     }
-    XCHECK(readCallback_);
+    PRX_CHECK(readCallback_);
     if (auto* body = asBodyEv(*bodyEvent); body && !body->empty()) {
       size = body->chainLength();
       if (readCallback_->isBufferMovable()) {
         readCallback_->readBufferAvailable(body->move());
       } else {
         folly::io::Cursor cursor(body->front());
-        XCHECK(buf);
+        PRX_CHECK(buf);
         cursor.pullAtMost(buf, size);
         readCallback_->readDataAvailable(size);
       }
@@ -153,14 +153,14 @@ void HTTPConnectAsyncTransport::shutdownRead() {
     readCallback->readEOF();
   }
   if (connectStream_->canRead()) {
-    XLOG(DBG4) << "ingressSource_->stopReading from shutdownRead";
+    PRX_VLOG(4) << "ingressSource_->stopReading from shutdownRead";
     connectStream_->ingressSource_->stopReading();
   }
 }
 
 void HTTPConnectAsyncTransport::shutdownWrite() {
   if (writable()) {
-    XLOG(DBG4) << "egressSource_->eom from shutdownWrite";
+    PRX_VLOG(4) << "egressSource_->eom from shutdownWrite";
     connectStream_->egressSource_->eom();
   }
 }

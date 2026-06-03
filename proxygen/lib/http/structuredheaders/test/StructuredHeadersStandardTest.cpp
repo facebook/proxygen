@@ -8,9 +8,9 @@
 
 #include <algorithm>
 #include <folly/portability/GTest.h>
-#include <glog/logging.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersEncoder.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -134,7 +134,7 @@ class StructuredHeadersStandardTest : public testing::Test {
   bool decode32Block(std::string input,
                      uint32_t blockNum,
                      std::string& outputBuffer) {
-    CHECK_GE(input.size(), (blockNum + 1) * 8);
+    PRX_CHECK_GE(input.size(), (blockNum + 1) * 8);
     // Remove any padding and make each character of the input represent the
     // byte value of that character, as per the rfc4648 encoding
     input.erase(std::find_if(input.rbegin(),

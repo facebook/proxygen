@@ -10,6 +10,7 @@
 
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/lib/services/ServiceWorker.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -42,7 +43,7 @@ uint64_t RequestWorkerThreadNoExecutor::nextRequestId() {
 }
 
 void RequestWorkerThreadNoExecutor::flushStats() {
-  CHECK(getEventBase()->isInEventBaseThread());
+  PRX_CHECK(getEventBase()->isInEventBaseThread());
   for (auto& p : serviceWorkers_) {
     p.second->flushStats();
   }

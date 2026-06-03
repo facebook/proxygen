@@ -7,9 +7,9 @@
  */
 
 #include <folly/base64.h>
-#include <glog/logging.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersEncoder.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersUtilities.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -223,14 +223,14 @@ EncodeError StructuredHeadersEncoder::encodeIdentifier(
 // was involved in the error
 EncodeError StructuredHeadersEncoder::handleEncodeError(
     EncodeError err, const std::string& culprit) {
-  LOG_EVERY_N(ERROR, 1000) << "Error message: " << encodeErrToString(err)
-                           << ", culprit: " << culprit;
+  PRX_LOG_EVERY_N(ERROR, 1000) << "Error message: " << encodeErrToString(err)
+                               << ", culprit: " << culprit;
   return err;
 }
 
 // Used to print more general error messages (eg: empty data structure)
 EncodeError StructuredHeadersEncoder::handleEncodeError(EncodeError err) {
-  LOG_EVERY_N(ERROR, 1000) << "Error message: " << encodeErrToString(err);
+  PRX_LOG_EVERY_N(ERROR, 1000) << "Error message: " << encodeErrToString(err);
   return err;
 }
 

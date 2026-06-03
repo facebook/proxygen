@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/http/codec/compress/QPACKHeaderTable.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <sstream>
 
 using namespace std;
@@ -295,13 +296,13 @@ TEST_F(HeaderTableTests, IncreaseLengthOfFullTable) {
   HPACKHeader smallHeader("Accept", "All-Content");
 
   HeaderTable table(448);
-  CHECK_EQ(table.length(), 7);
+  PRX_CHECK_EQ(table.length(), 7u);
 
   for (uint8_t count = 0; count < 3; count++) {
     table.add(largeHeader.copy());
     table.add(smallHeader.copy());
   } // tail is at index 0
-  CHECK_EQ(table.length(), 7);
+  PRX_CHECK_EQ(table.length(), 7u);
 
   table.add(smallHeader.copy());
   table.add(smallHeader.copy()); // tail is at index 1
@@ -309,14 +310,14 @@ TEST_F(HeaderTableTests, IncreaseLengthOfFullTable) {
   EXPECT_EQ(table.length(), 11);
 
   // Check table is correct after resize
-  CHECK_EQ(table.getHeader(1), smallHeader);
-  CHECK_EQ(table.getHeader(2), smallHeader);
-  CHECK_EQ(table.getHeader(3), smallHeader);
-  CHECK_EQ(table.getHeader(4), smallHeader);
-  CHECK_EQ(table.getHeader(5), largeHeader);
-  CHECK_EQ(table.getHeader(6), smallHeader);
-  CHECK_EQ(table.getHeader(7), largeHeader);
-  CHECK_EQ(table.getHeader(8), smallHeader);
+  PRX_CHECK_EQ(table.getHeader(1), smallHeader);
+  PRX_CHECK_EQ(table.getHeader(2), smallHeader);
+  PRX_CHECK_EQ(table.getHeader(3), smallHeader);
+  PRX_CHECK_EQ(table.getHeader(4), smallHeader);
+  PRX_CHECK_EQ(table.getHeader(5), largeHeader);
+  PRX_CHECK_EQ(table.getHeader(6), smallHeader);
+  PRX_CHECK_EQ(table.getHeader(7), largeHeader);
+  PRX_CHECK_EQ(table.getHeader(8), smallHeader);
 }
 
 TEST_F(HeaderTableTests, SmallTable) {

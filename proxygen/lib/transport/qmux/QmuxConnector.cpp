@@ -15,7 +15,7 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/coro/Transport.h>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/folly_utils/Utils.h>
 #include <stdexcept>
 
@@ -201,8 +201,8 @@ folly::coro::Task<QmuxSession::Ptr> QmuxConnector::connect(
     std::unique_ptr<folly::coro::TransportIf> transport,
     std::chrono::milliseconds timeout,
     QmuxSession::Config sessionConfig) {
-  XLOG(DBG4) << "QmuxConnector::connect dir=" << static_cast<int>(dir)
-             << " timeout=" << timeout.count() << "ms";
+  PRX_VLOG(4) << "QmuxConnector::connect dir=" << static_cast<int>(dir)
+              << " timeout=" << timeout.count() << "ms";
 
   // 1) Send our QX_TRANSPORT_PARAMETERS, wrapped as a QMux record.
   folly::IOBufQueue framesBuf{folly::IOBufQueue::cacheChainLength()};
@@ -213,7 +213,8 @@ folly::coro::Task<QmuxSession::Ptr> QmuxConnector::connect(
   auto writeRes =
       co_await folly::coro::co_awaitTry(transport->write(recordBuf, timeout));
   if (writeRes.hasException()) {
-    XLOG(ERR) << "QmuxConnector: TP write failed: " << writeRes.exception();
+    PRX_LOG(ERROR) << "QmuxConnector: TP write failed: "
+                   << writeRes.exception();
     co_yield co_error(writeRes.exception());
   }
 
@@ -226,7 +227,8 @@ folly::coro::Task<QmuxSession::Ptr> QmuxConnector::connect(
   auto peerParams = co_await folly::coro::co_awaitTry(folly::coro::timeout(
       readPeerTransportParams(*transport, ingressBuf, timeout), timeout, &tk));
   if (peerParams.hasException()) {
-    XLOG(ERR) << "QmuxConnector: TP read failed: " << peerParams.exception();
+    PRX_LOG(ERROR) << "QmuxConnector: TP read failed: "
+                   << peerParams.exception();
     co_yield co_error(peerParams.exception());
   }
 

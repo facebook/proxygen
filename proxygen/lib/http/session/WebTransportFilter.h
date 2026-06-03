@@ -8,12 +8,12 @@
 
 #pragma once
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/HTTPMessageFilters.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/webtransport/WebTransportCapsuleCodec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/webtransport/WebTransport.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -77,8 +77,9 @@ class WebTransportFilter
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     if (sessionClosed_) {
-      XLOG(ERR) << "Received additional data after WT_CLOSE_SESSION capsule, "
-                << "resetting CONNECT stream with H3_MESSAGE_ERROR";
+      PRX_LOG(ERROR)
+          << "Received additional data after WT_CLOSE_SESSION capsule, "
+          << "resetting CONNECT stream with H3_MESSAGE_ERROR";
       if (txn_) {
         auto errorCode =
             hq::hqToHttpErrorCode(HTTP3::ErrorCode::HTTP_MESSAGE_ERROR);
@@ -347,72 +348,72 @@ class WebTransportFilter
   }
 
   void onConnectionError(CapsuleCodec::ErrorCode error) noexcept override {
-    XLOG(DBG1) << __func__ << " error=" << static_cast<int>(error);
+    PRX_VLOG(1) << __func__ << " error=" << static_cast<int>(error);
   }
   void onPadding(PaddingCapsule /*capsule*/) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
   }
   void onResetStream(WTResetStreamCapsule /*capsule*/) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
   }
   void onStopSending(WTStopSendingCapsule /*capsule*/) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
   }
   void onStream(WTStreamCapsule /*capsule*/) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
   }
   void onMaxData(WTMaxDataCapsule capsule) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
     if (wtImpl_) {
       wtImpl_->onMaxData(capsule.maximumData);
     }
   }
   void onMaxStreamData(WTMaxStreamDataCapsule /*capsule*/) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
   }
   void onMaxStreamsBidi(WTMaxStreamsCapsule capsule) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
     maxWTBidiStreams_ = capsule.maximumStreams;
     if (wtImpl_) {
       wtImpl_->onMaxStreams(capsule.maximumStreams, true);
     }
   }
   void onMaxStreamsUni(WTMaxStreamsCapsule capsule) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
     maxWTUniStreams_ = capsule.maximumStreams;
     if (wtImpl_) {
       wtImpl_->onMaxStreams(capsule.maximumStreams, false);
     }
   }
   void onDataBlocked(WTDataBlockedCapsule capsule) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
     if (wtImpl_) {
       wtImpl_->onDataBlocked(capsule.maximumData);
     }
   }
   void onStreamDataBlocked(
       WTStreamDataBlockedCapsule /*capsule*/) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
   }
   void onStreamsBlockedBidi(WTStreamsBlockedCapsule capsule) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
     if (wtImpl_) {
       wtImpl_->onStreamsBlocked(capsule.maximumStreams, true);
     }
   }
   void onStreamsBlockedUni(WTStreamsBlockedCapsule capsule) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
     if (wtImpl_) {
       wtImpl_->onStreamsBlocked(capsule.maximumStreams, false);
     }
   }
   void onDatagram(DatagramCapsule /*capsule*/) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
   }
   void onCloseSession(
       CloseWebTransportSessionCapsule capsule) noexcept override {
-    XLOG(DBG1) << __func__ << " errorCode=" << capsule.applicationErrorCode
-               << " message=" << capsule.applicationErrorMessage;
+    PRX_VLOG(1) << __func__ << " errorCode=" << capsule.applicationErrorCode
+                << " message=" << capsule.applicationErrorMessage;
 
     if (wtImpl_) {
       wtImpl_->terminateSession(capsule.applicationErrorCode);
@@ -431,7 +432,7 @@ class WebTransportFilter
   }
   void onDrainSession(
       DrainWebTransportSessionCapsule /*capsule*/) noexcept override {
-    XLOG(DBG1) << __func__;
+    PRX_VLOG(1) << __func__;
     if (handler_) {
       handler_->onSessionDrain();
     }

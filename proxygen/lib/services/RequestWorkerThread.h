@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <folly/io/async/EventBase.h>
 #include <map>
+#include <proxygen/lib/utils/LogShim.h>
 #include <wangle/acceptor/LoadShedConfiguration.h>
 
 namespace proxygen {
@@ -62,7 +63,7 @@ class RequestWorkerThread {
    * Track the ServiceWorker objects in-use by this worker.
    */
   void addServiceWorker(Service* service, ServiceWorker* sw) {
-    CHECK(serviceWorkers_.find(service) == serviceWorkers_.end());
+    PRX_CHECK(serviceWorkers_.find(service) == serviceWorkers_.end());
     serviceWorkers_[service] = sw;
   }
 
@@ -72,7 +73,7 @@ class RequestWorkerThread {
    */
   ServiceWorker* getServiceWorker(Service* service) const {
     auto it = serviceWorkers_.find(service);
-    CHECK(it != serviceWorkers_.end());
+    PRX_CHECK(it != serviceWorkers_.end());
     return it->second;
   }
 

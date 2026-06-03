@@ -13,6 +13,7 @@
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::SocketAddress;
 
@@ -118,7 +119,8 @@ void HTTPServerAcceptor::onNewConnection(
       filter(sock.get(), address, nextProtocolName, secureTransportType, tinfo);
     } catch (const std::exception& e) {
       sock->closeWithReset();
-      LOG(INFO) << "Exception filtering new socket: " << folly::exceptionStr(e);
+      PRX_LOG(INFO) << "Exception filtering new socket: "
+                    << folly::exceptionStr(e);
       return;
     }
   }

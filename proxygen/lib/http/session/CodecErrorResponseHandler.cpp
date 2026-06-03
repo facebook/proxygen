@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/session/CodecErrorResponseHandler.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::IOBuf;
 using std::unique_ptr;
@@ -29,16 +30,16 @@ void CodecErrorResponseHandler::detachTransaction() noexcept {
 
 void CodecErrorResponseHandler::onHeadersComplete(
     std::unique_ptr<HTTPMessage> /*msg*/) noexcept {
-  VLOG(4) << "discarding headers";
+  PRX_VLOG(4) << "discarding headers";
 }
 
 void CodecErrorResponseHandler::onBody(unique_ptr<IOBuf> /*chain*/) noexcept {
-  VLOG(4) << "discarding request body";
+  PRX_VLOG(4) << "discarding request body";
 }
 
 void CodecErrorResponseHandler::onTrailers(
     unique_ptr<HTTPHeaders> /*trailers*/) noexcept {
-  VLOG(4) << "discarding request trailers";
+  PRX_VLOG(4) << "discarding request trailers";
 }
 
 void CodecErrorResponseHandler::onEOM() noexcept {
@@ -49,7 +50,7 @@ void CodecErrorResponseHandler::onUpgrade(
 }
 
 void CodecErrorResponseHandler::onError(const HTTPException& error) noexcept {
-  VLOG(4) << "processing error " << error;
+  PRX_VLOG(4) << "processing error " << error;
   txn_->sendAbort();
 }
 

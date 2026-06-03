@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/webtransport/HTTPWebTransport.h>
 
 #include <folly/String.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/Logging.h>
 #include <string>
 
@@ -26,7 +27,7 @@ namespace quic::samples {
 using namespace proxygen;
 
 HTTPTransactionHandler* Dispatcher::getRequestHandler(HTTPMessage* msg) {
-  DCHECK(msg);
+  PRX_DCHECK(msg);
   auto path = msg->getPathAsStringPiece();
   if (path == "/" || path == "/echo") {
     return new EchoHandler(params_);
@@ -97,7 +98,7 @@ std::mutex& WaitReleaseHandler::getMutex() {
 
 void WaitReleaseHandler::onHeadersComplete(
     std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {
-  VLOG(10) << "WaitReleaseHandler::onHeadersComplete";
+  PRX_VLOG(10) << "WaitReleaseHandler::onHeadersComplete";
   msg->dumpMessage(2);
   path_ = msg->getPath();
   auto idstr = msg->getQueryParam("id");
@@ -157,20 +158,20 @@ class ServerPushHandler;
 
 void ServerPushHandler::onHeadersComplete(
     std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {
-  VLOG(10) << "ServerPushHandler::" << __func__;
+  PRX_VLOG(10) << "ServerPushHandler::" << __func__;
   msg->dumpMessage(2);
   path_ = msg->getPath();
 
   if (msg->getMethod() != proxygen::HTTPMethod::GET) {
-    LOG(ERROR) << "Method not supported";
+    PRX_LOG(ERROR) << "Method not supported";
     sendErrorResponse("bad request\n");
     return;
   }
 
-  VLOG(2) << "Received GET request for " << path_ << " at: "
-          << std::chrono::duration_cast<std::chrono::microseconds>(
-                 std::chrono::steady_clock::now().time_since_epoch())
-                 .count();
+  PRX_VLOG(2) << "Received GET request for " << path_ << " at: "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::steady_clock::now().time_since_epoch())
+                     .count();
 
   std::string gPushResponseBody;
   std::vector<std::string> pathPieces;
@@ -182,7 +183,7 @@ void ServerPushHandler::onHeadersComplete(
     auto sizeFromPath = folly::tryTo<int>(pathPieces[2]);
     responseSize = sizeFromPath.value_or(0);
     if (responseSize != 0) {
-      VLOG(2) << "Requested a response size of " << responseSize;
+      PRX_VLOG(2) << "Requested a response size of " << responseSize;
       gPushResponseBody = std::string(responseSize, 'a');
     }
   }
@@ -190,11 +191,11 @@ void ServerPushHandler::onHeadersComplete(
   if (pathPieces.size() > 3) {
     auto numResponsesFromPath = folly::tryTo<int>(pathPieces[3]);
     numResponses = numResponsesFromPath.value_or(1);
-    VLOG(2) << "Requested a repeat count of " << numResponses;
+    PRX_VLOG(2) << "Requested a repeat count of " << numResponses;
   }
 
   for (int i = 0; i < numResponses; ++i) {
-    VLOG(2) << "Sending push txn " << i << "/" << numResponses;
+    PRX_VLOG(2) << "Sending push txn " << i << "/" << numResponses;
 
     // Create a URL for the pushed resource
     auto pushedResourceUrl =
@@ -204,7 +205,7 @@ void ServerPushHandler::onHeadersComplete(
     auto pushedTxn = txn_->newPushedTransaction(&pushTxnHandler_);
 
     if (!pushedTxn) {
-      LOG(ERROR) << "Could not create push txn; stop pushing";
+      PRX_LOG(ERROR) << "Could not create push txn; stop pushing";
       break;
     }
 
@@ -223,7 +224,7 @@ void ServerPushHandler::onHeadersComplete(
 
 void ServerPushHandler::sendPushPromise(proxygen::HTTPTransaction* txn,
                                         const std::string& pushedResourceUrl) {
-  VLOG(10) << "ServerPushHandler::" << __func__;
+  PRX_VLOG(10) << "ServerPushHandler::" << __func__;
   proxygen::HTTPMessage promise;
   promise.setMethod("GET");
   promise.setURL(pushedResourceUrl);
@@ -231,17 +232,17 @@ void ServerPushHandler::sendPushPromise(proxygen::HTTPTransaction* txn,
   promise.setIsChunked(true);
   txn->sendHeaders(promise);
 
-  VLOG(2) << "Sent push promise for " << pushedResourceUrl << " at: "
-          << std::chrono::duration_cast<std::chrono::microseconds>(
-                 std::chrono::steady_clock::now().time_since_epoch())
-                 .count();
+  PRX_VLOG(2) << "Sent push promise for " << pushedResourceUrl << " at: "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::steady_clock::now().time_since_epoch())
+                     .count();
 }
 
 void ServerPushHandler::sendPushResponse(proxygen::HTTPTransaction* pushTxn,
                                          const std::string& pushedResourceUrl,
                                          const std::string& pushedResourceBody,
                                          bool eom) {
-  VLOG(10) << "ServerPushHandler::" << __func__;
+  PRX_VLOG(10) << "ServerPushHandler::" << __func__;
   proxygen::HTTPMessage resp = createHttpResponse(200, "OK");
   resp.setWantsKeepalive(true);
   resp.setIsChunked(true);
@@ -252,17 +253,17 @@ void ServerPushHandler::sendPushResponse(proxygen::HTTPTransaction* pushTxn,
       pushedResourceBody;
   pushTxn->sendBody(folly::IOBuf::copyBuffer(responseStr));
 
-  VLOG(2) << "Sent push response for " << pushedResourceUrl << " at: "
-          << std::chrono::duration_cast<std::chrono::microseconds>(
-                 std::chrono::steady_clock::now().time_since_epoch())
-                 .count();
+  PRX_VLOG(2) << "Sent push response for " << pushedResourceUrl << " at: "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::steady_clock::now().time_since_epoch())
+                     .count();
 
   if (eom) {
     pushTxn->sendEOM();
-    VLOG(2) << "Sent EOM for " << pushedResourceUrl << " at: "
-            << std::chrono::duration_cast<std::chrono::microseconds>(
-                   std::chrono::steady_clock::now().time_since_epoch())
-                   .count();
+    PRX_VLOG(2) << "Sent EOM for " << pushedResourceUrl << " at: "
+                << std::chrono::duration_cast<std::chrono::microseconds>(
+                       std::chrono::steady_clock::now().time_since_epoch())
+                       .count();
   }
 }
 
@@ -275,8 +276,8 @@ void ServerPushHandler::sendErrorResponse(const std::string& body) {
 }
 
 void ServerPushHandler::sendOkResponse(const std::string& body, bool eom) {
-  VLOG(10) << "ServerPushHandler::" << __func__ << ": sending " << body.length()
-           << " bytes";
+  PRX_VLOG(10) << "ServerPushHandler::" << __func__ << ": sending "
+               << body.length() << " bytes";
   proxygen::HTTPMessage resp = createHttpResponse(200, "OK");
   resp.setWantsKeepalive(true);
   resp.setIsChunked(true);
@@ -289,24 +290,24 @@ void ServerPushHandler::sendOkResponse(const std::string& body, bool eom) {
 
 void ServerPushHandler::onBody(
     std::unique_ptr<folly::IOBuf> /*chain*/) noexcept {
-  VLOG(10) << "ServerPushHandler::" << __func__ << " - ignoring";
+  PRX_VLOG(10) << "ServerPushHandler::" << __func__ << " - ignoring";
 }
 
 void ServerPushHandler::onEOM() noexcept {
-  VLOG(10) << "ServerPushHandler::" << __func__ << " - ignoring";
+  PRX_VLOG(10) << "ServerPushHandler::" << __func__ << " - ignoring";
 }
 
 void ServerPushHandler::onError(const proxygen::HTTPException& error) noexcept {
-  VLOG(10) << "ServerPushHandler::onError error=" << error.what();
+  PRX_VLOG(10) << "ServerPushHandler::onError error=" << error.what();
 }
 
 void DeviousBatonHandler::onHeadersComplete(
     std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {
-  VLOG(10) << "WebtransHandler::" << __func__;
+  PRX_VLOG(10) << "WebtransHandler::" << __func__;
   msg->dumpMessage(2);
 
   if (msg->getMethod() != proxygen::HTTPMethod::CONNECT) {
-    LOG(ERROR) << "Method not supported";
+    PRX_LOG(ERROR) << "Method not supported";
     proxygen::HTTPMessage resp;
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(400);
@@ -318,11 +319,11 @@ void DeviousBatonHandler::onHeadersComplete(
     return;
   }
 
-  VLOG(2) << "Received CONNECT request for " << msg->getPathAsStringPiece()
-          << " at: "
-          << std::chrono::duration_cast<std::chrono::microseconds>(
-                 std::chrono::steady_clock::now().time_since_epoch())
-                 .count();
+  PRX_VLOG(2) << "Received CONNECT request for " << msg->getPathAsStringPiece()
+              << " at: "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::steady_clock::now().time_since_epoch())
+                     .count();
 
   auto status = 500;
   auto wt = txn_->getWebTransport();
@@ -368,7 +369,7 @@ void DeviousBatonHandler::onHeadersComplete(
       // param
       HTTPWebTransport::setWTProtocol(resp, wtProtocol.value());
     } else {
-      VLOG(4) << "Failed to negotiate WebTransport protocol";
+      PRX_VLOG(4) << "Failed to negotiate WebTransport protocol";
       resp.setStatusCode(400);
     }
   }
@@ -393,11 +394,11 @@ void DeviousBatonHandler::readHandler(
     uint64_t id,
     folly::Try<WebTransport::StreamData> streamData) {
   if (streamData.hasException()) {
-    VLOG(4) << "read error=" << streamData.exception().what();
+    PRX_VLOG(4) << "read error=" << streamData.exception().what();
     return;
   }
 
-  VLOG(4) << "read data id=" << id;
+  PRX_VLOG(4) << "read data id=" << id;
 
   devious_->onStreamData(
       id, streams_[id], std::move(streamData->data), streamData->fin);
@@ -415,7 +416,7 @@ void DeviousBatonHandler::readHandler(
 
 void DeviousBatonHandler::onWebTransportBidiStream(
     HTTPCodec::StreamID id, WebTransport::BidiStreamHandle stream) noexcept {
-  VLOG(4) << "New Bidi Stream=" << id;
+  PRX_VLOG(4) << "New Bidi Stream=" << id;
   stream.readHandle->awaitNextRead(
       evb_, [this](auto readHandle, auto id, auto streamData) {
         readHandler(readHandle, id, std::move(streamData));
@@ -425,7 +426,7 @@ void DeviousBatonHandler::onWebTransportBidiStream(
 void DeviousBatonHandler::onWebTransportUniStream(
     HTTPCodec::StreamID id,
     WebTransport::StreamReadHandle* readHandle) noexcept {
-  VLOG(4) << "New Uni Stream=" << id;
+  PRX_VLOG(4) << "New Uni Stream=" << id;
   readHandle->awaitNextRead(
       evb_, [this](auto readHandle, auto id, auto streamData) {
         readHandler(readHandle, id, std::move(streamData));
@@ -434,25 +435,25 @@ void DeviousBatonHandler::onWebTransportUniStream(
 
 void DeviousBatonHandler::onWebTransportSessionClose(
     folly::Optional<uint32_t> error) noexcept {
-  VLOG(4) << "Session Close error="
-          << (error ? folly::to<std::string>(*error) : std::string("none"));
+  PRX_VLOG(4) << "Session Close error="
+              << (error ? folly::to<std::string>(*error) : std::string("none"));
   devious_.reset();
 }
 
 void DeviousBatonHandler::onDatagram(
     std::unique_ptr<folly::IOBuf> datagram) noexcept {
-  VLOG(4) << "DeviousBatonHandler::" << __func__;
+  PRX_VLOG(4) << "DeviousBatonHandler::" << __func__;
 }
 
 void DeviousBatonHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
-  VLOG(4) << "DeviousBatonHandler::" << __func__;
-  VLOG(3) << IOBufPrinter::printHexFolly(body.get(), true);
+  PRX_VLOG(4) << "DeviousBatonHandler::" << __func__;
+  PRX_VLOG(3) << IOBufPrinter::printHexFolly(body.get(), true);
   folly::io::Cursor cursor(body.get());
   auto leftToParse = body->computeChainDataLength();
   while (leftToParse > 0) {
     auto typeRes = quic::follyutils::decodeQuicInteger(cursor, leftToParse);
     if (!typeRes) {
-      LOG(ERROR) << "Failed to decode capsule type.";
+      PRX_LOG(ERROR) << "Failed to decode capsule type.";
       return;
     }
     auto [type, typeLen] = typeRes.value();
@@ -460,21 +461,21 @@ void DeviousBatonHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
     auto capLengthRes =
         quic::follyutils::decodeQuicInteger(cursor, leftToParse);
     if (!capLengthRes) {
-      LOG(ERROR) << "Failed to decode capsule length: type=" << type;
+      PRX_LOG(ERROR) << "Failed to decode capsule length: type=" << type;
       return;
     }
     auto [capLength, capLengthLen] = capLengthRes.value();
     leftToParse -= capLengthLen;
     if (capLength > leftToParse) {
-      LOG(ERROR) << "Not enough data for capsule: type=" << type
-                 << " length=" << capLength;
+      PRX_LOG(ERROR) << "Not enough data for capsule: type=" << type
+                     << " length=" << capLength;
       return;
     }
   }
 }
 
 void DeviousBatonHandler::onEOM() noexcept {
-  VLOG(4) << "DeviousBatonHandler::" << __func__;
+  PRX_VLOG(4) << "DeviousBatonHandler::" << __func__;
   if (txn_ && !txn_->isEgressEOMSeen()) {
     txn_->sendEOM();
   }
@@ -482,6 +483,6 @@ void DeviousBatonHandler::onEOM() noexcept {
 
 void DeviousBatonHandler::onError(
     const proxygen::HTTPException& error) noexcept {
-  VLOG(4) << "DeviousBatonHandler::onError error=" << error.what();
+  PRX_VLOG(4) << "DeviousBatonHandler::onError error=" << error.what();
 }
 } // namespace quic::samples

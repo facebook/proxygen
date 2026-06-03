@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 
 #include <folly/io/async/EventBase.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -67,10 +68,10 @@ class HQStreamDispatcherBase : public quic::QuicSocket::PeekCallback {
   }
 
   quic::StreamId releaseOwnership(quic::StreamId id) {
-    LOG_IF(DFATAL, !hasOwnership(id))
+    PRX_LOG_IF(DFATAL, !hasOwnership(id))
         << "Can not release ownership on unowned streamID=" << id;
     bool found = pendingStreams_.erase(id);
-    LOG_IF(DFATAL, !found) << "Inconstency detected streamID=" << id;
+    PRX_LOG_IF(DFATAL, !found) << "Inconstency detected streamID=" << id;
     return id;
   }
 

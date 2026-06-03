@@ -10,8 +10,8 @@
 
 #include <bitset>
 #include <folly/Function.h>
-#include <glog/logging.h>
 #include <ostream>
+#include <proxygen/lib/utils/LogShim.h>
 #include <vector>
 
 namespace proxygen {
@@ -57,8 +57,8 @@ class ConditionalGate {
     set(static_cast<size_t>(e));
   }
   void set(size_t i = 0) {
-    CHECK_LT(i, conditions_.size());
-    CHECK(!conditions_[i]);
+    PRX_CHECK_LT(i, conditions_.size());
+    PRX_CHECK(!conditions_[i]);
     conditions_[i] = true;
     if (conditions_.all()) {
       invoke();
@@ -70,7 +70,7 @@ class ConditionalGate {
     return get(static_cast<size_t>(e));
   }
   [[nodiscard]] bool get(size_t i = 0) const {
-    CHECK_LT(i, conditions_.size());
+    PRX_CHECK_LT(i, conditions_.size());
     return conditions_[i];
   }
 

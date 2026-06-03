@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/webtransport/WtEgressContainer.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::detail {
 
@@ -27,7 +27,7 @@ WtBufferedStreamData::FcRes WtBufferedStreamData::enqueue(
     std::unique_ptr<folly::IOBuf> data,
     bool fin,
     proxygen::WebTransport::ByteEventCallback* callback) noexcept {
-  XCHECK(pendingWrites_.empty() || !pendingWrites_.back().fin)
+  PRX_CHECK(pendingWrites_.empty() || !pendingWrites_.back().fin)
       << "enqueue after fin";
 
   auto len = data ? data->computeChainDataLength() : 0;

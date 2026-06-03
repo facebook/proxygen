@@ -13,6 +13,7 @@
 #include <folly/ssl/OpenSSLHash.h>
 #include <proxygen/lib/http/RFC2616.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::IOBuf;
 using folly::IOBufQueue;
@@ -82,7 +83,7 @@ bool validateContentLen(const HTTPHeaders& hdrs) noexcept {
         }
         return *contentLen != value; // stop if different
       });
-  LOG_IF(ERROR, !ok) << "Invalid message, multiple Content-Length headers";
+  PRX_LOG_IF(ERROR, !ok) << "Invalid message, multiple Content-Length headers";
   return ok;
 }
 
@@ -91,7 +92,7 @@ bool validateTransferEncoding(const HTTPHeaders& hdrs) noexcept {
   bool ok = !hdrs.forEachValueOfHeader(
       HTTP_HEADER_TRANSFER_ENCODING, [&](folly::StringPiece value) -> bool {
         bool err = !value.equals(kChunked, folly::AsciiCaseInsensitive{});
-        LOG_IF(ERROR, err) << "invalid transfer-encoding val=" << value;
+        PRX_LOG_IF(ERROR, err) << "invalid transfer-encoding val=" << value;
         return err; // stop on err
       });
   return ok;
@@ -143,7 +144,7 @@ HTTP1xCodec::HTTP1xCodec(TransportDirection direction,
       http_parser_init(&parser_, HTTP_RESPONSE);
       break;
     default:
-      LOG(FATAL) << "Unknown transport direction.";
+      PRX_LOG(FATAL) << "Unknown transport direction.";
   }
   parser_.data = this;
 }
@@ -161,8 +162,8 @@ HTTPCodec::StreamID HTTP1xCodec::createStream() {
 void HTTP1xCodec::setParserPaused(bool paused) {
   if ((paused == parserPaused_) || parserError_) {
     // If we're bailing early, we better be paused already
-    DCHECK(parserError_ ||
-           (HTTP_PARSER_ERRNO(&parser_) == HPE_PAUSED) == paused);
+    PRX_DCHECK(parserError_ ||
+               (HTTP_PARSER_ERRNO(&parser_) == HPE_PAUSED) == paused);
     return;
   }
   if (paused) {
@@ -226,7 +227,7 @@ size_t HTTP1xCodec::onIngressImpl(const IOBuf& buf) {
     return buf.computeChainDataLength();
   } else {
     // Callers responsibility to prevent calling onIngress from a callback
-    CHECK(!parserActive_);
+    PRX_CHECK(!parserActive_);
     parserActive_ = true;
     currentIngressBuf_ = &buf;
     if (isUpstream(transportDirection_) && parser_.http_major == 0 &&
@@ -388,7 +389,7 @@ void HTTP1xCodec::serializeWebsocketHeader(IOBufQueue& writeBuf,
     appendLiteral(writeBuf, len, "Sec-WebSocket-Key: ");
     appendString(writeBuf, len, key);
     appendLiteral(writeBuf, len, CRLF);
-    DCHECK(websockAcceptKey_.empty());
+    PRX_DCHECK(websockAcceptKey_.empty());
     websockAcceptKey_ = generateWebsocketAccept(key);
   } else {
     appendLiteral(writeBuf, len, "Upgrade: ");
@@ -414,7 +415,7 @@ void HTTP1xCodec::generateHeader(
   const bool upstream = isUpstream(transportDirection_);
   const bool downstream = !upstream;
   if (upstream) {
-    DCHECK_EQ(txn, egressTxnID_);
+    PRX_DCHECK_EQ(txn, egressTxnID_);
     requestPending_ = true;
     responsePending_ = true;
     connectRequest_ = (msg.getMethod() == HTTPMethod::CONNECT);
@@ -427,7 +428,7 @@ void HTTP1xCodec::generateHeader(
     // be > ingressTxnID_
     if ((txn != egressTxnID_ + 1 && !(txn == egressTxnID_ && is1xxResponse_)) ||
         (txn > ingressTxnID_)) {
-      LOG(DFATAL) << "Out of order, duplicate or premature HTTP response";
+      PRX_LOG(DFATAL) << "Out of order, duplicate or premature HTTP response";
     }
     if (!is1xxResponse_) {
       ++egressTxnID_;
@@ -485,7 +486,7 @@ void HTTP1xCodec::generateHeader(
   size_t len = 0;
   switch (transportDirection_) {
     case TransportDirection::DOWNSTREAM:
-      DCHECK_NE(statusCode, 0);
+      PRX_DCHECK_NE(statusCode, 0);
       if (version == HTTPMessage::kHTTPVersion09) {
         return;
       }
@@ -525,7 +526,7 @@ void HTTP1xCodec::generateHeader(
       }
       mayChunkEgress_ = (version.first == 1) && (version.second >= 1);
       if (!upgradeHeader_.empty()) {
-        LOG(DFATAL)
+        PRX_LOG(DFATAL)
             << "Attempted to pipeline HTTP request with pending upgrade";
         upgradeHeader_.clear();
       }
@@ -626,7 +627,7 @@ void HTTP1xCodec::generateHeader(
     dst += value.size();
     *dst++ = '\r';
     *dst = '\n';
-    DCHECK_EQ(size_t(++dst - (char*)writable.first), lineLen);
+    PRX_DCHECK_EQ(size_t(++dst - (char*)writable.first), lineLen);
     writeBuf.postallocate(lineLen);
     len += lineLen;
   };
@@ -669,7 +670,7 @@ void HTTP1xCodec::generateHeader(
         lastConnectionToken++;
       }
     } else {
-      LOG(ERROR) << folly::to<string>(
+      PRX_LOG(ERROR) << folly::to<string>(
           "Not serializing headers. "
           "Upgrade headers present/txn: ",
           hasUpgradeHeader,
@@ -718,7 +719,7 @@ size_t HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
                                  unique_ptr<IOBuf> chain,
                                  folly::Optional<uint8_t> /*padding*/,
                                  bool eom) {
-  DCHECK_EQ(txn, egressTxnID_);
+  PRX_DCHECK_EQ(txn, egressTxnID_);
   size_t buflen = 0;
   size_t totLen = 0;
   if (chain) {
@@ -735,8 +736,8 @@ size_t HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
   if (egressChunked_ && !inChunk_) {
     char chunkLenBuf[32];
     int rc = snprintf(chunkLenBuf, sizeof(chunkLenBuf), "%zx\r\n", buflen);
-    CHECK_GT(rc, 0);
-    CHECK_LT(size_t(rc), sizeof(chunkLenBuf));
+    PRX_CHECK_GT(rc, 0);
+    PRX_CHECK_LT(size_t(rc), sizeof(chunkLenBuf));
 
     writeBuf.append(chunkLenBuf, rc);
     totLen += rc;
@@ -760,16 +761,16 @@ size_t HTTP1xCodec::generateChunkHeader(IOBufQueue& writeBuf,
   // TODO: Format directly into the IOBuf, rather than copying after the fact.
   // IOBufQueue::append() currently forces us to copy.
 
-  CHECK(length) << "use sendEOM to terminate the message using the "
-                << "standard zero-length chunk. Don't "
-                << "send zero-length chunks using this API.";
+  PRX_CHECK(length) << "use sendEOM to terminate the message using the "
+                    << "standard zero-length chunk. Don't "
+                    << "send zero-length chunks using this API.";
   if (egressChunked_) {
-    CHECK(!inChunk_);
+    PRX_CHECK(!inChunk_);
     inChunk_ = true;
     char chunkLenBuf[32];
     int rc = snprintf(chunkLenBuf, sizeof(chunkLenBuf), "%zx\r\n", length);
-    CHECK_GT(rc, 0);
-    CHECK_LT(size_t(rc), sizeof(chunkLenBuf));
+    PRX_CHECK_GT(rc, 0);
+    PRX_CHECK_LT(size_t(rc), sizeof(chunkLenBuf));
 
     writeBuf.append(chunkLenBuf, rc);
     return rc;
@@ -792,10 +793,10 @@ size_t HTTP1xCodec::generateChunkTerminator(IOBufQueue& writeBuf,
 size_t HTTP1xCodec::generateTrailers(IOBufQueue& writeBuf,
                                      StreamID txn,
                                      const HTTPHeaders& trailers) {
-  DCHECK_EQ(txn, egressTxnID_);
+  PRX_DCHECK_EQ(txn, egressTxnID_);
   size_t len = 0;
   if (egressChunked_) {
-    CHECK(!inChunk_);
+    PRX_CHECK(!inChunk_);
     appendLiteral(writeBuf, len, "0\r\n");
     lastChunkWritten_ = true;
     trailers.forEach([&](const string& trailer, const string& value) {
@@ -810,10 +811,10 @@ size_t HTTP1xCodec::generateTrailers(IOBufQueue& writeBuf,
 }
 
 size_t HTTP1xCodec::generateEOM(IOBufQueue& writeBuf, StreamID txn) {
-  DCHECK_EQ(txn, egressTxnID_);
+  PRX_DCHECK_EQ(txn, egressTxnID_);
   size_t len = 0;
   if (egressChunked_) {
-    CHECK(!inChunk_);
+    PRX_CHECK(!inChunk_);
     if (headRequest_ && isDownstream(transportDirection_)) {
       lastChunkWritten_ = true;
     } else {
@@ -907,11 +908,11 @@ bool HTTP1xCodec::pushHeaderNameAndValue(HTTPHeaders& hdrs) {
             compatValidate ? CodecUtil::CtlEscapeMode::STRICT_COMPAT
                            : CodecUtil::CtlEscapeMode::STRICT)) {
       validationError_ = kErrorHeaderContentValidation;
-      LOG(ERROR) << "Invalid header name=" << headerName;
-      DVLOG(4) << " value=" << currentHeaderValue_;
+      PRX_LOG(ERROR) << "Invalid header name=" << headerName;
+      PRX_DVLOG(4) << " value=" << currentHeaderValue_;
       // Hexlify the value for debuggability in case it contains non-printable
       // characters like \n, \t, etc.
-      DVLOG(4) << " value in hex=" << folly::hexlify(currentHeaderValue_);
+      PRX_DVLOG(4) << " value in hex=" << folly::hexlify(currentHeaderValue_);
       return false;
     }
   }
@@ -1019,7 +1020,7 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
 
     ParseURL parseUrl = msg_->setURL(std::move(url_), strictValidation_);
     if (strictValidation_ && !parseUrl.valid()) {
-      LOG(ERROR) << "Invalid URL: " << msg_->getURL();
+      PRX_LOG(ERROR) << "Invalid URL: " << msg_->getURL();
       return -1;
     }
     url_.clear();
@@ -1029,7 +1030,7 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
       // is part of the Request-URI. Any Host header field value in the
       // request MUST be ignored."
       auto hostAndPort = parseUrl.hostAndPort();
-      VLOG(4) << "Adding inferred host header: " << hostAndPort;
+      PRX_VLOG(4) << "Adding inferred host header: " << hostAndPort;
       msg_->getHeaders().set(HTTP_HEADER_HOST, hostAndPort);
     }
 
@@ -1060,9 +1061,10 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
       const std::string& serverUpgrade =
           msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_UPGRADE);
       if (!serverAcceptedUpgrade(upgradeHeader_, serverUpgrade)) {
-        LOG(ERROR) << "Invalid 101 response, client/server upgrade mismatch "
-                      "client="
-                   << upgradeHeader_ << " server=" << serverUpgrade;
+        PRX_LOG(ERROR)
+            << "Invalid 101 response, client/server upgrade mismatch "
+               "client="
+            << upgradeHeader_ << " server=" << serverUpgrade;
         return -1;
       }
       ingressUpgrade_ = egressUpgrade_ = true;
@@ -1092,8 +1094,8 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
       const std::string& accept =
           hdrs.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT);
       if (accept != websockAcceptKey_) {
-        LOG(ERROR) << "Mismatch in expected ws accept key: " << "upstream: "
-                   << accept << " expected: " << websockAcceptKey_;
+        PRX_LOG(ERROR) << "Mismatch in expected ws accept key: " << "upstream: "
+                       << accept << " expected: " << websockAcceptKey_;
         return -1;
       }
     } else {
@@ -1106,8 +1108,8 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
       // may want to change this to clear the websockAcceptKey if
       // the request doesn't succeed keeping the connection usable.
       if (!websockAcceptKey_.empty()) {
-        LOG(ERROR) << "ws accept key already set: '" << websockAcceptKey_
-                   << "'";
+        PRX_LOG(ERROR) << "ws accept key already set: '" << websockAcceptKey_
+                       << "'";
         return -1;
       }
       auto key = hdrs.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY);
@@ -1163,17 +1165,17 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
 }
 
 int HTTP1xCodec::onBody(const char* buf, size_t len) {
-  DCHECK(!isParsingHeaders());
-  DCHECK(!inRecvLastChunk_);
-  CHECK_NOTNULL(currentIngressBuf_);
+  PRX_DCHECK(!isParsingHeaders());
+  PRX_DCHECK(!inRecvLastChunk_);
+  PRX_CHECK_NOTNULL(currentIngressBuf_);
   const char* dataStart = (const char*)currentIngressBuf_->data();
   const char* dataEnd = dataStart + currentIngressBuf_->length();
-  DCHECK_GE(buf, dataStart);
-  DCHECK_LE(buf + len, dataEnd);
+  PRX_DCHECK_GE(buf, dataStart);
+  PRX_DCHECK_LE(buf + len, dataEnd);
   unique_ptr<IOBuf> clone(currentIngressBuf_->cloneOne());
   clone->trimStart(buf - dataStart);
   clone->trimEnd(dataEnd - (buf + len));
-  DCHECK_EQ(len, clone->computeChainDataLength());
+  PRX_DCHECK_EQ(len, clone->computeChainDataLength());
   callback_->onBody(ingressTxnID_, std::move(clone), 0);
   return 0;
 }
@@ -1182,8 +1184,8 @@ int HTTP1xCodec::onChunkHeader(size_t len) {
   if (len > 0) {
     callback_->onChunkHeader(ingressTxnID_, len);
   } else {
-    VLOG(5) << "Suppressed onChunkHeader callback for final zero length "
-            << "chunk";
+    PRX_VLOG(5) << "Suppressed onChunkHeader callback for final zero length "
+                << "chunk";
     inRecvLastChunk_ = true;
   }
   return 0;
@@ -1199,8 +1201,8 @@ int HTTP1xCodec::onChunkComplete() {
 }
 
 int HTTP1xCodec::onMessageComplete() {
-  DCHECK(!isParsingHeaders());
-  DCHECK(!inRecvLastChunk_);
+  PRX_DCHECK(!isParsingHeaders());
+  PRX_DCHECK(!inRecvLastChunk_);
   if (headerParseState_ == HeaderParseState::kParsingTrailerValue) {
     if (!trailers_) {
       trailers_ = std::make_unique<HTTPHeaders>();
@@ -1242,8 +1244,8 @@ int HTTP1xCodec::onMessageComplete() {
 
 int HTTP1xCodec::onMessageBeginCB(http_parser* parser) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onMessageBegin();
@@ -1255,8 +1257,8 @@ int HTTP1xCodec::onMessageBeginCB(http_parser* parser) {
 
 int HTTP1xCodec::onUrlCB(http_parser* parser, const char* buf, size_t len) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onURL(buf, len);
@@ -1268,8 +1270,8 @@ int HTTP1xCodec::onUrlCB(http_parser* parser, const char* buf, size_t len) {
 
 int HTTP1xCodec::onReasonCB(http_parser* parser, const char* buf, size_t len) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onReason(buf, len);
@@ -1283,8 +1285,8 @@ int HTTP1xCodec::onHeaderFieldCB(http_parser* parser,
                                  const char* buf,
                                  size_t len) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onHeaderField(buf, len);
@@ -1298,8 +1300,8 @@ int HTTP1xCodec::onHeaderValueCB(http_parser* parser,
                                  const char* buf,
                                  size_t len) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onHeaderValue(buf, len);
@@ -1313,8 +1315,8 @@ int HTTP1xCodec::onHeadersCompleteCB(http_parser* parser,
                                      const char* /*buf*/,
                                      size_t len) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onHeadersComplete(len);
@@ -1326,8 +1328,8 @@ int HTTP1xCodec::onHeadersCompleteCB(http_parser* parser,
 
 int HTTP1xCodec::onBodyCB(http_parser* parser, const char* buf, size_t len) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onBody(buf, len);
@@ -1345,8 +1347,8 @@ int HTTP1xCodec::onBodyCB(http_parser* parser, const char* buf, size_t len) {
 
 int HTTP1xCodec::onChunkHeaderCB(http_parser* parser) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onChunkHeader(parser->content_length);
@@ -1358,8 +1360,8 @@ int HTTP1xCodec::onChunkHeaderCB(http_parser* parser) {
 
 int HTTP1xCodec::onChunkCompleteCB(http_parser* parser) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onChunkComplete();
@@ -1371,8 +1373,8 @@ int HTTP1xCodec::onChunkCompleteCB(http_parser* parser) {
 
 int HTTP1xCodec::onMessageCompleteCB(http_parser* parser) {
   auto* codec = static_cast<HTTP1xCodec*>(parser->data);
-  DCHECK(codec != nullptr);
-  DCHECK_EQ(&codec->parser_, parser);
+  PRX_DCHECK(codec != nullptr);
+  PRX_DCHECK_EQ(&codec->parser_, parser);
 
   try {
     return codec->onMessageComplete();

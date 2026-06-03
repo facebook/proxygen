@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::io::Cursor;
 
@@ -24,8 +25,8 @@ void HPACKDecoder::decodeStreaming(Cursor& cursor,
     emittedSize += decodeHeader(dbuf, streamingCb, nullptr);
 
     if (emittedSize > maxUncompressed_) {
-      LOG(ERROR) << "exceeded uncompressed size limit of " << maxUncompressed_
-                 << " bytes";
+      PRX_LOG(ERROR) << "exceeded uncompressed size limit of "
+                     << maxUncompressed_ << " bytes";
       err_ = HPACK::DecodeError::HEADERS_TOO_LARGE;
       break;
     }
@@ -58,12 +59,12 @@ uint32_t HPACKDecoder::decodeLiteralHeader(
     uint64_t index;
     err_ = dbuf.decodeInteger(length, index);
     if (err_ != HPACK::DecodeError::NONE) {
-      LOG(ERROR) << "Decode error decoding index err_=" << err_;
+      PRX_LOG(ERROR) << "Decode error decoding index err_=" << err_;
       return 0;
     }
     // validate the index
     if (!isValid(index)) {
-      LOG(ERROR) << "received invalid index: " << index;
+      PRX_LOG(ERROR) << "received invalid index: " << index;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
@@ -75,15 +76,15 @@ uint32_t HPACKDecoder::decodeLiteralHeader(
     err_ = dbuf.decodeLiteral(headerName);
     header.name = HPACKHeaderName{headerName};
     if (err_ != HPACK::DecodeError::NONE) {
-      LOG(ERROR) << "Error decoding header name err_=" << err_;
+      PRX_LOG(ERROR) << "Error decoding header name err_=" << err_;
       return 0;
     }
   }
   // value
   err_ = dbuf.decodeLiteral(header.value);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Error decoding header value name=" << header.name
-               << " err_=" << err_;
+    PRX_LOG(ERROR) << "Error decoding header value name=" << header.name
+                   << " err_=" << err_;
     return 0;
   }
 
@@ -95,7 +96,7 @@ uint32_t HPACKDecoder::decodeLiteralHeader(
       // The only way add can return false is clearing the table with a large
       // entry.  Any other failure would result in compression contexts out of
       // sync.
-      CHECK_GT(headerBytes, table_.capacity());
+      PRX_CHECK_GT(headerBytes, table_.capacity());
     }
   }
 
@@ -109,12 +110,12 @@ uint32_t HPACKDecoder::decodeIndexedHeader(
   uint64_t index;
   err_ = dbuf.decodeInteger(HPACK::INDEX_REF.prefixLength, index);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding index err_=" << err_;
+    PRX_LOG(ERROR) << "Decode error decoding index err_=" << err_;
     return 0;
   }
   // validate the index
   if (index == 0 || !isValid(index)) {
-    LOG(ERROR) << "received invalid index: " << index;
+    PRX_LOG(ERROR) << "received invalid index: " << index;
     err_ = HPACK::DecodeError::INVALID_INDEX;
     return 0;
   }

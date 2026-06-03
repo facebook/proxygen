@@ -9,7 +9,7 @@
 #pragma once
 
 #include <folly/portability/OpenSSL.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -23,7 +23,7 @@ class ProxygenSSL {
                                    nullptr,
                                    nullptr,
                                    nullptr);
-      CHECK(idx >= 0);
+      PRX_CHECK(idx >= 0);
       return idx;
     }();
     return index;
@@ -33,7 +33,7 @@ class ProxygenSSL {
     static auto index = [] {
       auto idx = SSL_CTX_get_ex_new_index(
           0, (void*)"proxygen wangle::SSLStats", nullptr, nullptr, nullptr);
-      CHECK(idx >= 0);
+      PRX_CHECK(idx >= 0);
       return idx;
     }();
     return index;

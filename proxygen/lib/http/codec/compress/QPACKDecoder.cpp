@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::io::Cursor;
 
@@ -28,11 +29,11 @@ void QPACKDecoder::decodeStreaming(uint64_t streamID,
   err_ = HPACK::DecodeError::NONE;
   uint32_t requiredInsertCount = decodePrefix(dbuf);
   if (requiredInsertCount > table_.getInsertCount()) {
-    VLOG(5) << "requiredInsertCount=" << requiredInsertCount
-            << " > insertCount=" << table_.getInsertCount() << ", queuing";
+    PRX_VLOG(5) << "requiredInsertCount=" << requiredInsertCount
+                << " > insertCount=" << table_.getInsertCount() << ", queuing";
     if (queue_.size() >= maxBlocking_) {
-      VLOG(2) << "QPACK queue full size=" << queue_.size()
-              << " maxBlocking_=" << maxBlocking_;
+      PRX_VLOG(2) << "QPACK queue full size=" << queue_.size()
+                  << " maxBlocking_=" << maxBlocking_;
       err_ = HPACK::DecodeError::TOO_MANY_BLOCKING;
       completeDecode(HeaderCodec::Type::QPACK, streamingCb, 0, 0, 0, false);
     } else {
@@ -60,14 +61,14 @@ uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
 
   err_ = dbuf.decodeInteger(wireRIC);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding requiredInsertCount err_=" << err_;
+    PRX_LOG(ERROR) << "Decode error decoding requiredInsertCount err_=" << err_;
     return 0;
   }
   if (wireRIC == 0) {
     requiredInsertCount = 0;
   } else if (maxEntries == 0) {
-    LOG(ERROR) << "Encoder used dynamic table when not permitted, wireRIC="
-               << wireRIC;
+    PRX_LOG(ERROR) << "Encoder used dynamic table when not permitted, wireRIC="
+                   << wireRIC;
     err_ = HPACK::DecodeError::INVALID_INDEX;
     return 0;
   } else {
@@ -84,52 +85,52 @@ uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
     // wrapped one fewer time
     if (requiredInsertCount > maxValue) {
       if (requiredInsertCount < fullRange) {
-        LOG(ERROR) << "Decode error RIC out of range=" << wireRIC;
+        PRX_LOG(ERROR) << "Decode error RIC out of range=" << wireRIC;
         err_ = HPACK::DecodeError::INVALID_INDEX;
         return 0;
       }
       requiredInsertCount -= fullRange;
     }
   }
-  VLOG(5) << "Decoded requiredInsertCount=" << requiredInsertCount;
+  PRX_VLOG(5) << "Decoded requiredInsertCount=" << requiredInsertCount;
   uint64_t delta = 0;
   if (dbuf.empty()) {
-    LOG(ERROR) << "Invalid prefix, no delta-base";
+    PRX_LOG(ERROR) << "Invalid prefix, no delta-base";
     err_ = HPACK::DecodeError::BUFFER_UNDERFLOW;
     return 0;
   }
   bool neg = dbuf.peek() & HPACK::Q_DELTA_BASE_NEG;
   err_ = dbuf.decodeInteger(HPACK::Q_DELTA_BASE.prefixLength, delta);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding delta base=" << err_;
+    PRX_LOG(ERROR) << "Decode error decoding delta base=" << err_;
     return 0;
   }
   if (neg) {
     // delta must be smaller than RIC
     if (delta >= requiredInsertCount) {
-      LOG(ERROR) << "Received invalid delta=" << delta
-                 << " requiredInsertCount=" << requiredInsertCount;
+      PRX_LOG(ERROR) << "Received invalid delta=" << delta
+                     << " requiredInsertCount=" << requiredInsertCount;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
     // The largest table we support is 2^32 - 1 / 32 entries, so
     // requiredInsertCount (less any delta, etc) must be < 2^32.
-    CHECK_LE(requiredInsertCount - delta - 1,
-             std::numeric_limits<uint32_t>::max());
+    PRX_CHECK_LE(requiredInsertCount - delta - 1,
+                 std::numeric_limits<uint32_t>::max());
     baseIndex_ = requiredInsertCount - delta - 1;
   } else {
     // base must be < 2^32
     if (delta > std::numeric_limits<uint32_t>::max() ||
         requiredInsertCount >=
             uint64_t(std::numeric_limits<uint32_t>::max()) - delta) {
-      LOG(ERROR) << "Invalid delta=" << delta
-                 << " requiredInsertCount=" << requiredInsertCount;
+      PRX_LOG(ERROR) << "Invalid delta=" << delta
+                     << " requiredInsertCount=" << requiredInsertCount;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
     baseIndex_ = requiredInsertCount + delta;
   }
-  VLOG(5) << "Decoded baseIndex_=" << baseIndex_;
+  PRX_VLOG(5) << "Decoded baseIndex_=" << baseIndex_;
   return requiredInsertCount;
 }
 
@@ -142,8 +143,8 @@ void QPACKDecoder::decodeStreamingImpl(uint32_t requiredInsertCount,
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeaderQ(dbuf, streamingCb);
     if (emittedSize > maxUncompressed_) {
-      LOG(ERROR) << "Exceeded uncompressed size limit of " << maxUncompressed_
-                 << " bytes";
+      PRX_LOG(ERROR) << "Exceeded uncompressed size limit of "
+                     << maxUncompressed_ << " bytes";
       err_ = HPACK::DecodeError::HEADERS_TOO_LARGE;
       break;
     }
@@ -205,7 +206,7 @@ HPACK::DecodeError QPACKDecoder::decodeEncoderStream(
                          maxUncompressed_,
                          /* endOfBufferIsError=*/false);
 
-  VLOG(6) << "Decoding control block";
+  PRX_VLOG(6) << "Decoding control block";
   baseIndex_ = 0;
   err_ = HPACK::DecodeError::NONE;
   while (!hasError() && !dbuf.empty()) {
@@ -266,11 +267,11 @@ void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
     decodeIndexedHeaderQ(
         dbuf, HPACK::Q_DUPLICATE.prefixLength, false, nullptr, &emitted);
     if (!hasError()) {
-      CHECK(!emitted.empty());
+      PRX_CHECK(!emitted.empty());
       if (!table_.add(std::move(emitted[0]))) {
         // the only case is the header was > table capacity.  But how can we
         // duplicate such a header?
-        LOG(DFATAL) << "Encoder duplicated a header larger than capacity";
+        PRX_LOG(DFATAL) << "Encoder duplicated a header larger than capacity";
         err_ = HPACK::DecodeError::INSERT_TOO_LARGE;
       } else {
         duplications_++;
@@ -298,13 +299,13 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
         return 0;
       }
       if (err_ != HPACK::DecodeError::NONE) {
-        LOG(ERROR) << "Decode error decoding index err_=" << err_;
+        PRX_LOG(ERROR) << "Decode error decoding index err_=" << err_;
         return 0;
       }
       nameIndex++;
       // validate the index
       if (!isValid(isStaticName, nameIndex, aboveBase)) {
-        LOG(ERROR) << "Received invalid index=" << nameIndex;
+        PRX_LOG(ERROR) << "Received invalid index=" << nameIndex;
         err_ = HPACK::DecodeError::INVALID_INDEX;
         return 0;
       }
@@ -317,7 +318,7 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
         return 0;
       }
       if (err_ != HPACK::DecodeError::NONE) {
-        LOG(ERROR) << "Error decoding header name err_=" << err_;
+        PRX_LOG(ERROR) << "Error decoding header name err_=" << err_;
         return 0;
       }
       partial->header.name = HPACKHeaderName{headerName};
@@ -331,8 +332,8 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
     return 0;
   }
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Error decoding header value name=" << partial->header.name
-               << " err_=" << err_;
+    PRX_LOG(ERROR) << "Error decoding header value name="
+                   << partial->header.name << " err_=" << err_;
     return 0;
   }
   partial->state = Partial::NAME;
@@ -342,7 +343,7 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
   if (indexing) {
     if (!table_.add(std::move(partial->header))) {
       // the only case is the header was > table capacity
-      LOG(ERROR) << "Encoder inserted a header larger than capacity";
+      PRX_LOG(ERROR) << "Encoder inserted a header larger than capacity";
       err_ = HPACK::DecodeError::INSERT_TOO_LARGE;
     }
   }
@@ -361,15 +362,15 @@ uint32_t QPACKDecoder::decodeIndexedHeaderQ(
   err_ = dbuf.decodeInteger(prefixLength, index);
   if (err_ != HPACK::DecodeError::NONE) {
     if (streamingCb || err_ != HPACK::DecodeError::BUFFER_UNDERFLOW) {
-      LOG(ERROR) << "Decode error decoding index err_=" << err_;
+      PRX_LOG(ERROR) << "Decode error decoding index err_=" << err_;
     }
     return 0;
   }
-  CHECK_LT(index, std::numeric_limits<uint64_t>::max());
+  PRX_CHECK_LT(index, std::numeric_limits<uint64_t>::max());
   index++;
   // validate the index
   if (index == 0 || !isValid(isStatic, index, aboveBase)) {
-    LOG(ERROR) << "received invalid index: " << index;
+    PRX_LOG(ERROR) << "received invalid index: " << index;
     err_ = HPACK::DecodeError::INVALID_INDEX;
     return 0;
   }
@@ -400,7 +401,7 @@ bool QPACKDecoder::isValid(bool isStatic, uint64_t index, bool aboveBase) {
 std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeInsertCountInc() {
   uint32_t toAck = table_.getInsertCount() - lastAcked_;
   if (toAck > 0) {
-    VLOG(6) << "encodeInsertCountInc toAck=" << toAck;
+    PRX_VLOG(6) << "encodeInsertCountInc toAck=" << toAck;
     HPACKEncodeBuffer ackEncoder(kGrowth, false);
     ackEncoder.encodeInteger(toAck, HPACK::Q_INSERT_COUNT_INC);
     lastAcked_ = table_.getInsertCount();
@@ -413,7 +414,7 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeInsertCountInc() {
 std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeHeaderAck(
     uint64_t streamId) const {
   HPACKEncodeBuffer ackEncoder(kGrowth, false);
-  VLOG(6) << "encodeHeaderAck id=" << streamId;
+  PRX_VLOG(6) << "encodeHeaderAck id=" << streamId;
   ackEncoder.encodeInteger(streamId, HPACK::Q_HEADER_ACK);
   return ackEncoder.release();
 }
@@ -421,7 +422,7 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeHeaderAck(
 std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeCancelStream(
     uint64_t streamId) {
   // Remove this stream from the queue
-  VLOG(6) << "encodeCancelStream id=" << streamId;
+  PRX_VLOG(6) << "encodeCancelStream id=" << streamId;
   auto it = queue_.begin();
   while (it != queue_.end()) {
     if (it->second.streamID == streamId) {
@@ -443,7 +444,7 @@ void QPACKDecoder::enqueueHeaderBlock(uint64_t streamID,
                                       size_t length,
                                       HPACK::StreamingCallback* streamingCb) {
   // TDOO: this queue is currently unbounded and has no timeouts
-  CHECK_GT(requiredInsertCount, table_.getInsertCount());
+  PRX_CHECK_GT(requiredInsertCount, table_.getInsertCount());
   queue_.emplace(std::piecewise_construct,
                  std::forward_as_tuple(requiredInsertCount),
                  std::forward_as_tuple(streamID,
@@ -453,17 +454,17 @@ void QPACKDecoder::enqueueHeaderBlock(uint64_t streamID,
                                        std::move(block),
                                        streamingCb));
   holBlockCount_++;
-  VLOG(5) << "queued block=" << requiredInsertCount << " len=" << length;
+  PRX_VLOG(5) << "queued block=" << requiredInsertCount << " len=" << length;
   queuedBytes_ += length;
 }
 
 bool QPACKDecoder::decodeBlock(uint32_t requiredInsertCount,
                                const PendingBlock& pending) {
   if (pending.length > 0) {
-    VLOG(5) << "decodeBlock len=" << pending.length;
+    PRX_VLOG(5) << "decodeBlock len=" << pending.length;
     folly::io::Cursor cursor(pending.block.get());
     HPACKDecodeBuffer dbuf(cursor, pending.length, maxUncompressed_);
-    DCHECK_LE(pending.length, queuedBytes_);
+    PRX_DCHECK_LE(pending.length, queuedBytes_);
     queuedBytes_ -= pending.length;
     baseIndex_ = pending.baseIndex;
     folly::DestructorCheck::Safety safety(*this);

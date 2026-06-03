@@ -20,6 +20,7 @@
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
 #include <proxygen/lib/transport/ConnectUDPUtils.h>
 #include <proxygen/lib/transport/H3DatagramAsyncSocket.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -91,14 +92,14 @@ class MasqueInteropClient
   }
 
   void start() {
-    CHECK(evb_->isInEventBaseThread());
+    PRX_CHECK(evb_->isInEventBaseThread());
     try {
       proxyAddress_ = resolveAddress(FLAGS_proxy_host,
                                      static_cast<uint16_t>(FLAGS_proxy_port),
                                      FLAGS_ipv4_only);
       socket_.connect(proxyAddress_);
     } catch (const std::exception& e) {
-      LOG(ERROR) << "Failed to connect: " << e.what();
+      PRX_LOG(ERROR) << "Failed to connect: " << e.what();
       exitCode_ = 1;
       return;
     }
@@ -123,10 +124,10 @@ class MasqueInteropClient
     auto buf = folly::IOBuf::copyBuffer(sentPayload_.data(), payloadSize_);
     auto hexStr = folly::hexlify(folly::ByteRange(
         reinterpret_cast<const uint8_t*>(sentPayload_.data()), payloadSize_));
-    LOG(INFO) << "Sending " << payloadSize_ << " bytes: " << hexStr;
+    PRX_LOG(INFO) << "Sending " << payloadSize_ << " bytes: " << hexStr;
     auto res = socket_.write(proxyAddress_, buf);
     if (res < 0) {
-      LOG(ERROR) << "Failed to write: errno=" << errno;
+      PRX_LOG(ERROR) << "Failed to write: errno=" << errno;
       exitCode_ = 1;
       evb_->terminateLoopSoon();
       return;
@@ -137,7 +138,7 @@ class MasqueInteropClient
   }
 
   void timeoutExpired() noexcept override {
-    LOG(ERROR) << "Timeout waiting for echo response";
+    PRX_LOG(ERROR) << "Timeout waiting for echo response";
     exitCode_ = 1;
     evb_->terminateLoopSoon();
   }
@@ -155,20 +156,20 @@ class MasqueInteropClient
       cancelTimeout();
       auto hexStr = folly::hexlify(folly::ByteRange(
           reinterpret_cast<const uint8_t*>(readBuf_.data()), len));
-      LOG(INFO) << "Received " << len << " bytes: " << hexStr;
+      PRX_LOG(INFO) << "Received " << len << " bytes: " << hexStr;
 
       if (len == payloadSize_ &&
           memcmp(readBuf_.data(), sentPayload_.data(), payloadSize_) == 0) {
-        LOG(INFO) << "Echo payload verified - exact match";
+        PRX_LOG(INFO) << "Echo payload verified - exact match";
         exitCode_ = 0;
         verified_ = true;
       } else {
-        LOG(ERROR) << "Echo payload MISMATCH!";
+        PRX_LOG(ERROR) << "Echo payload MISMATCH!";
         exitCode_ = 1;
       }
       evb_->terminateLoopSoon();
     } catch (const std::exception& e) {
-      LOG(ERROR) << "Exception in onDataAvailable: " << e.what();
+      PRX_LOG(ERROR) << "Exception in onDataAvailable: " << e.what();
       exitCode_ = 1;
       evb_->terminateLoopSoon();
     }
@@ -176,7 +177,7 @@ class MasqueInteropClient
 
   void onReadError(const folly::AsyncSocketException& ex) noexcept override {
     cancelTimeout();
-    LOG(ERROR) << "Read error: " << ex.what();
+    PRX_LOG(ERROR) << "Read error: " << ex.what();
     if (!verified_) {
       exitCode_ = 1;
     }
@@ -185,7 +186,7 @@ class MasqueInteropClient
 
   void onReadClosed() noexcept override {
     cancelTimeout();
-    LOG(INFO) << "Read closed";
+    PRX_LOG(INFO) << "Read closed";
     if (!sent_ && !verified_) {
       exitCode_ = 1;
     }
@@ -214,8 +215,8 @@ int main(int argc, char* argv[]) {
 
   try {
     auto payloadSize = static_cast<size_t>(FLAGS_payload_size);
-    CHECK_GT(payloadSize, 0u) << "payload_size must be > 0";
-    CHECK_LE(payloadSize, kMaxPayloadSize)
+    PRX_CHECK_GT(payloadSize, 0u) << "payload_size must be > 0";
+    PRX_CHECK_LE(payloadSize, kMaxPayloadSize)
         << "payload_size must be <= " << kMaxPayloadSize;
 
     // Expand the URI template with proxy address for the template itself,
@@ -244,10 +245,10 @@ int main(int argc, char* argv[]) {
                                  FLAGS_target_host,
                                  static_cast<uint16_t>(FLAGS_target_port));
 
-    LOG(INFO) << "Extended CONNECT: :protocol=connect-udp"
-              << ", :scheme=" << target.scheme
-              << ", :authority=" << target.authority
-              << ", :path=" << target.path;
+    PRX_LOG(INFO) << "Extended CONNECT: :protocol=connect-udp"
+                  << ", :scheme=" << target.scheme
+                  << ", :authority=" << target.authority
+                  << ", :path=" << target.path;
 
     EventBase evb;
 
@@ -298,7 +299,7 @@ int main(int argc, char* argv[]) {
 
     return client.exitCode();
   } catch (const std::exception& e) {
-    LOG(ERROR) << "Fatal error: " << e.what();
+    PRX_LOG(ERROR) << "Fatal error: " << e.what();
     return 1;
   }
 }

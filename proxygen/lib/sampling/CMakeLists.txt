@@ -21,9 +21,9 @@ proxygen_add_library(proxygen_sampling
   SRCS
     Sampling.cpp
   DEPS
+    proxygen_utils_log_shim
     Folly::folly_hash_hash
     Folly::folly_random
-    glog::glog
   EXPORTED_DEPS
     Folly::folly_function
     Folly::folly_range

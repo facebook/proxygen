@@ -14,6 +14,7 @@
 #include "proxygen/lib/http/coro/util/test/TestHelpers.h"
 #include "proxygen/lib/http/session/HTTPSessionStats.h"
 #include <proxygen/lib/http/session/test/MockHTTPSessionStats.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::coro::co_awaitTry;
 using folly::coro::co_error;
@@ -44,12 +45,12 @@ class ConnectHandler : public HTTPHandler {
       folly::EventBase* evb,
       HTTPSessionContextPtr ctx,
       HTTPSourceHolder requestSource) override {
-    XLOG(DBG6) << "ConnectHandler connecting to upstream";
+    PRX_VLOG(6) << "ConnectHandler connecting to upstream";
     auto transport =
         co_await co_awaitTry(folly::coro::Transport::newConnectedSocket(
             evb, serverAddress_, std::chrono::milliseconds(50)));
     // loopback connect should never fail?
-    XCHECK(!transport.hasException()) << "loopback connect failed!";
+    PRX_CHECK(!transport.hasException()) << "loopback connect failed!";
     auto connectSource = std::make_unique<ConnectSource>(
         std::make_unique<folly::coro::Transport>(std::move(transport).value()),
         std::move(requestSource));
@@ -68,18 +69,18 @@ class Handler : public TestHandler {
       HTTPSessionContextPtr ctx,
       HTTPSourceHolder requestSource) override {
     auto headerEvent = co_await co_awaitTry(requestSource.readHeaderEvent());
-    XLOG(DBG6) << " Handler::handleRequest; got headerEvent; ex="
-               << int(headerEvent.hasException());
+    PRX_VLOG(6) << " Handler::handleRequest; got headerEvent; ex="
+                << int(headerEvent.hasException());
     if (headerEvent.hasException()) {
       co_yield co_error(headerEvent.exception());
     }
 
     auto method = headerEvent->headers->getMethod();
-    XCHECK(method);
+    PRX_CHECK(method);
     if (method == HTTPMethod::CONNECT) {
-      XLOG(DBG6) << "Handler::handleRequest HTTPMethod::CONNECT";
+      PRX_VLOG(6) << "Handler::handleRequest HTTPMethod::CONNECT";
       if (headerEvent->eom) {
-        XLOG(DBG4) << "eom in header event for CONNECT request";
+        PRX_VLOG(4) << "eom in header event for CONNECT request";
         co_yield co_error(
             HTTPError{HTTPErrorCode::REFUSED_STREAM, "eom in connect request"});
       }
@@ -89,13 +90,13 @@ class Handler : public TestHandler {
       co_yield co_result(std::move(connectRes));
     }
 
-    XLOG(DBG6) << "header event query string ="
-               << headerEvent->headers->getQueryString();
+    PRX_VLOG(6) << "header event query string ="
+                << headerEvent->headers->getQueryString();
     uint64_t suspendEgressMs =
         parseQueryParamAsInt(*headerEvent->headers, kSuspendEgressMs)
             .value_or(0);
     if (suspendEgressMs > 0) {
-      XLOG(DBG6) << folly::to<std::string>(
+      PRX_VLOG(6) << folly::to<std::string>(
           "suspending ingress for ", suspendEgressMs, "ms");
       co_await folly::coro::sleep(std::chrono::milliseconds(suspendEgressMs));
     }
@@ -147,7 +148,7 @@ class HTTPConnectIntegrationTest : public ::testing::Test {
   folly::coro::Task<HTTPCoroSession*> getProxySess() {
     auto proxySess = co_await co_awaitTry(HTTPCoroConnector::connect(
         &evb_, getServAddr(), kConnectTimeout, getConnParams()));
-    XCHECK(!proxySess.hasException())
+    PRX_CHECK(!proxySess.hasException())
         << "proxySess ex=" << proxySess.exception().what();
     co_return proxySess.value();
   }
@@ -181,7 +182,7 @@ CO_TEST_F_X(HTTPConnectIntegrationTest, Simple) {
   auto authority = folly::to<std::string>(
       "https://localhost:", getServAddr().getPort(), "/");
   auto serverSess = co_await co_awaitTry(proxyConnect(proxySess, authority));
-  XCHECK(!serverSess.hasException())
+  PRX_CHECK(!serverSess.hasException())
       << "serverSess ex=" << serverSess.exception().what();
 
   // simple GET request on the tunneled session should yield 200
@@ -189,8 +190,8 @@ CO_TEST_F_X(HTTPConnectIntegrationTest, Simple) {
       HTTPClient::get(/*session=*/serverSess.value(),
                       /*reservation=*/*serverSess.value()->reserveRequest(),
                       /*url=*/URL{authority}));
-  XCHECK(!resp.hasException()) << "resp ex=" << resp.exception();
-  XCHECK_EQ(resp->headers->getStatusCode(), 200);
+  PRX_CHECK(!resp.hasException()) << "resp ex=" << resp.exception();
+  PRX_CHECK_EQ(resp->headers->getStatusCode(), 200);
 
   serverSess.value()->initiateDrain();
   proxySess->initiateDrain();
@@ -214,7 +215,7 @@ CO_TEST_F_X(HTTPConnectIntegrationTest, TimeoutConnectTransportRead) {
   sessParams.connReadTimeout = std::chrono::milliseconds(200);
   auto serverSess =
       co_await co_awaitTry(proxyConnect(proxySess, authority, sessParams));
-  XCHECK(!serverSess.hasException())
+  PRX_CHECK(!serverSess.hasException())
       << "serverSess ex=" << serverSess.exception().what();
 
   // send a request with a suspend_egress_ms query param which is read by the
@@ -224,11 +225,11 @@ CO_TEST_F_X(HTTPConnectIntegrationTest, TimeoutConnectTransportRead) {
 
   auto respSource =
       co_await co_awaitTry(serverSess.value()->sendRequest(reqSource));
-  XCHECK(!respSource.hasException()) << respSource.exception().what();
+  PRX_CHECK(!respSource.hasException()) << respSource.exception().what();
   HTTPSourceReader reader{std::move(respSource).value()};
 
   auto readResult = co_await co_awaitTry(reader.read());
-  XCHECK(!readResult.hasException()) << readResult.exception();
+  PRX_CHECK(!readResult.hasException()) << readResult.exception();
 
   serverSess.value()->initiateDrain();
   proxySess->initiateDrain();

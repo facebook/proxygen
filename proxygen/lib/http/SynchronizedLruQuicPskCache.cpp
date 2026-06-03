@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/SynchronizedLruQuicPskCache.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -21,10 +22,10 @@ quic::Optional<quic::QuicCachedPsk> SynchronizedLruQuicPskCache::getPsk(
   if (result != cacheMap->end()) {
     if (std::chrono::system_clock::now() >
         result->second.cachedPsk.ticketExpirationTime) {
-      VLOG(1) << "PSK expired: " << identity << ", id: "
-              << (result->second.cachedPsk.serverCert
-                      ? result->second.cachedPsk.serverCert->getIdentity()
-                      : "none");
+      PRX_VLOG(1) << "PSK expired: " << identity << ", id: "
+                  << (result->second.cachedPsk.serverCert
+                          ? result->second.cachedPsk.serverCert->getIdentity()
+                          : "none");
       cacheMap->erase(result);
       return std::nullopt;
     }

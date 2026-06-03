@@ -16,6 +16,7 @@
 #include <quic/api/QuicSocket.h>
 
 #include <folly/Utility.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -50,7 +51,7 @@ class PendingByteEvent : public folly::HHWheelTimer::Callback {
   }
   void timeoutExpired() noexcept override {
     // incRef called when timeout scheduled in scheduleOrFireTxAckEvent
-    XLOG(DBG4) << "ByteEvent Timeout";
+    PRX_VLOG(4) << "ByteEvent Timeout";
     onError(HTTPError{HTTPErrorCode::READ_TIMEOUT, "ByteEvent Timeout"});
   }
   HTTPByteEvent byteEvent;
@@ -96,8 +97,8 @@ class QuicByteEventCallback : public quic::ByteEventCallback {
         return quic::ByteEvent::Type::ACK;
       case HTTPByteEvent::Type::TRANSPORT_WRITE:
       default:
-        XLOG(FATAL) << "Invalid event type "
-                    << folly::to_underlying(httpByteEvent_.type);
+        PRX_LOG(FATAL) << "Invalid event type "
+                       << folly::to_underlying(httpByteEvent_.type);
     }
   }
 
@@ -109,19 +110,19 @@ class QuicByteEventCallback : public quic::ByteEventCallback {
 
  private:
   void onByteEventRegistered(quic::ByteEvent byteEvent) override {
-    XLOG(DBG4) << "onByteEventRegistered for id=" << byteEvent.id;
+    PRX_VLOG(4) << "onByteEventRegistered for id=" << byteEvent.id;
     refcount_.incRef();
   }
 
   void onByteEvent(quic::ByteEvent byteEvent) override {
-    XLOG(DBG4) << "onByteEvent for id=" << byteEvent.id;
+    PRX_VLOG(4) << "onByteEvent for id=" << byteEvent.id;
     callback_->onByteEvent(httpByteEvent_);
     refcount_.decRef();
     delete this;
   }
 
   void onByteEventCanceled(quic::ByteEvent byteEvent) override {
-    XLOG(DBG4) << "onByteEventCanceled for id=" << byteEvent.id;
+    PRX_VLOG(4) << "onByteEventCanceled for id=" << byteEvent.id;
     auto& refcount = refcount_;
     cancel();
     refcount.decRef();

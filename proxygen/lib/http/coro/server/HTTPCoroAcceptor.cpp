@@ -8,7 +8,7 @@
 
 #include "proxygen/lib/http/coro/server/HTTPCoroAcceptor.h"
 #include "proxygen/lib/http/coro/HTTPCoroSession.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <proxygen/lib/http/session/HTTPDefaultSessionCodecFactory.h>
 #include <quic/api/QuicSocket.h>
@@ -100,14 +100,14 @@ HTTPCoroSession* HTTPCoroDownstreamSessionFactory::makeUniplexSession(
   auto codec = codecFactory_->getCodec(
       attemptNextProtocol, TransportDirection::DOWNSTREAM, isTLS);
   if (!codec) {
-    XLOG(DBG2) << "codecFactory_ failed to provide codec for proto="
-               << attemptNextProtocol;
+    PRX_VLOG(2) << "codecFactory_ failed to provide codec for proto="
+                << attemptNextProtocol;
     return nullptr;
   }
 
   applySettingsToCodec(*codec);
-  XLOG(DBG4) << "Created new " << attemptNextProtocol << " session for peer "
-             << *peerAddress;
+  PRX_VLOG(4) << "Created new " << attemptNextProtocol << " session for peer "
+              << *peerAddress;
   auto eventBase = transport->getEventBase();
   auto coroTransport =
       std::make_unique<folly::coro::Transport>(eventBase, std::move(transport));
@@ -129,8 +129,8 @@ HTTPCoroSession* HTTPCoroDownstreamSessionFactory::makeQuicSession(
                                           codecFactory_->useStrictValidation(),
                                           accConfig_->headerIndexingStrategy);
   applySettingsToCodec(*codec);
-  XLOG(DBG4) << "Created new " << *tinfo.appProtocol << " session for peer "
-             << quicSocket->getPeerAddress();
+  PRX_VLOG(4) << "Created new " << *tinfo.appProtocol << " session for peer "
+              << quicSocket->getPeerAddress();
   HTTPCoroSession* session =
       HTTPCoroSession::makeDownstreamCoroSession(std::move(quicSocket),
                                                  std::move(handler),
@@ -216,7 +216,7 @@ void HTTPCoroAcceptor::onNewConnection(
                                           std::move(tinfo),
                                           handler_,
                                           /*strictValidation=*/true);
-  XCHECK(session);
+  PRX_CHECK(session);
   onSessionReady(eventBase, session);
 }
 

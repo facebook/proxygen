@@ -10,6 +10,7 @@
 #include <folly/Benchmark.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 
@@ -90,9 +91,9 @@ void memchrBench(int iters) {
     for (uint64_t j = HTTPHeaderCodeCommonOffset;
          j < HTTPCommonHeaders::num_codes;
          ++j) {
-      CHECK(memchr((void*)testHeaderCodes.data(),
-                   static_cast<HTTPHeaderCode>(j),
-                   testHeaderCodes.size()) != nullptr);
+      PRX_CHECK(memchr((void*)testHeaderCodes.data(),
+                       static_cast<HTTPHeaderCode>(j),
+                       testHeaderCodes.size()) != nullptr);
     }
   }
 }
@@ -104,9 +105,9 @@ void stdFindBench(int iters) {
          ++j) {
       auto address =
           HTTPCommonHeaders::getPointerToName(static_cast<HTTPHeaderCode>(j));
-      CHECK(std::find(testHeaderStrings.begin(),
-                      testHeaderStrings.end(),
-                      address) != testHeaderStrings.end());
+      PRX_CHECK(std::find(testHeaderStrings.begin(),
+                          testHeaderStrings.end(),
+                          address) != testHeaderStrings.end());
     }
   }
 }

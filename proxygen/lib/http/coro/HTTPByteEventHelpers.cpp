@@ -7,6 +7,7 @@
  */
 
 #include "proxygen/lib/http/coro/HTTPByteEventHelpers.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace {
 constexpr uint32_t kMaxTxAckEvents = 96;
@@ -15,7 +16,7 @@ constexpr uint32_t kMaxTxAckEvents = 96;
 namespace proxygen::coro {
 
 PendingByteEvent::~PendingByteEvent() noexcept {
-  XLOG_IF(DFATAL, callback) << "~PendingByteEvent with active callback";
+  PRX_LOG_IF(DFATAL, callback) << "~PendingByteEvent with active callback";
   onError(HTTPError{HTTPErrorCode::CANCEL, "ByteEvent Cancelled"});
 }
 
@@ -100,8 +101,8 @@ void AsyncSocketByteEventObserver::byteEvent(
     const folly::AsyncSocketObserverInterface::ByteEvent& event) noexcept {
   // Note: if there are other observers on this socket that register for TX or
   // ACK events, this observer will also fire, even if it did _not_ register.
-  XLOG(DBG5) << "byteEvent type=" << uint32_t(event.type)
-             << " off=" << event.offset;
+  PRX_VLOG(5) << "byteEvent type=" << uint32_t(event.type)
+              << " off=" << event.offset;
   if (event.type ==
       folly::AsyncSocketObserverInterface::ByteEvent::Type::WRITE) {
     maxTransportWriteOffset_ = event.offset;
@@ -124,7 +125,7 @@ void AsyncSocketByteEventObserver::byteEvent(
 void AsyncSocketByteEventObserver::scheduleOrFireTxAckEvent(
     RegAndEvent regAndEvent) {
   if (regAndEvent.registration.events & uint8_t(HTTPByteEvent::Type::NIC_TX)) {
-    XLOG(DBG5) << "Scheduling TX event off=" << maxTransportWriteOffset_;
+    PRX_VLOG(5) << "Scheduling TX event off=" << maxTransportWriteOffset_;
     // copy the ByteEvent, we are setting the type and moving it to txEvents_
     auto event = regAndEvent.byteEvent;
     event.type = HTTPByteEvent::Type::NIC_TX;
@@ -134,9 +135,9 @@ void AsyncSocketByteEventObserver::scheduleOrFireTxAckEvent(
     if (maxTransportTxOffset_ >= maxTransportWriteOffset_) {
       auto nEvents =
           PendingByteEvent::fireEvents(txEvents_, maxTransportTxOffset_);
-      XCHECK_EQ(nEvents, 1u);
+      PRX_CHECK_EQ(nEvents, 1u);
     } else {
-      XCHECK(timer_);
+      PRX_CHECK(timer_);
       refCount_.incRef();
       txEvents_.back().refcount = &refCount_;
       timer_->scheduleTimeout(&txEvents_.back(), byteEventTimeout_);
@@ -144,7 +145,7 @@ void AsyncSocketByteEventObserver::scheduleOrFireTxAckEvent(
   }
   if (regAndEvent.registration.events &
       uint8_t(HTTPByteEvent::Type::CUMULATIVE_ACK)) {
-    XLOG(DBG5) << "Scheduling ACK event off=" << maxTransportWriteOffset_;
+    PRX_VLOG(5) << "Scheduling ACK event off=" << maxTransportWriteOffset_;
     regAndEvent.byteEvent.type = HTTPByteEvent::Type::CUMULATIVE_ACK;
     ackEvents_.emplace_back(maxTransportWriteOffset_,
                             std::move(regAndEvent.byteEvent),
@@ -152,10 +153,10 @@ void AsyncSocketByteEventObserver::scheduleOrFireTxAckEvent(
     if (maxTransportAckOffset_ >= maxTransportWriteOffset_) {
       auto nEvents =
           PendingByteEvent::fireEvents(ackEvents_, maxTransportAckOffset_);
-      XCHECK_EQ(nEvents, 1u);
+      PRX_CHECK_EQ(nEvents, 1u);
     } else {
       refCount_.incRef();
-      XCHECK(timer_);
+      PRX_CHECK(timer_);
       ackEvents_.back().refcount = &refCount_;
       timer_->scheduleTimeout(&ackEvents_.back(), byteEventTimeout_);
     }

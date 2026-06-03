@@ -7,6 +7,7 @@
  */
 
 #include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionUtils.h>
@@ -38,7 +39,7 @@ bool CompressionSimulator::readInputFromFileAndSchedule(
   try {
     har = HTTPArchive::fromFile(kTestDir + filename);
   } catch (const std::exception& ex) {
-    LOG(ERROR) << folly::exceptionStr(ex);
+    PRX_LOG(ERROR) << folly::exceptionStr(ex);
   }
   if (!har || har->requests.size() == 0) {
     return false;
@@ -72,36 +73,36 @@ bool CompressionSimulator::readInputFromFileAndSchedule(
 void CompressionSimulator::run() {
 #ifndef HAVE_REAL_QMIN
   if (params_.type == SchemeType::QMIN) {
-    LOG(INFO) << "QMIN not available";
+    PRX_LOG(INFO) << "QMIN not available";
     return;
   }
 #endif
 
-  LOG(INFO) << "Starting run";
+  PRX_LOG(INFO) << "Starting run";
   eventBase_.loop();
   uint32_t holBlockCount = 0;
   for (auto& scheme : domains_) {
     holBlockCount += scheme.second->getHolBlockCount();
   }
-  LOG(INFO) << "Complete"
-            << "\nStats:"
-               "\nSeed: "
-            << params_.seed << "\nBlocks sent: " << requests_.size()
-            << "\nAllowed OOO: " << stats_.allowedOOO
-            << "\nPackets: " << stats_.packets
-            << "\nPacket Losses: " << stats_.packetLosses
-            << "\nHOL Block Count: " << holBlockCount
-            << "\nHOL Delay (ms): " << stats_.holDelay.count()
-            << "\nMax Queue Buffer Bytes: " << stats_.maxQueueBufferBytes
-            << "\nUncompressed Bytes: " << stats_.uncompressed
-            << "\nCompressed Bytes: " << stats_.compressed
-            << "\nCompression Ratio: "
-            << int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
+  PRX_LOG(INFO)
+      << "Complete"
+      << "\nStats:"
+         "\nSeed: "
+      << params_.seed << "\nBlocks sent: " << requests_.size()
+      << "\nAllowed OOO: " << stats_.allowedOOO
+      << "\nPackets: " << stats_.packets
+      << "\nPacket Losses: " << stats_.packetLosses
+      << "\nHOL Block Count: " << holBlockCount
+      << "\nHOL Delay (ms): " << stats_.holDelay.count()
+      << "\nMax Queue Buffer Bytes: " << stats_.maxQueueBufferBytes
+      << "\nUncompressed Bytes: " << stats_.uncompressed
+      << "\nCompressed Bytes: " << stats_.compressed << "\nCompression Ratio: "
+      << int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
 }
 
 void CompressionSimulator::flushRequests(CompressionScheme* scheme) {
-  VLOG(5) << "schedule encode for " << scheme->packetIndices.size()
-          << " blocks at " << scheme->prev.count();
+  PRX_VLOG(5) << "schedule encode for " << scheme->packetIndices.size()
+              << " blocks at " << scheme->prev.count();
   // Flush previous train
   scheduleEvent(
       [this, scheme, indices = std::move(scheme->packetIndices)]() mutable {
@@ -149,12 +150,12 @@ void CompressionSimulator::setupRequest(uint16_t index,
   auto decodeCompleteCB =
       [index, this, scheme](std::chrono::milliseconds holDelay) {
         // record processed timestamp
-        CHECK(!callbacks_[index].getResult().hasError());
-        DCHECK_EQ(requests_[index], *callbacks_[index].getResult().value());
+        PRX_CHECK(!callbacks_[index].getResult().hasError());
+        PRX_DCHECK_EQ(requests_[index], *callbacks_[index].getResult().value());
         stats_.holDelay += holDelay;
-        VLOG(1) << "Finished decoding request=" << index
-                << " with holDelay=" << holDelay.count()
-                << " cumulative HoL delay=" << stats_.holDelay.count();
+        PRX_VLOG(1) << "Finished decoding request=" << index
+                    << " with holDelay=" << holDelay.count()
+                    << " cumulative HoL delay=" << stats_.holDelay.count();
         if (callbacks_[index].acknowledge) {
           sendAck(scheme, scheme->getAck(callbacks_[index].seqn));
         }
@@ -167,7 +168,8 @@ void CompressionSimulator::setupRequest(uint16_t index,
   // start such trains.
   if (scheme->packetIndices.size() > 0) {
     auto delayFromPrevious = encodeDelay - scheme->prev;
-    VLOG(1) << "request " << index << " delay " << delayFromPrevious.count();
+    PRX_VLOG(1) << "request " << index << " delay "
+                << delayFromPrevious.count();
     if (delayFromPrevious > std::chrono::milliseconds(1)) {
       flushRequests(scheme);
     }
@@ -188,8 +190,8 @@ void CompressionSimulator::flushPacket(CompressionScheme* scheme) {
   }
 
   stats_.packets++;
-  VLOG(1) << "schedule decode for " << scheme->packetBlocks.size()
-          << " blocks at " << scheme->decodeDelay.count();
+  PRX_VLOG(1) << "schedule decode for " << scheme->packetBlocks.size()
+              << " blocks at " << scheme->decodeDelay.count();
   scheduleEvent(
       {[this, scheme, blocks = std::move(scheme->packetBlocks)]() mutable {
         decodePacket(scheme, blocks);
@@ -199,8 +201,8 @@ void CompressionSimulator::flushPacket(CompressionScheme* scheme) {
 }
 
 void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
-  CHECK(!scheme->encodedBlocks.empty());
-  VLOG(2) << "Flushing " << scheme->encodedBlocks.size() << " requests";
+  PRX_CHECK(!scheme->encodedBlocks.empty());
+  PRX_VLOG(2) << "Flushing " << scheme->encodedBlocks.size() << " requests";
   // tracks the number of bytes in the current simulated packet
   auto encodeRes = &scheme->encodedBlocks.front();
   bool newPacket = std::get<1>(*encodeRes);
@@ -216,7 +218,7 @@ void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
     // precondition packetBytes < kMTU
     if (scheme->packetBytes + headerBlockBytesRemaining >= kMTU) {
       // Header block filled current packet, triggering a flush
-      VLOG(2) << "Request(s) spanned multiple packets";
+      PRX_VLOG(2) << "Request(s) spanned multiple packets";
       newPacket = true;
     } else {
       scheme->packetBytes += headerBlockBytesRemaining;
@@ -245,7 +247,7 @@ void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
     }
   }
   flushPacket(scheme);
-  CHECK(scheme->encodedBlocks.empty());
+  PRX_CHECK(scheme->encodedBlocks.empty());
 }
 
 CompressionScheme* CompressionSimulator::getScheme(StringPiece domain) {
@@ -258,7 +260,7 @@ CompressionScheme* CompressionSimulator::getScheme(StringPiece domain) {
   auto it = domains_.find(domain.str());
   CompressionScheme* scheme = nullptr;
   if (it == domains_.end()) {
-    LOG(INFO) << "Creating scheme for domain=" << domain;
+    PRX_LOG(INFO) << "Creating scheme for domain=" << domain;
     auto schemePtr = makeScheme();
     scheme = schemePtr.get();
     domains_.emplace(domain.str(), std::move(schemePtr));
@@ -278,12 +280,12 @@ unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
     case SchemeType::HPACK:
       return make_unique<HPACKScheme>(this, params_.tableSize);
   }
-  LOG(FATAL) << "Bad scheme";
+  PRX_LOG(FATAL) << "Bad scheme";
 }
 
 std::pair<FrameFlags, unique_ptr<IOBuf>> CompressionSimulator::encode(
     CompressionScheme* scheme, bool newPacket, uint16_t index) {
-  VLOG(1) << "Start encoding request=" << index;
+  PRX_VLOG(1) << "Start encoding request=" << index;
   // vector to hold cookie crumbs
   vector<string> cookies;
   vector<compress::Header> allHeaders =
@@ -291,13 +293,14 @@ std::pair<FrameFlags, unique_ptr<IOBuf>> CompressionSimulator::encode(
 
   auto before = stats_.uncompressed;
   auto res = scheme->encode(newPacket, std::move(allHeaders), stats_);
-  VLOG(1) << "Encoded request=" << index << " for host="
-          << requests_[index].getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST)
-          << " orig size=" << (stats_.uncompressed - before)
-          << " block size=" << res.second->computeChainDataLength()
-          << " cumulative bytes=" << stats_.compressed
-          << " cumulative compression ratio="
-          << int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
+  PRX_VLOG(1)
+      << "Encoded request=" << index << " for host="
+      << requests_[index].getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST)
+      << " orig size=" << (stats_.uncompressed - before)
+      << " block size=" << res.second->computeChainDataLength()
+      << " cumulative bytes=" << stats_.compressed
+      << " cumulative compression ratio="
+      << int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
   return res;
 }
 
@@ -311,7 +314,7 @@ void CompressionSimulator::decode(CompressionScheme* scheme,
 void CompressionSimulator::decodePacket(
     CompressionScheme* scheme,
     std::list<CompressionScheme::BlockInfo>& blocks) {
-  VLOG(1) << "decode packet with " << blocks.size() << " blocks";
+  PRX_VLOG(1) << "decode packet with " << blocks.size() << " blocks";
   while (!blocks.empty()) {
     auto encodeRes = &blocks.front();
     // TODO(ckrasic) - to get packet coordination correct, could plumb
@@ -353,18 +356,18 @@ std::chrono::milliseconds CompressionSimulator::deliveryDelay() {
   std::chrono::milliseconds delay = one_half_rtt();
   while (loss()) {
     stats_.packetLosses++;
-    scheduleEvent([] { VLOG(4) << "Packet lost!"; }, delay);
+    scheduleEvent([] { PRX_VLOG(4) << "Packet lost!"; }, delay);
     std::chrono::milliseconds rxmit = rxmitDelay();
     delay += rxmit;
     scheduleEvent(
         [rxmit] {
-          VLOG(4) << "Packet loss detected, retransmitting with additional "
-                  << rxmit.count();
+          PRX_VLOG(4) << "Packet loss detected, retransmitting with additional "
+                      << rxmit.count();
         },
         delay - one_half_rtt());
   }
   if (delayed()) {
-    scheduleEvent([] { VLOG(4) << "Packet delayed in network"; }, delay);
+    scheduleEvent([] { PRX_VLOG(4) << "Packet delayed in network"; }, delay);
     delay += extraDelay();
   }
   return delay;

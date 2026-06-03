@@ -10,7 +10,7 @@
 #include "proxygen/lib/http/coro/test/HTTPCoroSessionTests.h"
 #include "proxygen/lib/http/coro/test/HTTPTestSources.h"
 #include "proxygen/lib/http/coro/test/Mocks.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/ExceptionWrapper.h>
 #include <folly/coro/Timeout.h>
@@ -84,7 +84,7 @@ class HTTPUpstreamSessionTest : public HTTPCoroSessionTest {
           if (!bodyEvent->event.body.empty()) {
             EXPECT_GT(contentLength, 0);
             auto length = bodyEvent->event.body.chainLength();
-            XCHECK_GE(contentLength, length);
+            PRX_CHECK_GE(contentLength, length);
             contentLength -= length;
             response->body_.append(bodyEvent->event.body.move());
           }
@@ -219,7 +219,7 @@ class HTTPUpstreamSessionTest : public HTTPCoroSessionTest {
     // send a request for GET /
     auto responseSource = co_await co_awaitTry(
         session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-    XCHECK(!responseSource.hasException());
+    PRX_CHECK(!responseSource.hasException());
     auto streamID = *responseSource->getStreamID();
 
     // serialize a response with no EOM
@@ -279,7 +279,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, Simple) {
   if (!IS_H1()) {
     EXPECT_EQ(session_->numTransactionsAvailable(), 9);
   }
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   serializeResponse(*responseSource->getStreamID(), 200, makeBuf(100), true);
   co_await expectResponse(std::move(*responseSource), 200, 100, true);
   transport_->addReadEvent(nullptr, true);
@@ -288,7 +288,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, Simple) {
 CO_TEST_P_X(HTTPUpstreamSessionTest, SimplePost) {
   auto responseSource = co_await co_awaitTry(session_->sendRequest(
       HTTPFixedSource::makeFixedRequest("/", HTTPMethod::POST, makeBuf(100))));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   serializeResponse(*responseSource->getStreamID(), 200, makeBuf(100), true);
   co_await expectResponse(std::move(*responseSource), 200, 100, true);
   transport_->addReadEvent(nullptr, true);
@@ -307,7 +307,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, LargePost) {
                         serializeResponse(id, 200, makeBuf(40000), true);
                         co_return folly::none;
                       })));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   id = *responseSource->getStreamID();
   evb_.runInLoop([this, id] {
     // The POST will run out of flow control, give it some in the loop
@@ -328,7 +328,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, LargePost) {
 CO_TEST_P_X(HTTPUpstreamSessionTest, Padding) {
   auto responseSource = co_await co_awaitTry(session_->sendRequest(
       HTTPFixedSource::makeFixedRequest("/", HTTPMethod::POST, makeBuf(100))));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   // @lint-ignore CLANGTIDY bugprone-unchecked-optional-access
   const auto id = *responseSource->getStreamID();
   HTTPMessage msg = makeResponse(200, /*eom=*/false);
@@ -369,7 +369,7 @@ CO_TEST_P_X(H2QUpstreamSessionTest, ReceiveFullResponsePriorToRequestEOM) {
   // send request & get id
   auto responseSource =
       co_await co_awaitTry(session_->sendRequest(reqStreamSource));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto id = *responseSource->getStreamID();
   serializeResponse(id, 200, makeBuf(1500));
 
@@ -419,7 +419,7 @@ CO_TEST_P_X(H2QUpstreamSessionTest, StopReadingOnAbort) {
               stopReading(A<folly::Optional<const HTTPErrorCode>>()));
 
   auto responseSource = co_await co_awaitTry(session_->sendRequest(&reqSource));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   id = *responseSource->getStreamID();
   auto resSourceHeaderEvent =
       co_await co_awaitTry(responseSource->readHeaderEvent());
@@ -436,7 +436,7 @@ CO_TEST_P_X(H2UpstreamSessionTest, RstStreamAfterEOM) {
   // send request & get id
   auto responseSource =
       co_await co_awaitTry(session_->sendRequest(reqStreamSource));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   id = *responseSource->getStreamID();
 
   // send response with eom and follow with RST_STREAM
@@ -469,7 +469,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, ReceiveStopSendingStreamPriorToResponseEOM) {
   // send request & get id
   auto responseSource =
       co_await co_awaitTry(session_->sendRequest(reqStreamSource));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   id = *responseSource->getStreamID();
 
   // serialize partial response
@@ -554,7 +554,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, ReserveRequest) {
   // Valid request
   auto responseSource = co_await co_awaitTry(session_->sendRequest(
       HTTPFixedSource::makeFixedRequest("/"), std::move(*res)));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   serializeResponse(*responseSource->getStreamID(), 200, makeBuf(100), true);
   co_await expectResponse(std::move(*responseSource), 200, 100, true);
   EXPECT_EQ(session_->getNextStreamSeqNum(), 1);
@@ -565,7 +565,7 @@ CO_TEST_P_X(H2QUpstreamSessionTest, IngressResetStream) {
   // Send request, response with a reset stream
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto id = *responseSource->getStreamID();
   resetStream(id, ErrorCode::CANCEL);
   auto headerEvent = co_await co_awaitTry(responseSource->readHeaderEvent());
@@ -639,7 +639,7 @@ CO_TEST_P_X(H2QUpstreamSessionTest, Push) {
   onTearDown([this] {
     EXPECT_EQ(pushes_.size(), 1);
     auto &push = pushes_.front();
-    XCHECK(push.second);
+    PRX_CHECK(push.second);
     EXPECT_EQ(push.first.promise->getURL(), "/push");
     EXPECT_EQ(push.second->msg_->getStatusCode(), 200);
     EXPECT_EQ(push.second->body_.chainLength(), 100);
@@ -654,7 +654,7 @@ CO_TEST_P_X(H2QUpstreamSessionTest, PushEgressRstStream) {
     // triggering STOP_SENDING/RST_STREAM (w/ ErrorCode::CANCEL) since we
     // haven't seen EOM yet.
     co_await rescheduleN(2);
-    XLOG(DBG4) << "Abandoning push";
+    PRX_VLOG(4) << "Abandoning push";
     co_return;
   };
 
@@ -710,7 +710,7 @@ CO_TEST_P_X(H2UpstreamSessionTest, PushParentReset) {
   // send a request for GET /
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto streamID = *responseSource->getStreamID();
 
   // serialize a response with no body/EOM
@@ -741,7 +741,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, PromiseBeforePush) {
   // send a request for GET /
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto streamID = *responseSource->getStreamID();
 
   // serialize a response with no EOM
@@ -779,7 +779,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, SendPushPriority) {
   // send a request for GET /
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto streamID = *responseSource->getStreamID();
 
   // serialize a response with no EOM
@@ -827,7 +827,7 @@ CO_TEST_P_X(H1UpstreamSessionTest, DrainAfterCodecNotReusable) {
   // send first request, verify no exception
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
 
   // rx response with Connection: Close header (i.e. no keep-alive)
   auto id = *responseSource->getStreamID();
@@ -852,7 +852,7 @@ CO_TEST_P_X(H1UpstreamSessionTest, DrainAfterCodecNotReusable) {
   // yield exception
   auto drainedException = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  CHECK(drainedException.hasException());
+  PRX_CHECK(drainedException.hasException());
   auto ex = drainedException.exception().get_exception<HTTPError>();
 
   // reservation fails with "Exceeded stream limit" since
@@ -864,7 +864,7 @@ CO_TEST_P_X(H1UpstreamSessionTest, DrainAfterCodecNotReusable) {
 CO_TEST_P_X(H1UpstreamSessionTest, ReceiveGoaway) {
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto id = *responseSource->getStreamID();
   generateGoaway(id, ErrorCode::NO_ERROR);
   serializeResponseHeader(id, 200, false);
@@ -890,7 +890,7 @@ CO_TEST_P_X(H1UpstreamSessionTest, SendGoaway) {
   auto req = HTTPFixedSource::makeFixedRequest("/");
   req->msg_->getHeaders().set(HTTP_HEADER_CONNECTION, "close");
   auto responseSource = co_await co_awaitTry(session_->sendRequest(req));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto id = *responseSource->getStreamID();
   serializeResponseHeader(id, 200, false);
   transport_->addReadEvent(id, writeBuf_.move(), false);
@@ -912,7 +912,7 @@ CO_TEST_P_X(H1UpstreamSessionTest, DrainAfterFailedUpgrade) {
   auto req = HTTPFixedSource::makeFixedRequest("/websocket");
   req->msg_->setEgressWebsocketUpgrade();
   auto responseSource = co_await co_awaitTry(session_->sendRequest(req));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto id = *responseSource->getStreamID();
   serializeResponseHeader(id, 500, /*eom*/ true);
   transport_->addReadEvent(id, writeBuf_.move(), false);
@@ -1048,7 +1048,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, BodyError) {
 CO_TEST_P_X(H2QUpstreamSessionTest, ReceiveGoawayWithOpenStream) {
   auto responseSource1 = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource1.hasException());
+  PRX_CHECK(!responseSource1.hasException());
   auto responseSource2 = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
   auto id = *responseSource1->getStreamID();
@@ -1166,7 +1166,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, PostBodyReadTimeout) {
   auto req = std::make_unique<HTTPMessage>(getPostRequest(100));
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(new TimeoutSource(std::move(req))));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto resp = co_await co_awaitTry(folly::coro::timeoutNoDiscard(
       responseSource->readHeaderEvent(), std::chrono::milliseconds(500)));
   // Wait for a header event for 2x the read timeout -- the read timer isn't
@@ -1182,7 +1182,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, PostReadTimeout) {
   session_->setStreamReadTimeout(std::chrono::milliseconds(250));
   auto responseSource = co_await co_awaitTry(session_->sendRequest(
       HTTPFixedSource::makeFixedRequest("/", HTTPMethod::POST, makeBuf(100))));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto resp = co_await co_awaitTry(folly::coro::timeoutNoDiscard(
       responseSource->readHeaderEvent(), std::chrono::milliseconds(1500)));
   // Timer is running, read timeout before timeoutNoDiscard
@@ -1197,7 +1197,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, PostReadCustomTimeout) {
   session_->setStreamReadTimeout(std::chrono::seconds(20));
   auto responseSource = co_await co_awaitTry(session_->sendRequest(
       HTTPFixedSource::makeFixedRequest("/", HTTPMethod::POST, makeBuf(100))));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   responseSource->setReadTimeout(std::chrono::milliseconds(250));
   auto resp = co_await co_awaitTry(folly::coro::timeoutNoDiscard(
       responseSource->readHeaderEvent(), std::chrono::milliseconds(1500)));
@@ -1213,7 +1213,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, GetReadTimeout) {
   session_->setStreamReadTimeout(std::chrono::milliseconds(250));
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto resp = co_await co_awaitTry(folly::coro::timeoutNoDiscard(
       responseSource->readHeaderEvent(), std::chrono::milliseconds(1500)));
   // Timer is running, read timeout before timeoutNoDiscard
@@ -1319,7 +1319,7 @@ CO_TEST_P_X(H2QUpstreamSessionTest, OnDeactivateConnectionLifecycle) {
   EXPECT_CALL(lifecycleObs_, onTransactionAttached(_)).Times(1);
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   serializeResponse(*responseSource->getStreamID(), 200, makeBuf(100), true);
 
   // detaching a stream with a pending reservation should not
@@ -1344,7 +1344,7 @@ CO_TEST_P_X(H2UpstreamSessionTest, PushPromiseParseError) {
   // send a request for GET /
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto streamID = *responseSource->getStreamID();
 
   // serialize a response with no body/EOM
@@ -1435,7 +1435,7 @@ CO_TEST_P_X(H2UpstreamSessionTest, EgressWhileWritesBlocked) {
   EXPECT_EQ(transportState_.writeEvents.size(), 1);
   auto responseSource1 = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource1.hasException());
+  PRX_CHECK(!responseSource1.hasException());
   // Pause writes and let the egress go to the writeBuf
   transport_->pauseWrites(0);
   co_await folly::coro::co_reschedule_on_current_executor;
@@ -1582,7 +1582,7 @@ CO_TEST_P_X(HTTPUpstreamSessionTest, SendRequestHeadersAvailable) {
   auto reservation = session_->reserveRequest().value();
   auto res = session_->sendRequest(
       std::move(reservation), *headerEv.headers, &reqSource);
-  XCHECK(!res.hasError());
+  PRX_CHECK(!res.hasError());
 
   EXPECT_CALL(lifecycleObs_, onTransactionDetached(_));
   serializeResponse(res->getStreamID().value(), 200, makeBuf(100), true);
@@ -1635,7 +1635,7 @@ CO_TEST_P_X(H1UpstreamSessionTest, TrailingGarbage) {
       });
   auto responseSource =
       co_await co_awaitTry(session_->sendRequest(onEomRequestSource));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto resp = makeResponse(200, true); // eom=true prevents te: chunked
   resp.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "10");
   serializeResponseHeader(
@@ -1666,7 +1666,7 @@ CO_TEST_P_X(H1UpstreamSessionTest, TrailingGarbage) {
 CO_TEST_P_X(HQUpstreamSessionTest, CreateBidiStreamFailure) {
   // reserve request successfully
   auto reservation = session_->reserveRequest();
-  XCHECK(reservation.hasValue());
+  PRX_CHECK(reservation.hasValue());
 
   // make next call to QuicSocket::createBidirectionalStream fail
   EXPECT_CALL(*muxTransport_->socketDriver_.sock_, createBidirectionalStream(_))
@@ -1679,7 +1679,8 @@ CO_TEST_P_X(HQUpstreamSessionTest, CreateBidiStreamFailure) {
 
   // verify exception yielded
   EXPECT_TRUE(responseSource.hasException());
-  auto ex = CHECK_NOTNULL(responseSource.tryGetExceptionObject<HTTPError>());
+  auto ex =
+      PRX_CHECK_NOTNULL(responseSource.tryGetExceptionObject<HTTPError>());
   EXPECT_EQ(ex->code, HTTPErrorCode::REFUSED_STREAM);
 }
 
@@ -1715,7 +1716,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, StopSending) {
   auto req = std::make_unique<HTTPMessage>(getPostRequest(100));
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(new TimeoutSource(std::move(req))));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   // Server asks client to stop sending.  Cancels the egress coro
   auto id = *responseSource->getStreamID();
   muxTransport_->socketDriver_.addStopSending(
@@ -1732,7 +1733,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, StopSendingEgressComplete) {
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest(
           "/", HTTPMethod::POST, makeBuf(70000))));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   // Server asks client to stop sending.  Egress coro is already complete
   auto id = *responseSource->getStreamID();
   muxTransport_->socketDriver_.addStopSending(
@@ -1750,7 +1751,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, StopSendingEgressComplete) {
 CO_TEST_P_X(HQUpstreamSessionTest, CancelWithStopSending) {
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto id = *responseSource->getStreamID();
   co_await folly::coro::co_reschedule_on_current_executor;
   responseSource->stopReading();
@@ -1764,7 +1765,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, QPACKQueuedOnClose) {
   co_await rescheduleN(2);
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto id = *responseSource->getStreamID();
   auto resp = makeResponse(200);
   resp.getHeaders().add("Dynamic", "Header");
@@ -1785,7 +1786,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, QPACKQueuedOnClose) {
 CO_TEST_P_X(HQUpstreamSessionTest, DrainSessionOnConnectionError) {
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   // ::onConnectionError callback should invoke ::onDrainStarted
   EXPECT_CALL(lifecycleObs_, onDrainStarted(_));
   muxTransport_->socketDriver_.closeImpl(std::nullopt);
@@ -1795,7 +1796,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, QPACKQueuedOnCloseNoEncoderStream) {
   // Don't wait for the encoder stream to be established
   auto responseSource = co_await co_awaitTry(
       session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
-  XCHECK(!responseSource.hasException());
+  PRX_CHECK(!responseSource.hasException());
   auto id = *responseSource->getStreamID();
   auto resp = makeResponse(200);
   resp.getHeaders().add("Dynamic", "Header");
@@ -1818,7 +1819,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, LargeRequest) {
   }
   // reserve request successfully
   auto reservation = session_->reserveRequest();
-  XCHECK(reservation.hasValue());
+  PRX_CHECK(reservation.hasValue());
 
   struct SourceCallback : public HTTPStreamSource::Callback {
     void bytesProcessed(HTTPCodec::StreamID, size_t, size_t) override {
@@ -1839,7 +1840,7 @@ CO_TEST_P_X(HQUpstreamSessionTest, LargeRequest) {
   reqSource.headers(makePostRequest(kReqSize));
 
   auto responseSource = co_await co_awaitTry(session_->sendRequest(&reqSource));
-  XCHECK(responseSource.hasValue());
+  PRX_CHECK(responseSource.hasValue());
 
   uint32_t egressed = 0;
   constexpr auto kChunkSize = std::numeric_limits<uint16_t>::max();

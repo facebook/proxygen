@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::compress {
 
@@ -29,7 +30,7 @@ class QPACKScheme : public CompressionScheme {
   }
 
   ~QPACKScheme() override {
-    CHECK_EQ(server_.getQueuedBytes(), 0);
+    PRX_CHECK_EQ(server_.getQueuedBytes(), 0u);
   }
 
   struct QPACKAck : public CompressionScheme::Ack {
@@ -49,7 +50,7 @@ class QPACKScheme : public CompressionScheme {
   };
 
   std::unique_ptr<Ack> getAck(uint16_t seqn) override {
-    VLOG(4) << "Sending ack for seqn=" << seqn;
+    PRX_VLOG(4) << "Sending ack for seqn=" << seqn;
     auto res = std::make_unique<QPACKAck>(seqn,
                                           sendAck_++,
                                           server_.encodeHeaderAck(seqn),
@@ -57,11 +58,11 @@ class QPACKScheme : public CompressionScheme {
     return std::move(res);
   }
   void recvAck(std::unique_ptr<Ack> ack) override {
-    CHECK(ack);
+    PRX_CHECK(ack);
     auto qpackAck = dynamic_cast<QPACKAck*>(ack.get());
-    CHECK_NOTNULL(qpackAck);
-    VLOG(4) << "Received ack for seqn=" << qpackAck->seqn;
-    CHECK(qpackAck->headerAck);
+    PRX_CHECK_NOTNULL(qpackAck);
+    PRX_VLOG(4) << "Received ack for seqn=" << qpackAck->seqn;
+    PRX_CHECK(qpackAck->headerAck);
     if (qpackAck->controlAck) {
       qpackAck->headerAck->prependChain(std::move(qpackAck->controlAck));
     }
@@ -72,8 +73,8 @@ class QPACKScheme : public CompressionScheme {
       if (it->first != recvAck_) {
         break;
       }
-      CHECK_EQ(client_.decodeDecoderStream(std::move(it->second)),
-               HPACK::DecodeError::NONE);
+      PRX_CHECK_EQ(client_.decodeDecoderStream(std::move(it->second)),
+                   HPACK::DecodeError::NONE);
       recvAck_++;
       acks_.erase(it);
     } while (!acks_.empty());
@@ -90,7 +91,7 @@ class QPACKScheme : public CompressionScheme {
     static const uint32_t growth = 1400; // chosen arbitrarily
     folly::io::QueueAppender cursor(&queue, growth);
     if (result.control) {
-      VLOG(5) << "Writing encodeControlIndex_=" << encodeControlIndex_;
+      PRX_VLOG(5) << "Writing encodeControlIndex_=" << encodeControlIndex_;
       len = result.control->computeChainDataLength();
       cursor.writeBE<uint16_t>(len);
       cursor.writeBE<uint16_t>(encodeControlIndex_++);
@@ -128,13 +129,13 @@ class QPACKScheme : public CompressionScheme {
       cursor.clone(control, len);
       if (controlIndex == decodeControlIndex_) {
         // next expected control block, decode
-        VLOG(5) << "decode controlIndex=" << controlIndex;
+        PRX_VLOG(5) << "decode controlIndex=" << controlIndex;
         server_.decodeEncoderStream(std::move(control));
         decodeControlIndex_++;
         while (!controlQueue_.empty() &&
                controlQueue_.begin()->first == decodeControlIndex_) {
           // drain the queue
-          VLOG(5) << "decode controlIndex=" << controlQueue_.begin()->first;
+          PRX_VLOG(5) << "decode controlIndex=" << controlQueue_.begin()->first;
           auto it = controlQueue_.begin();
           server_.decodeEncoderStream(std::move(it->second));
           decodeControlIndex_++;
@@ -148,9 +149,9 @@ class QPACKScheme : public CompressionScheme {
     }
     auto seqn = cursor.readBE<uint16_t>();
     callback.seqn = seqn;
-    VLOG(1) << "Decoding request=" << callback.requestIndex
-            << " header seqn=" << seqn
-            << " allowOOO=" << uint32_t(flags.allowOOO);
+    PRX_VLOG(1) << "Decoding request=" << callback.requestIndex
+                << " header seqn=" << seqn
+                << " allowOOO=" << uint32_t(flags.allowOOO);
     len = cursor.readBE<uint16_t>();
     folly::IOBufQueue queue;
     queue.append(std::move(encodedReq));

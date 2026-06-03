@@ -10,6 +10,7 @@
 
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace testing;
 
@@ -77,7 +78,7 @@ TEST(WeakRefCountedPtrTest, DestroyTargetDerived) {
   EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
   auto kaPtr = target->getWeakRefCountedPtr<TestDerivedClass>();
   EXPECT_TRUE(kaPtr);
-  CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
+  PRX_CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
   EXPECT_EQ(target.get(), kaPtr.get());
   target = nullptr;
   EXPECT_FALSE(kaPtr);
@@ -90,7 +91,7 @@ TEST(WeakRefCountedPtrTest, DestroyPtrDerived) {
     EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr = target->getWeakRefCountedPtr<TestDerivedClass>();
     EXPECT_TRUE(kaPtr);
-    CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
+    PRX_CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
     kaPtr->onlyDerivedFunc();
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
     EXPECT_EQ(target.get(), kaPtr.get());
@@ -102,7 +103,7 @@ TEST(WeakRefCountedPtrTest, DestroyPtrDerived) {
     EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr = target->getWeakRefCountedPtr<TestDerivedClass>();
     EXPECT_TRUE(kaPtr);
-    CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
+    PRX_CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
     kaPtr->onlyDerivedFunc();
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
     EXPECT_EQ(target.get(), kaPtr.get());

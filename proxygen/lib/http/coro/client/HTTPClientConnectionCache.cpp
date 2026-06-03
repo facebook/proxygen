@@ -9,7 +9,7 @@
 #include "proxygen/lib/http/coro/client/HTTPClientConnectionCache.h"
 #include "proxygen/lib/http/coro/client/CoroDNSResolver.h"
 #include "proxygen/lib/http/coro/client/HTTPClient.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using ConnectionParams = proxygen::coro::HTTPCoroConnector::ConnectionParams;
 using SessionParams = proxygen::coro::HTTPCoroConnector::SessionParams;
@@ -160,7 +160,7 @@ proxygen::coro::HTTPCoroSessionPool &HTTPClientConnectionCache::getPool(
     bool isSecure,
     const HTTPCoroConnector::ConnectionParams *maybeConnParams) {
   if (usingProxy() && !useConnectForProxy_) {
-    XLOG(DBG4) << "Not using CONNECT";
+    PRX_VLOG(4) << "Not using CONNECT";
     // The caller will make a GET request via the proxy.
     return *proxyPool_;
   }
@@ -168,7 +168,7 @@ proxygen::coro::HTTPCoroSessionPool &HTTPClientConnectionCache::getPool(
   auto it = pools_.find(key);
   auto sni = folly::IPAddress::validate(host) ? "" : host;
   if (it == pools_.end()) {
-    XLOG(DBG4) << "Making a new pool for key: " << key;
+    PRX_VLOG(4) << "Making a new pool for key: " << key;
     HTTPCoroConnector::ConnectionParams connParams;
     if (maybeConnParams || connParams_) {
       connParams = maybeConnParams ? *maybeConnParams : *connParams_;

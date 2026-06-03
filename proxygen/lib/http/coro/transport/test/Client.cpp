@@ -11,6 +11,7 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/portability/GFlags.h>
 #include <iostream>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen::coro;
 
@@ -19,12 +20,12 @@ class Callback : public folly::AsyncSocket::ConnectCallback {
   bool connected{false};
 
   void connectSuccess() noexcept override {
-    XLOG(INFO) << "Connected";
+    PRX_LOG(INFO) << "Connected";
     connected = true;
   }
 
   void connectErr(const folly::AsyncSocketException& ex) noexcept override {
-    XLOG(ERR) << "Connect failed: " << ex.what();
+    PRX_LOG(ERROR) << "Connect failed: " << ex.what();
   }
 };
 
@@ -33,7 +34,7 @@ int main(int argc, char** argv) {
   ::gflags::ParseCommandLineFlags(&argc, &argv, false);
 
   if (argc < 2) {
-    XLOG(ERR) << "Usage: async_ssl_transport_client server[:port]";
+    PRX_LOG(ERROR) << "Usage: async_ssl_transport_client server[:port]";
     return 1;
   }
 

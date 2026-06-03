@@ -9,6 +9,7 @@
 #pragma once
 
 #include <proxygen/lib/http/session/HTTPSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 
 namespace proxygen {
@@ -36,11 +37,12 @@ class HTTPDownstreamSession final : public HTTPSession {
                     std::move(sock),
                     localAddr,
                     peerAddr,
-                    CHECK_NOTNULL(controller),
+                    PRX_CHECK_NOTNULL(controller),
                     std::move(codec),
                     tinfo,
                     infoCallback) {
-    CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
+    PRX_CHECK_EQ(codec_->getTransportDirection(),
+                 TransportDirection::DOWNSTREAM);
   }
 
   // allows using HTTPDownstreamSession with HHWheelTimer when it is not shared
@@ -56,7 +58,7 @@ class HTTPDownstreamSession final : public HTTPSession {
                               std::move(sock),
                               localAddr,
                               peerAddr,
-                              CHECK_NOTNULL(controller),
+                              PRX_CHECK_NOTNULL(controller),
                               std::move(codec),
                               tinfo,
                               infoCallback) {
@@ -89,7 +91,7 @@ class HTTPDownstreamSession final : public HTTPSession {
 
   // Upstream methods.  Can implement when servers support making request
   bool isDetachable(bool) const override {
-    LOG(FATAL) << __func__ << " is an upstream interface";
+    PRX_LOG(FATAL) << __func__ << " is an upstream interface";
   }
 
   void attachThreadLocals(folly::EventBase*,
@@ -99,27 +101,27 @@ class HTTPDownstreamSession final : public HTTPSession {
                           FilterIteratorFn,
                           HeaderCodec::Stats*,
                           HTTPSessionController*) override {
-    LOG(FATAL) << __func__ << " is an upstream interface";
+    PRX_LOG(FATAL) << __func__ << " is an upstream interface";
   }
 
   void detachThreadLocals(bool) override {
-    LOG(FATAL) << __func__ << " is an upstream interface";
+    PRX_LOG(FATAL) << __func__ << " is an upstream interface";
   }
 
   HTTPTransaction* newTransaction(HTTPTransaction::Handler*) override {
-    LOG(FATAL) << __func__ << " is an upstream interface";
+    PRX_LOG(FATAL) << __func__ << " is an upstream interface";
   }
 
   bool isReplaySafe() const override {
-    LOG(FATAL) << __func__ << " is an upstream interface";
+    PRX_LOG(FATAL) << __func__ << " is an upstream interface";
   }
 
   bool isReusable() const override {
-    LOG(FATAL) << __func__ << " is an upstream interface";
+    PRX_LOG(FATAL) << __func__ << " is an upstream interface";
   }
 
   bool isClosing() const override {
-    LOG(FATAL) << __func__ << " is an upstream interface";
+    PRX_LOG(FATAL) << __func__ << " is an upstream interface";
   }
 };
 

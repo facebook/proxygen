@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/CapsuleCodec.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/folly_utils/Utils.h>
 
 namespace proxygen {
@@ -87,7 +87,7 @@ void CapsuleCodec::onIngress(std::unique_ptr<folly::IOBuf> data, bool eom) {
       if (callback_) {
         callback_->onConnectionError(connError_.value());
       }
-      XLOG(ERR) << "Connection error=" << uint32_t(*connError_);
+      PRX_LOG(ERROR) << "Connection error=" << uint32_t(*connError_);
     }
   }
   ingress_.move();

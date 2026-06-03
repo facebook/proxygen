@@ -10,7 +10,7 @@
 #include "proxygen/lib/http/coro/HTTPCoroSession.h"
 #include "proxygen/lib/http/coro/HTTPSourceReader.h"
 #include "proxygen/lib/http/coro/client/CoroDNSResolver.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include "proxygen/lib/http/coro/HTTPFixedSource.h"
 #include <folly/SocketAddress.h>
@@ -44,7 +44,7 @@ void getConnParamsImpl(HTTPCoroConnector::ConnectionParams* connParams,
                        SecureTransportImpl secureTransportImpl,
                        folly::StringPiece sni,
                        const HTTPCoroConnector::TLSParams& tlsParams) {
-  XCHECK(!qconnParams || (secureTransportImpl == SecureTransportImpl::FIZZ));
+  PRX_CHECK(!qconnParams || (secureTransportImpl == SecureTransportImpl::FIZZ));
   HTTPCoroConnector::BaseConnectionParams* baseParams{nullptr};
   if (secureTransportImpl != SecureTransportImpl::NONE) {
     if (qconnParams) {

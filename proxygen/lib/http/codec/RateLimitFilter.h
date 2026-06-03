@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -89,14 +90,14 @@ class RateLimitFilter : public PassThroughHTTPCodecFilter {
   }
 
   void addRateLimiter(RateLimiter::Type type) {
-    CHECK_LT(folly::to_underlying(type),
-             folly::to_underlying(RateLimiter::Type::MAX))
+    PRX_CHECK_LT(folly::to_underlying(type),
+                 folly::to_underlying(RateLimiter::Type::MAX))
         << "Received a rate limit type that exceeded the specified maximum";
     auto index = folly::to_underlying(type);
     if (!rateLimiters_[index]) {
       rateLimiters_[index] =
           RateLimiter::createRateLimiter(type, timer_, httpSessionStats_);
-      CHECK(rateLimiters_[index])
+      PRX_CHECK(rateLimiters_[index])
           << "Unable to construct a rate limit filter of type "
           << RateLimiter::toStr(type);
     }
@@ -106,16 +107,16 @@ class RateLimitFilter : public PassThroughHTTPCodecFilter {
                           uint32_t maxEventsPerInterval,
                           std::chrono::milliseconds intervalDuration) {
     uint32_t typeIndex = folly::to_underlying(type);
-    CHECK_LT(typeIndex, folly::to_underlying(RateLimiter::Type::MAX))
+    PRX_CHECK_LT(typeIndex, folly::to_underlying(RateLimiter::Type::MAX))
         << "Out of bounds access to rate limit filter array";
     auto& rateLimiter = rateLimiters_.at(typeIndex);
     if (rateLimiter) {
       uint32_t maxEventsPerIntervalLowerBound =
           rateLimiter->getMaxEventsPerInvervalLowerBound();
       if (maxEventsPerInterval < maxEventsPerIntervalLowerBound) {
-        LOG(WARNING) << "Invalid maxEventsPerInterval for event "
-                     << RateLimiter::toStr(type) << ": "
-                     << maxEventsPerInterval;
+        PRX_LOG(WARNING) << "Invalid maxEventsPerInterval for event "
+                         << RateLimiter::toStr(type) << ": "
+                         << maxEventsPerInterval;
         maxEventsPerInterval = maxEventsPerIntervalLowerBound;
       }
       rateLimiter->setParams(maxEventsPerInterval, intervalDuration);

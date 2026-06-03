@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::IOBuf;
 using folly::io::Cursor;
@@ -119,15 +120,15 @@ void HPACKCodec::encodeHTTP(
                                 const std::string& value) {
     if (CodecUtil::disallowedModernHTTPFields()[code] || name.empty() ||
         name[0] == ':') {
-      DCHECK(!name.empty()) << "Empty header";
-      DCHECK_NE(name[0], ':') << "Invalid header=" << name;
+      PRX_DCHECK(!name.empty()) << "Empty header";
+      PRX_DCHECK_NE(name[0], ':') << "Invalid header=" << name;
       return;
     }
     // Note this code will not drop headers named by Connection.  That's the
     // caller's job
 
     // see HTTP/2 spec, 8.1.2
-    DCHECK(name != "TE" || value == "trailers");
+    PRX_DCHECK(name != "TE" || value == "trailers");
     if ((!name.empty() && name[0] != ':') && code != HTTP_HEADER_HOST) {
       if (code == HTTP_HEADER_OTHER) {
         uncompressed += encoder_.encodeHeader(name, value);

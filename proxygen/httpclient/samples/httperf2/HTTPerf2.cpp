@@ -33,6 +33,7 @@
 #include <csignal>
 #include <iostream>
 #include <memory>
+#include <proxygen/lib/utils/LogShim.h>
 #include <random>
 
 using folly::SocketAddress;
@@ -217,7 +218,7 @@ int httperf2(folly::Optional<folly::SocketAddress> bindAddress,
 
   if (!FLAGS_data.empty()) {
     if (!folly::readFile(FLAGS_data.c_str(), gRequestData)) {
-      LOG(FATAL) << "Failed to read file";
+      PRX_LOG(FATAL) << "Failed to read file";
     }
   }
   std::cerr << "Running test against " << FLAGS_server << ":" << FLAGS_port
@@ -394,7 +395,7 @@ void ClientRunner::run() {
   sigset_t ss;
   sigemptyset(&ss);
   sigaddset(&ss, SIGPIPE);
-  PCHECK(pthread_sigmask(SIG_BLOCK, &ss, nullptr) == 0);
+  PRX_PCHECK(pthread_sigmask(SIG_BLOCK, &ss, nullptr) == 0);
 
   auto clients = std::min(remainingClients_, clientsAtOnce_);
   for (size_t i = 0; i < clients; i++) {
@@ -406,18 +407,18 @@ void ClientRunner::run() {
   }
   eventBase_.loop();
 
-  CHECK_EQ(clientsOutstanding_, 0);
+  PRX_CHECK_EQ(clientsOutstanding_, 0u);
   parentStats_.merge(stats_);
 }
 
 void ClientRunner::timeoutExpired() noexcept {
-  VLOG(3) << "Duration timeout expired";
+  PRX_VLOG(3) << "Duration timeout expired";
   Client::exitAllSoon();
   remainingClients_ = 0;
 }
 
 void ClientRunner::startClient() {
-  CHECK_GT(remainingClients_, 0);
+  PRX_CHECK_GT(remainingClients_, 0u);
   Client* client = nullptr;
   client = new Client(&eventBase_,
                       transactionTimeouts_,
@@ -473,8 +474,8 @@ void ClientRunner::clientFinished(Client* client) {
   }
   clientsOutstanding_--;
   delete client;
-  VLOG(3) << __func__ << " clientsOutstanding=" << clientsOutstanding_
-          << " remainingClients=" << remainingClients_;
+  PRX_VLOG(3) << __func__ << " clientsOutstanding=" << clientsOutstanding_
+              << " remainingClients=" << remainingClients_;
   if (remainingClients_ > 0 && clientsOutstanding_ < clientsAtOnce_) {
     startClient();
   }

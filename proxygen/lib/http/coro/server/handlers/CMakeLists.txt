@@ -11,7 +11,7 @@ proxygen_add_library(proxygen_http_coro_server_handlers_expect_continue_wrapper_
     ExpectContinueWrapperHandler.cpp
   DEPS
     proxygen_http_http_headers
-    Folly::folly_logging_logging
+    proxygen_utils_log_shim
   EXPORTED_DEPS
     proxygen_coro
     proxygen_coro_source

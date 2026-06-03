@@ -14,7 +14,7 @@
 #include <proxygen/lib/utils/TraceEventType.h>
 #include <proxygen/lib/utils/TraceFieldType.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/Conv.h>
 #include <folly/lang/Exception.h>
@@ -193,7 +193,7 @@ class TraceEvent {
   template <typename T>
   T getTraceFieldDataAs(TraceFieldType field) const {
     const auto itr = metaData_.find(field);
-    CHECK(itr != metaData_.end());
+    PRX_CHECK(itr != metaData_.end());
     return itr->second.getValueAs<T>();
   }
 

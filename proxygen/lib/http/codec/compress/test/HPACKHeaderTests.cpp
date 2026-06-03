@@ -9,7 +9,7 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <sstream>
@@ -162,14 +162,14 @@ TEST_F(HPACKHeaderNameTest, TestOperators) {
   HPACKHeaderName name2("bbb");
   HPACKHeaderName name3("aaa");
   HPACKHeaderName name4("bbb");
-  CHECK(name1 == name3);
-  CHECK(name1 != name2);
-  CHECK(name1 < name2);
-  CHECK(name2 > name1);
-  CHECK(name1 >= name3);
-  CHECK(name2 >= name1);
-  CHECK(name2 <= name4);
-  CHECK(name1 <= name2);
+  PRX_CHECK(name1 == name3);
+  PRX_CHECK(name1 != name2);
+  PRX_CHECK(name1 < name2);
+  PRX_CHECK(name2 > name1);
+  PRX_CHECK(name1 >= name3);
+  PRX_CHECK(name2 >= name1);
+  PRX_CHECK(name2 <= name4);
+  PRX_CHECK(name1 <= name2);
 }
 
 TEST_F(HPACKHeaderNameTest, TestIsCommonHeader) {

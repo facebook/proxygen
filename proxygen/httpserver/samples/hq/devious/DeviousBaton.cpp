@@ -8,6 +8,7 @@
 
 #include "DeviousBaton.h"
 
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
@@ -37,11 +38,11 @@ namespace devious {
 folly::Expected<folly::Unit, uint16_t> DeviousBaton::onRequest(
     const HTTPMessage& request) {
   if (request.getMethod() != HTTPMethod::CONNECT) {
-    LOG(ERROR) << "Invalid method=" << request.getMethodString();
+    PRX_LOG(ERROR) << "Invalid method=" << request.getMethodString();
     return folly::makeUnexpected(uint16_t(400));
   }
   if (request.getPathAsStringPiece() != "/webtransport/devious-baton") {
-    LOG(ERROR) << "Invalid path=" << request.getPathAsStringPiece();
+    PRX_LOG(ERROR) << "Invalid path=" << request.getPathAsStringPiece();
     return folly::makeUnexpected(uint16_t(404));
   }
   try {
@@ -72,7 +73,7 @@ folly::Expected<folly::Unit, uint16_t> DeviousBaton::onRequest(
     activeBatons_ = count;
     return folly::unit;
   } catch (const std::exception& ex) {
-    LOG(ERROR) << "Invalid query parameters: " << ex.what();
+    PRX_LOG(ERROR) << "Invalid query parameters: " << ex.what();
     return folly::makeUnexpected(uint16_t(404));
   }
 }
@@ -148,7 +149,7 @@ DeviousBaton::onBatonMessageData(BatonMessageState& state,
         break;
       }
       state.baton = cursor.read<uint8_t>();
-      LOG(INFO) << "Parsed baton=" << uint64_t(state.baton);
+      PRX_LOG(INFO) << "Parsed baton=" << uint64_t(state.baton);
       consumed += 1;
       state.state = BatonMessageState::DONE;
       [[fallthrough]];
@@ -204,7 +205,7 @@ DeviousBaton::onBatonMessage(uint64_t inStreamId,
                              MessageSource arrivedOn,
                              uint8_t baton) {
   if (baton % 7 == ((mode_ == Mode::SERVER) ? 0 : 1)) {
-    LOG(INFO) << "Sending datagram on baton=" << uint64_t(baton);
+    PRX_LOG(INFO) << "Sending datagram on baton=" << uint64_t(baton);
     wt_->sendDatagram(makeBatonMessage(kDatagramPadLen, baton));
   }
   if (baton == 0) {

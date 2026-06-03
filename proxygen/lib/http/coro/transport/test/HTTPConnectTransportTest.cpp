@@ -11,6 +11,7 @@
 
 #include <folly/coro/BlockingWait.h>
 #include <folly/coro/Collect.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace std::chrono_literals;
 using namespace folly;
@@ -42,7 +43,7 @@ class ReadCallback : public AsyncTransport::ReadCallback {
   }
 
   void readDataAvailable(size_t len) noexcept override {
-    XLOG(DBG2) << "readDataAvailable, len " << len;
+    PRX_VLOG(2) << "readDataAvailable, len " << len;
     readBuf_.postallocate(len);
     if (readBuf_.chainLength() >= expectedLen) {
       promise.setValue(folly::Unit());
@@ -62,13 +63,13 @@ class ReadCallback : public AsyncTransport::ReadCallback {
   }
 
   void readErr(const AsyncSocketException& ex) noexcept override {
-    XLOG(DBG2) << "readError " << ex.what();
+    PRX_VLOG(2) << "readError " << ex.what();
     promise.setException(ex);
     eofPromise.setException(std::runtime_error("EOF waiting for data"));
   }
 
   void readEOF() noexcept override {
-    XLOG(DBG2) << "readEOF";
+    PRX_VLOG(2) << "readEOF";
 
     if (!promise.isFulfilled()) {
       promise.setException(std::runtime_error("EOF waiting for data"));
@@ -87,14 +88,14 @@ class ReadCallback : public AsyncTransport::ReadCallback {
 class WriteCallback : public AsyncTransport::WriteCallback {
  public:
   void writeSuccess() noexcept override {
-    XLOG(DBG2) << "writeSuccess";
+    PRX_VLOG(2) << "writeSuccess";
     promise.setValue(folly::Unit());
   }
 
   void writeErr(size_t nBytesWritten,
                 const AsyncSocketException& ex) noexcept override {
-    XLOG(DBG2) << "writeError: bytesWritten " << nBytesWritten << ", exception "
-               << ex.what();
+    PRX_VLOG(2) << "writeError: bytesWritten " << nBytesWritten
+                << ", exception " << ex.what();
     promise.setException(ex);
   }
 
@@ -412,8 +413,8 @@ TEST_F(HTTPConnectTransportTest, ReadAfterReadTimeout) {
      */
     auto read_res = co_await folly::coro::co_awaitTry(cs->read(
         MutableByteRange(buf.data(), (buf.data() + buf.size())), 50ms));
-    auto asyncSocketEx =
-        CHECK_NOTNULL(read_res.tryGetExceptionObject<AsyncSocketException>());
+    auto asyncSocketEx = PRX_CHECK_NOTNULL(
+        read_res.tryGetExceptionObject<AsyncSocketException>());
     EXPECT_EQ(asyncSocketEx->getType(), AsyncSocketException::TIMED_OUT);
 
     // instruct server to send response & h2 eom together
@@ -437,7 +438,7 @@ TEST_F(HTTPConnectTransportTest, ReadAfterReadTimeout) {
     read_res = co_await folly::coro::co_awaitTry(cs->read(
         MutableByteRange(buf.data(), (buf.data() + buf.size())), 50ms));
 
-    XCHECK(!read_res.hasException());
+    PRX_CHECK(!read_res.hasException());
     EXPECT_GT(read_res.value(), 0);
     sess->setSessionStats(nullptr);
 

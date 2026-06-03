@@ -10,7 +10,7 @@
 #include "proxygen/lib/http/coro/HTTPFixedSource.h"
 #include "proxygen/lib/http/coro/HTTPSourceReader.h"
 #include "proxygen/lib/http/coro/test/HTTPTestSources.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include "proxygen/lib/http/coro/test/Mocks.h"
 #include <folly/coro/GmockHelpers.h>
@@ -403,7 +403,7 @@ CO_TEST_F(HTTPRedirectHandlerTest, StopReading) {
             co_await folly::coro::co_withCancellation(
                 cancellationSource.getToken(),
                 folly::coro::sleep(std::chrono::minutes(1)));
-            XLOG(FATAL) << "Unreachable";
+            PRX_LOG(FATAL) << "Unreachable";
           }));
   EXPECT_CALL(mockSource, stopReading(_))
       .WillOnce(Invoke(
@@ -428,7 +428,7 @@ CO_TEST_F(HTTPRedirectHandlerTest, StopReadingWhileConnecting) {
           [](std::string, uint16_t, bool, std::chrono::milliseconds, auto)
               -> folly::coro::Task<HTTPSessionFactory::GetSessionResult> {
             co_await folly::coro::sleep(std::chrono::minutes(1));
-            XLOG(FATAL) << "Unreachable";
+            PRX_LOG(FATAL) << "Unreachable";
           }));
   HTTPRedirectHandler redirectHandler(mockSessionFactory_);
   HTTPSourceReader reqReader;
@@ -455,7 +455,7 @@ CO_TEST_F(HTTPRedirectHandlerTest, StopReadingWhileSending) {
                  [](HTTPSourceHolder, HTTPCoroSession::RequestReservation)
                      -> folly::coro::Task<HTTPSourceHolder> {
                    co_await folly::coro::sleep(std::chrono::minutes(1));
-                   XLOG(FATAL) << "Unreachable";
+                   PRX_LOG(FATAL) << "Unreachable";
                  });
   HTTPRedirectHandler redirectHandler(mockSessionFactory_);
   HTTPSourceReader reqReader;

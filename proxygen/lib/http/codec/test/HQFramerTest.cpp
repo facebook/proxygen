@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/folly_utils/Utils.h>
 
 using namespace folly;
@@ -31,12 +32,12 @@ bool comparePushId(PushId lhs, PushId rhs) {
 // Validate the given push ID.
 bool isValidPushId(folly::Optional<PushId> maxAllowedPushId, PushId pushId) {
   if (!maxAllowedPushId.has_value()) {
-    VLOG(3) << __func__ << "maximum push ID value has not been set";
+    PRX_VLOG(3) << __func__ << "maximum push ID value has not been set";
     return false;
   } else if (!comparePushId(maxAllowedPushId.value(), pushId)) {
-    VLOG(3) << __func__ << "given pushid=" << pushId
-            << "exceeds possible push ID value "
-            << "maxAllowedPushId_=" << maxAllowedPushId.value();
+    PRX_VLOG(3) << __func__ << "given pushid=" << pushId
+                << "exceeds possible push ID value "
+                << "maxAllowedPushId_=" << maxAllowedPushId.value();
     return false;
   }
   return true;

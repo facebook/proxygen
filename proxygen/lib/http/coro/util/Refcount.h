@@ -9,7 +9,7 @@
 #pragma once
 
 #include "proxygen/lib/http/coro/util/CancellableBaton.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::coro {
 
@@ -32,7 +32,7 @@ class Refcount {
   }
 
   void decRef() {
-    XCHECK_GT(count_, 0UL);
+    PRX_CHECK_GT(count_, 0UL);
     if (--count_ == 0) {
       baton_.signal();
     }

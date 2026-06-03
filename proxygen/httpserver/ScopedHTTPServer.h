@@ -14,6 +14,7 @@
 #include <folly/system/ThreadName.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -125,7 +126,7 @@ class ScopedHTTPServer final {
    */
   [[nodiscard]] std::vector<HTTPServer::IPConfig> getAddresses() const {
     auto addresses = server_->addresses();
-    CHECK(!addresses.empty());
+    PRX_CHECK(!addresses.empty());
     return addresses;
   }
 

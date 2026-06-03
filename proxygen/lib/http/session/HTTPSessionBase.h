@@ -18,6 +18,7 @@
 #include <proxygen/lib/http/observer/HTTPSessionObserverInterface.h>
 #include <proxygen/lib/http/session/HTTPSessionActivityTracker.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/Time.h>
 #include <wangle/acceptor/ManagedConnection.h>
 #include <wangle/acceptor/TransportInfo.h>
@@ -138,7 +139,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   static void setDefaultReadBufferLimit(uint32_t limit) {
     kDefaultReadBufLimit = limit;
-    VLOG(3) << "read buffer limit: " << int(limit / 1000) << "KB";
+    PRX_VLOG(3) << "read buffer limit: " << int(limit / 1000) << "KB";
   }
 
   static void setMaxReadBufferSize(uint32_t bytes) {
@@ -283,7 +284,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * since the remote side can change this value.
    */
   void setMaxConcurrentOutgoingStreams(uint32_t num) {
-    // TODO: CHECK(started_);
+    // TODO: PRX_CHECK(started_);
     maxConcurrentOutgoingStreamsConfig_ = num;
   }
 
@@ -302,7 +303,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   void setWriteBufferLimit(uint32_t limit) {
     writeBufLimit_ = limit;
-    VLOG(4) << "write buffer limit: " << int(limit / 1000) << "KB";
+    PRX_VLOG(4) << "write buffer limit: " << int(limit / 1000) << "KB";
   }
 
   void setReadBufferLimit(uint32_t limit) {
@@ -349,9 +350,9 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   [[nodiscard]] std::chrono::seconds getLatestIdleTime() const /*override*/ {
-    DCHECK_GT(transactionSeqNo_, 0u)
+    PRX_DCHECK_GT(transactionSeqNo_, 0u)
         << "No idle time for the first transaction";
-    DCHECK(latestActive_ > TimePoint::min());
+    PRX_DCHECK(latestActive_ > TimePoint::min());
     return latestIdleDuration_;
   }
 
@@ -558,7 +559,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   void enableServerEarlyResponse() noexcept {
-    CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
+    PRX_CHECK_EQ(codec_->getTransportDirection(),
+                 TransportDirection::DOWNSTREAM);
     enableServerEarlyResponse_ = codec_->supportsParallelRequests();
   }
   [[nodiscard]] bool getServerEarlyResponseEnabled() const {

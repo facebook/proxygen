@@ -25,6 +25,7 @@
 
 #include <folly/futures/Future.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace proxygen::hq;
@@ -166,9 +167,9 @@ void HQDownstreamSessionTest::flushRequestsAndWaitForReads(
     std::chrono::milliseconds initialDelay,
     std::function<void()> extraEventsFn) {
   while (!flushRequests(eof, eofDelay, initialDelay, extraEventsFn)) {
-    CHECK(eventBase_.loop());
+    PRX_CHECK(eventBase_.loop());
   }
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
 }
 
 void HQDownstreamSessionTest::flushRequestsAndLoop(
@@ -177,7 +178,7 @@ void HQDownstreamSessionTest::flushRequestsAndLoop(
     std::chrono::milliseconds initialDelay,
     std::function<void()> extraEventsFn) {
   flushRequests(eof, eofDelay, initialDelay, extraEventsFn);
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
 }
 
 void HQDownstreamSessionTest::flushRequestsAndLoopN(
@@ -250,7 +251,7 @@ std::unique_ptr<proxygen::HTTPCodec> HQDownstreamSessionTest::makeCodec(
 HQDownstreamSessionTest::ClientStream& HQDownstreamSessionTest::getStream(
     proxygen::HTTPCodec::StreamID id) {
   auto it = requests_.find(id);
-  CHECK(it != requests_.end());
+  PRX_CHECK(it != requests_.end());
   return it->second;
 }
 
@@ -305,7 +306,7 @@ TEST_P(HQDownstreamSessionTest, SimpleGet) {
   EXPECT_GT(socketDriver_->streams_[idh.first].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   // Checks that the server response is sent using the QPACK dynamic table
-  CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
+  PRX_CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0u);
   hqSession_->closeWhenIdle();
 }
 
@@ -477,7 +478,7 @@ TEST_P(HQDownstreamSessionTest, OnPriorityCallback) {
   hqSession_->onPriority(0, HTTPPriority(3, false));
   socketDriver_->expectSetPriority(0, Priority(3, false));
   auto id = sendRequest(getProgressiveGetRequest());
-  CHECK_EQ(id, 0);
+  PRX_CHECK_EQ(id, 0u);
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&]() {
     handler->sendHeaders(200, 1000);
@@ -731,7 +732,7 @@ TEST_P(HQDownstreamSessionTest, OnFlowControlUpdate) {
   socketDriver_->expectStreamWritesPaused(id);
   // Open the flow control window
   socketDriver_->getSocket()->setStreamFlowControlWindow(id, 200);
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
   hqSession_->closeWhenIdle();
@@ -772,7 +773,7 @@ TEST_P(HQDownstreamSessionTest, OnConnectionWindowPartialHeaders) {
   EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
   // Open the flow control window
   socketDriver_->getSocket()->setConnectionFlowControlWindow(200);
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
   hqSession_->closeWhenIdle();
@@ -805,7 +806,7 @@ TEST_P(HQDownstreamSessionTest, OnConnectionWindowPartialBody) {
   // Open the flow control window
   socketDriver_->getSocket()->setConnectionFlowControlWindow(200 +
                                                              numCtrlStreams_);
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
   hqSession_->closeWhenIdle();
@@ -827,7 +828,7 @@ TEST_P(HQDownstreamSessionTest, SeparateEom) {
 
   handler->sendEOM();
   // Open the flow control window
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
   hqSession_->closeWhenIdle();
@@ -935,7 +936,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomBuffered) {
   // the codec
   socketDriver_->setStreamFlowControlWindow(id, estimatedSize - bytesWithheld);
   flushRequestsAndLoop();
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
             estimatedSize - bytesWithheld);
   EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
@@ -943,7 +944,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomBuffered) {
   handler->expectDetachTransaction();
   socketDriver_->getSocket()->setStreamFlowControlWindow(id, estimatedSize);
 
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(), estimatedSize);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
   hqSession_->closeWhenIdle();
@@ -959,7 +960,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushed) {
   size_t eomSize = 0;
   std::tie(estimatedSize, framingOverhead, eomSize) =
       estimateResponseSize(true, *reply, 1, 0);
-  CHECK_EQ(eomSize, 0);
+  PRX_CHECK_EQ(eomSize, 0u);
   auto bytesWithheld = framingOverhead;
 
   auto id = sendRequest(getGetRequest());
@@ -974,7 +975,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushed) {
   });
 
   flushRequestsAndLoop();
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
             estimatedSize - bytesWithheld);
   EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
@@ -982,7 +983,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushed) {
   handler->expectDetachTransaction();
   socketDriver_->getSocket()->setStreamFlowControlWindow(id, estimatedSize);
 
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(), estimatedSize);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
   hqSession_->closeWhenIdle();
@@ -991,7 +992,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushed) {
 TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushedConn) {
   // flush control streams first
   flushRequestsAndLoop();
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
 
   auto reply = makeResponse(200);
   reply->setWantsKeepalive(true);
@@ -1018,7 +1019,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushedConn) {
   // for the framing overhead
   auto remaining = framingOverhead + eomSize;
   flushRequestsAndLoop();
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
             estimatedSize - remaining);
   EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
@@ -1027,7 +1028,7 @@ TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushedConn) {
   for (size_t i = 0; i < remaining; i++) {
     socketDriver_->getSocket()->setConnectionFlowControlWindow(1);
 
-    CHECK(eventBase_.loop());
+    PRX_CHECK(eventBase_.loop());
     EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
               estimatedSize - remaining + i);
 
@@ -1053,7 +1054,7 @@ TEST_P(HQDownstreamSessionTest, SendEomLaterChunked) {
   handler->expectDetachTransaction();
 
   flushRequestsAndLoop();
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(), contentLength);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
   hqSession_->closeWhenIdle();
@@ -1071,7 +1072,7 @@ TEST_P(HQDownstreamSessionTest, SendEomLater) {
   handler->expectDetachTransaction();
 
   flushRequestsAndLoop();
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(), contentLength);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
   hqSession_->closeWhenIdle();
@@ -1327,7 +1328,7 @@ TEST_P(HQDownstreamSessionTest, ConnectionErrorIdle) {
 TEST_P(HQDownstreamSessionTest, ConnectionEnd) {
   nextStreamId();
   socketDriver_->addOnConnectionEndEvent(10);
-  CHECK(eventBase_.loop());
+  PRX_CHECK(eventBase_.loop());
 }
 
 TEST_P(HQDownstreamSessionTest, BadHttpHeaders) {
@@ -2387,9 +2388,9 @@ TEST_P(HQDownstreamSessionTest, ProcessReadDataOnDetachedStream) {
           // schedule a few events to run in the eventbase back-to-back
           // call readAvailable with just the EOF
           auto& stream = socketDriver_->streams_[id];
-          CHECK(!stream.readEOF);
+          PRX_CHECK(!stream.readEOF);
           stream.readEOF = true;
-          CHECK(stream.readCB);
+          PRX_CHECK(stream.readCB);
           stream.readCB->readAvailable(id);
           // now send an error so that the stream gets marked for detach
           stream.readCB->readError(
@@ -2427,7 +2428,7 @@ TEST_P(HQDownstreamSessionTestNoSettings, SimpleGet) {
   EXPECT_GT(socketDriver_->streams_[idh.first].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   // Checks that the server response is sent without the QPACK dynamic table
-  CHECK_EQ(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
+  PRX_CHECK_EQ(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0u);
 
   // TODO: Check that QPACK does not use the dynamic table for the response
   hqSession_->closeWhenIdle();
@@ -2551,7 +2552,7 @@ TEST_P(HQDownstreamSessionTest, StopSendingOnUnknownUnidirectionalStreams) {
   EXPECT_GT(socketDriver_->streams_[idh.first].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   // Checks that the server response is sent using the QPACK dynamic table
-  CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
+  PRX_CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0u);
   hqSession_->closeWhenIdle();
 }
 
@@ -3012,7 +3013,7 @@ TEST_P(HQDownstreamSessionTestPush, SimplePush) {
     // Generate a push request (PUSH_PROMISE)
     pushTxn->sendHeaders(promiseReq);
     pushStreamId = pushTxn->getID();
-    LOG(INFO) << "pushStreamId=" << pushStreamId;
+    PRX_LOG(INFO) << "pushStreamId=" << pushStreamId;
     pushTxn->sendHeaders(res);
     pushTxn->sendBody(makeBuf(200));
     pushTxn->sendEOM();
@@ -3114,7 +3115,7 @@ TEST_P(HQDownstreamSessionTestPush, StopSending) {
     // Generate a push request (PUSH_PROMISE)
     pushTxn->sendHeaders(req);
     pushStreamId = pushTxn->getID();
-    LOG(INFO) << "pushStreamId=" << pushStreamId;
+    PRX_LOG(INFO) << "pushStreamId=" << pushStreamId;
     pushTxn->sendHeaders(res);
     pushTxn->sendBody(makeBuf(200));
     // NO EOM
@@ -3240,8 +3241,8 @@ TEST_P(HQDownstreamSessionTestDeliveryAck,
                 it->second.nextWriteOffset >= offset) {
               return quic::make_unexpected(LocalErrorCode::STREAM_NOT_EXISTS);
             }
-            CHECK_NE(it->second.writeState,
-                     MockQuicSocketDriver::StateEnum::CLOSED);
+            PRX_CHECK_NE(it->second.writeState,
+                         MockQuicSocketDriver::StateEnum::CLOSED);
             it->second.deliveryCallbacks.emplace_back(offset, cb);
             return {};
           }));
@@ -3401,8 +3402,8 @@ TEST_P(HQDownstreamSessionTestDeliveryAck, TestBodyDeliveryErr) {
                 it->second.nextWriteOffset >= offset) {
               return quic::make_unexpected(LocalErrorCode::STREAM_NOT_EXISTS);
             }
-            CHECK_NE(it->second.writeState,
-                     MockQuicSocketDriver::StateEnum::CLOSED);
+            PRX_CHECK_NE(it->second.writeState,
+                         MockQuicSocketDriver::StateEnum::CLOSED);
             it->second.deliveryCallbacks.emplace_back(offset, cb);
             return {};
           }));

@@ -9,12 +9,13 @@
 #pragma once
 
 #include <cstdint>
+#include <proxygen/lib/utils/LogShim.h>
 
-#define RETURN_IF_ERROR(err)                                       \
-  if (err != ErrorCode::NO_ERROR) {                                \
-    VLOG(4) << "Returning with error=" << getErrorCodeString(err); \
-    return err;                                                    \
-  }                                                                \
+#define RETURN_IF_ERROR(err)                                           \
+  if (err != ErrorCode::NO_ERROR) {                                    \
+    PRX_VLOG(4) << "Returning with error=" << getErrorCodeString(err); \
+    return err;                                                        \
+  }                                                                    \
   static_assert(true, "semicolon required")
 
 namespace proxygen {

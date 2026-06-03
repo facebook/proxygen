@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/stats/HTTPCodecStats.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using facebook::fb303::RATE;
 using facebook::fb303::SUM;
@@ -99,7 +100,7 @@ void TLHTTPCodecStats::recordIngressRst(ErrorCode statusCode) {
   ingressRst_.add(1);
   auto index = uint32_t(statusCode);
   if (index >= kErrorStrings.size()) {
-    LOG(ERROR) << "Unknown ingress reset status code=" << index;
+    PRX_LOG(ERROR) << "Unknown ingress reset status code=" << index;
     index = (uint32_t)ErrorCode::PROTOCOL_ERROR;
   }
   ingressRstStatus_[index].add(1);
@@ -117,7 +118,7 @@ void TLHTTPCodecStats::recordIngressGoaway(ErrorCode statusCode) {
   ingressGoaway_.add(1);
   auto index = uint32_t(statusCode);
   if (index >= kErrorStrings.size()) {
-    LOG(ERROR) << "Unknown ingress goaway status code=" << index;
+    PRX_LOG(ERROR) << "Unknown ingress goaway status code=" << index;
     index = (uint32_t)ErrorCode::PROTOCOL_ERROR;
   }
   ingressGoawayStatus_[index].add(1);
@@ -150,7 +151,7 @@ void TLHTTPCodecStats::recordEgressRst(ErrorCode statusCode) {
   egressRst_.add(1);
   auto index = uint32_t(statusCode);
   if (index >= kErrorStrings.size()) {
-    LOG(ERROR) << "Unknown egress reset status code=" << index;
+    PRX_LOG(ERROR) << "Unknown egress reset status code=" << index;
     index = (uint32_t)ErrorCode::PROTOCOL_ERROR;
   }
   egressRstStatus_[index].add(1);
@@ -168,7 +169,7 @@ void TLHTTPCodecStats::recordEgressGoaway(ErrorCode statusCode) {
   egressGoaway_.add(1);
   auto index = uint32_t(statusCode);
   if (index >= kErrorStrings.size()) {
-    LOG(ERROR) << "Unknown egress goaway status code=" << index;
+    PRX_LOG(ERROR) << "Unknown egress goaway status code=" << index;
     index = (uint32_t)ErrorCode::PROTOCOL_ERROR;
   }
   egressGoawayStatus_[index].add(1);

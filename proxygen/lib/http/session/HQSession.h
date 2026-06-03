@@ -42,6 +42,7 @@
 #include <quic/priority/PriorityQueue.h>
 
 #include <proxygen/lib/http/codec/H3EarlyDataHandler.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -457,12 +458,12 @@ class HQSession
 
   // Upstream interface
   bool isReusable() const override {
-    VLOG(4) << __func__ << " sess=" << *this;
+    PRX_VLOG(4) << __func__ << " sess=" << *this;
     return !isClosing();
   }
 
   bool isClosing() const override {
-    VLOG(4) << __func__ << " sess=" << *this;
+    PRX_VLOG(4) << __func__ << " sess=" << *this;
     return (drainState_ != DrainState::NONE || dropping_);
   }
 
@@ -589,7 +590,7 @@ class HQSession
     }
 
     for (HQStreamTransportBase* pstream : streams) {
-      CHECK(pstream);
+      PRX_CHECK(pstream);
       fn(pstream);
     }
   }
@@ -650,7 +651,7 @@ class HQSession
       if (supportsWebTransport()) {
         return hq::BidirectionalStreamType::WEBTRANSPORT;
       } else {
-        LOG(ERROR) << "WT stream when it is unsupported sess=" << *this;
+        PRX_LOG(ERROR) << "WT stream when it is unsupported sess=" << *this;
         return folly::none;
       }
     }
@@ -986,7 +987,7 @@ class HQSession
     }
 
     void createEgressCodec() {
-      CHECK(type_.has_value());
+      PRX_CHECK(type_.has_value());
       switch (*type_) {
         case hq::UnidirectionalStreamType::CONTROL:
           realCodec_ =
@@ -1001,7 +1002,7 @@ class HQSession
           // These are statically allocated in the session
           break;
         default:
-          LOG(FATAL)
+          PRX_LOG(FATAL)
               << "Failed to create egress codec."
               << " unrecognized stream type=" << static_cast<uint64_t>(*type_);
       }
@@ -1022,29 +1023,29 @@ class HQSession
     // HTTPCodec::Callback
     void onMessageBegin(HTTPCodec::StreamID /*stream*/,
                         HTTPMessage* /*msg*/) override {
-      LOG(FATAL) << __func__ << " called on a Control Stream.";
+      PRX_LOG(FATAL) << __func__ << " called on a Control Stream.";
     }
 
     void onHeadersComplete(HTTPCodec::StreamID /*stream*/,
                            std::unique_ptr<HTTPMessage> /*msg*/) override {
-      LOG(FATAL) << __func__ << " called on a Control Stream.";
+      PRX_LOG(FATAL) << __func__ << " called on a Control Stream.";
     }
 
     void onBody(HTTPCodec::StreamID /*stream*/,
                 std::unique_ptr<folly::IOBuf> /*chain*/,
                 uint16_t /*padding*/) override {
-      LOG(FATAL) << __func__ << " called on a Control Stream.";
+      PRX_LOG(FATAL) << __func__ << " called on a Control Stream.";
     }
 
     void onTrailersComplete(
         HTTPCodec::StreamID /*stream*/,
         std::unique_ptr<HTTPHeaders> /*trailers*/) override {
-      LOG(FATAL) << __func__ << " called on a Control Stream.";
+      PRX_LOG(FATAL) << __func__ << " called on a Control Stream.";
     }
 
     void onMessageComplete(HTTPCodec::StreamID /*stream*/,
                            bool /*upgrade*/) override {
-      LOG(FATAL) << __func__ << " called on a Control Stream.";
+      PRX_LOG(FATAL) << __func__ << " called on a Control Stream.";
     }
 
     void onError(HTTPCodec::StreamID /*stream*/,
@@ -1151,7 +1152,7 @@ class HQSession
         hq::PushId /* pushID */,
         HTTPCodec::StreamID /* assoc streamID */,
         std::unique_ptr<HTTPMessage> /* msg */) {
-      LOG(ERROR) << "push promise: txn=" << txn_ << " TODO";
+      PRX_LOG(ERROR) << "push promise: txn=" << txn_ << " TODO";
     }
 
     void onHeadersComplete(HTTPCodec::StreamID streamID,
@@ -1160,8 +1161,8 @@ class HQSession
     void onBody(HTTPCodec::StreamID /* streamID */,
                 std::unique_ptr<folly::IOBuf> chain,
                 uint16_t padding) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      CHECK(chain);
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_CHECK(chain);
       auto len = chain->computeChainDataLength();
       if (session_.onBodyImpl(std::move(chain), len, padding, &txn_)) {
         session_.pauseReads();
@@ -1170,24 +1171,24 @@ class HQSession
 
     void onChunkHeader(HTTPCodec::StreamID /* stream */,
                        size_t length) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       txn_.onIngressChunkHeader(length);
     }
 
     void onChunkComplete(HTTPCodec::StreamID /* stream */) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       txn_.onIngressChunkComplete();
     }
 
     void onTrailersComplete(HTTPCodec::StreamID /* streamID */,
                             std::unique_ptr<HTTPHeaders> trailers) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       txn_.onIngressTrailers(std::move(trailers));
     }
 
     void onMessageComplete(HTTPCodec::StreamID /* streamID */,
                            bool /* upgrade */) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       // for 1xx responses (excluding 101) onMessageComplete may be called
       // more than once
       if (txn_.isUpstream() && txn_.extraResponseExpected()) {
@@ -1206,7 +1207,7 @@ class HQSession
 
     void onIngressEOF() {
       // Can only call this once
-      CHECK(!eomGate_.get(EOMType::TRANSPORT));
+      PRX_CHECK(!eomGate_.get(EOMType::TRANSPORT));
       if (ingressError_) {
         // This codec has already errored, no need to give it more input
         return;
@@ -1225,10 +1226,10 @@ class HQSession
 
     void onAbort(HTTPCodec::StreamID /* streamID */,
                  ErrorCode /* code */) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       // Can't really get here since no HQ codecs can produce aborts.
       // The entry point is onResetStream via readError()
-      LOG(DFATAL) << "Unexpected abort";
+      PRX_LOG(DFATAL) << "Unexpected abort";
     }
 
     void onFrameHeader(HTTPCodec::StreamID /* stream_id */,
@@ -1236,45 +1237,45 @@ class HQSession
                        uint64_t /* length */,
                        uint64_t /* type */,
                        uint16_t /* version */ = 0) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     void onGoaway(
         uint64_t /* lastGoodStreamID */,
         ErrorCode /* code */,
         std::unique_ptr<folly::IOBuf> /* debugData */ = nullptr) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     void onPingRequest(uint64_t /* data */) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     void onPingReply(uint64_t /* data */) override {
       // This method should not get called
-      LOG(FATAL) << __func__ << " txn=" << txn_;
+      PRX_LOG(FATAL) << __func__ << " txn=" << txn_;
     }
 
     void onWindowUpdate(HTTPCodec::StreamID /* stream */,
                         uint32_t /* amount */) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     void onSettings(const SettingsList& /*settings*/) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     void onSettingsAck() override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     uint32_t numOutgoingStreams() const override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       return 0;
     }
 
     uint32_t numIncomingStreams() const override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       return 0;
     }
 
@@ -1284,11 +1285,11 @@ class HQSession
     // will pause when total buffered egress exceeds the configured limit, which
     // should be equal to the recv flow control window
     void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     void resumeIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     void transactionTimeout(HTTPTransaction* /* txn */) noexcept override;
@@ -1323,8 +1324,8 @@ class HQSession
 
     size_t sendWindowUpdate(HTTPTransaction* /* txn */,
                             uint32_t /* bytes */) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      CHECK(hasEgressStreamId())
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_CHECK(hasEgressStreamId())
           << __func__ << " invoked on stream without egress";
       return 0;
     }
@@ -1336,15 +1337,15 @@ class HQSession
                                  const HTTPMessage& /* headers */,
                                  HTTPHeaderSize* /* outSize */,
                                  bool /* includeEOM */) {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      CHECK(hasEgressStreamId())
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_CHECK(hasEgressStreamId())
           << __func__ << " invoked on stream without egress";
     }
 
     void notifyPendingEgress() noexcept override;
 
     void detach(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       detached_ = true;
       session_.httpPriorityQueue_.erase(queueHandle_.getStreamId());
       session_.scheduleLoopCallback();
@@ -1352,7 +1353,7 @@ class HQSession
     void checkForDetach();
 
     void notifyIngressBodyProcessed(uint32_t bytes) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       if (session_.notifyBodyProcessed(bytes)) {
         session_.resumeReads();
       }
@@ -1376,7 +1377,7 @@ class HQSession
 
     const wangle::TransportInfo& getSetupTransportInfo()
         const noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       return session_.transportInfo_;
     }
 
@@ -1398,11 +1399,11 @@ class HQSession
     }
 
     void drain() override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
     }
 
     bool isDraining() const override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       return false;
     }
 
@@ -1410,18 +1411,18 @@ class HQSession
         HTTPCodec::StreamID /* parentTxnId */,
         HTTPTransaction::PushHandler* /* handler */,
         ProxygenError* /* error */ = nullptr) noexcept override {
-      LOG(FATAL) << __func__ << " Only available via request stream";
+      PRX_LOG(FATAL) << __func__ << " Only available via request stream";
       folly::assume_unreachable();
     }
 
     std::string getSecurityProtocol() const override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       return "quic/tls1.3";
     }
 
     void addWaitingForReplaySafety(folly::AsyncTransport::ReplaySafetyCallback*
                                        callback) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       if (session_.sock_->replaySafe()) {
         callback->onReplaySafe();
       } else {
@@ -1432,18 +1433,18 @@ class HQSession
     void removeWaitingForReplaySafety(
         folly::AsyncTransport::ReplaySafetyCallback* callback) noexcept
         override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       session_.waitingForReplaySafety_.remove(callback);
     }
 
     bool needToBlockForReplaySafety() const override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       return false;
     }
 
     const folly::AsyncTransport* getUnderlyingTransport()
         const noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       return nullptr;
     }
 
@@ -1466,7 +1467,7 @@ class HQSession
 
     folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
         uint8_t /* pri */) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
+      PRX_VLOG(4) << __func__ << " txn=" << txn_;
       return HTTPMessage::HTTP2Priority(hqDefaultPriority.streamDependency,
                                         hqDefaultPriority.exclusive,
                                         hqDefaultPriority.weight);
@@ -1627,13 +1628,13 @@ class HQSession
                                                    queueHandle_.getPriority());
         queueHandle_.setStreamTransportEnqueued(true);
       } else {
-        VLOG(4) << "Delay pending egress signal on blocked txn=" << txn_;
+        PRX_VLOG(4) << "Delay pending egress signal on blocked txn=" << txn_;
       }
     }
 
     // Notify the queue when a transaction no longer has egress
     void clearPendingEgress(HTTP2PriorityQueueBase::Handle /*h*/) override {
-      CHECK(queueHandle_.isTransactionEnqueued());
+      PRX_CHECK(queueHandle_.isTransactionEnqueued());
       queueHandle_.setTransactionEnqueued(false);
       if (pendingEOM_ || hasWriteBuffer()) {
         // no-op
@@ -1722,7 +1723,7 @@ class HQSession
         uint64_t streamOffset) {
       auto it = egressBodyByteEventOffsets_.find(streamOffset);
       if (it != egressBodyByteEventOffsets_.end()) {
-        CHECK_GT(it->second.callbacks, 0);
+        PRX_CHECK_GT(it->second.callbacks, 0u);
         it->second.callbacks--;
         auto bodyOffset = it->second.bodyOffset;
         if (it->second.callbacks == 0) {

@@ -12,6 +12,7 @@
 #include <list>
 #include <memory>
 #include <proxygen/lib/utils/AcceptorAddress.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <wangle/acceptor/Acceptor.h>
 #include <wangle/acceptor/ConnectionCounter.h>
 
@@ -131,7 +132,7 @@ class ServiceWorker {
   void addAcceptor(const AcceptorAddress& accAddress,
                    std::unique_ptr<wangle::Acceptor> acceptor,
                    AcceptorMap& acceptors) {
-    CHECK(acceptors.find(accAddress) == acceptors.end());
+    PRX_CHECK(acceptors.find(accAddress) == acceptors.end());
     acceptors.insert(std::make_pair(accAddress, std::move(acceptor)));
   }
 

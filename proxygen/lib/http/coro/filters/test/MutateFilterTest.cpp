@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/coro/HTTPStreamSource.h>
 #include <proxygen/lib/http/coro/filters/MutateFilter.h>
 #include <proxygen/lib/http/coro/util/test/TestHelpers.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace testing;
 
@@ -45,7 +46,7 @@ CO_TEST_F_X(MutateFilterTest, SimpleTest) {
   MutateFilter::BodyMutateFn bodyHook = [](HTTPBodyEvent& bodyEvent) {
     // replace "hello" in body with "world"
     EXPECT_EQ(bodyEvent.eventType, HTTPBodyEvent::BODY);
-    CHECK(!bodyEvent.event.body.empty());
+    PRX_CHECK(!bodyEvent.event.body.empty());
     auto bodyStr = bodyEvent.event.body.move()->to<std::string>();
     EXPECT_EQ(bodyStr, "hello");
     bodyEvent.event.body.append(folly::IOBuf::copyBuffer("world"));
@@ -68,7 +69,7 @@ CO_TEST_F_X(MutateFilterTest, SimpleTest) {
       });
 
   reader.onBody([](BufQueue body, bool /*eom*/) {
-    CHECK(!body.empty());
+    PRX_CHECK(!body.empty());
     auto bodyStr = body.move()->to<std::string>();
     EXPECT_EQ(bodyStr, "world");
     return true;
@@ -86,10 +87,10 @@ CO_TEST_F_X(MutateFilterTest, PassThruOnError) {
   // create visitor
   MutateFilter::HeaderMutateFn headerHook =
       [](HTTPHeaderEvent& /*headerEvent*/) {
-        XLOG(FATAL) << "header hook called";
+        PRX_LOG(FATAL) << "header hook called";
       };
   MutateFilter::BodyMutateFn bodyHook = [](HTTPBodyEvent& /*bodyEvent*/) {
-    XLOG(FATAL) << "body hook called";
+    PRX_LOG(FATAL) << "body hook called";
   };
 
   auto* mutateSource =

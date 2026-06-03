@@ -18,6 +18,7 @@
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 
 #include "StaticHandler.h"
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace StaticService;
 using namespace proxygen;
@@ -61,7 +62,7 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_threads <= 0) {
     FLAGS_threads = folly::available_concurrency();
-    CHECK_GT(FLAGS_threads, 0);
+    PRX_CHECK_GT(FLAGS_threads, 0);
   }
 
   HTTPServerOptions options;

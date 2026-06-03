@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/webtransport/WebTransportSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::detail {
 
@@ -72,7 +73,7 @@ WtHttpSession::WtHttpSession(WtLooper& readLoop, WtLooper& writeLoop) noexcept
 
 void WtHttpSession::writesDone() noexcept {
   bool wasWritesDone = std::exchange(writesDone_, true);
-  VLOG(6) << "readsDone=" << readsDone_ << "; writesDone=" << writesDone_;
+  PRX_VLOG(6) << "readsDone=" << readsDone_ << "; writesDone=" << writesDone_;
   if (!wasWritesDone && readsDone_) {
     onDone();
     self.reset();
@@ -81,7 +82,7 @@ void WtHttpSession::writesDone() noexcept {
 
 void WtHttpSession::readsDone() noexcept {
   bool wasReadsDone = std::exchange(readsDone_, true);
-  VLOG(6) << "readsDone=" << readsDone_ << "; writesDone=" << writesDone_;
+  PRX_VLOG(6) << "readsDone=" << readsDone_ << "; writesDone=" << writesDone_;
   if (!wasReadsDone && writesDone_) {
     onDone();
     self.reset();
@@ -180,7 +181,7 @@ const folly::SocketAddress& H2WtSession::getPeerAddress() const noexcept {
 
 void WtLooper::schedule() noexcept {
   bool scheduled = isLoopCallbackScheduled();
-  VLOG(6) << "type=" << type_ << "; scheduled=" << scheduled;
+  PRX_VLOG(6) << "type=" << type_ << "; scheduled=" << scheduled;
   if (!scheduled) {
     evb_->runInLoop(this);
   } // otherwise already scheduled
@@ -205,15 +206,15 @@ WebTransportReadLoop::WebTransportReadLoop(
 void WebTransportReadLoop::runLoopCallback() noexcept {
   auto& txnHandler = wtHttpSess_.txnHandler_;
   auto [data, eom] = txnHandler.moveBufferedIngress();
-  CHECK(data || eom || txnHandler.ex_);
-  VLOG(6) << __func__ << "; buf=" << data.get() << "; eom=" << eom;
+  PRX_CHECK(data || eom || txnHandler.ex_);
+  PRX_VLOG(6) << __func__ << "; buf=" << data.get() << "; eom=" << eom;
   wtCodec_.onIngress(std::move(data), eom);
   { // handle any new peer streams
     NotifyPeerStreamsGuard notify{*this, sm_, *wtHandler_};
   }
 
   if (eom || txnHandler.ex_) {
-    VLOG(4) << "h2 wt ingress eom=" << eom << "; ex=" << txnHandler.ex_;
+    PRX_VLOG(4) << "h2 wt ingress eom=" << eom << "; ex=" << txnHandler.ex_;
     sm_.shutdown(WtStreamManager::CloseSession{WebTransport::kInternalError,
                                                "h2 stream ingress closed"});
     wtHttpSess_.readsDone(); // might delete this
@@ -240,8 +241,8 @@ void WebTransportWriteLoop::runLoopCallback() noexcept {
     const bool writesDone = wtHttpSess_.writesDone_;
     const bool egressPaused = txnHandler.egressPaused_;
     const bool loop = !writesDone && txn && !egressPaused;
-    VLOG(6) << "writesDone=" << writesDone << "; txn=" << txn
-            << "; egressPaused=" << egressPaused << "; loop=" << loop;
+    PRX_VLOG(6) << "writesDone=" << writesDone << "; txn=" << txn
+                << "; egressPaused=" << egressPaused << "; loop=" << loop;
     return loop;
   };
 
@@ -257,8 +258,8 @@ void WebTransportWriteLoop::runLoopCallback() noexcept {
   txn->sendBody(buf_.move());
   // write stream data
   while (auto* wh = sm_.nextWritable()) {
-    VLOG(4) << "id=" << wh->getID() << "; wh=" << wh
-            << "; egressPaused=" << txnHandler.egressPaused_;
+    PRX_VLOG(4) << "id=" << wh->getID() << "; wh=" << wh
+                << "; egressPaused=" << txnHandler.egressPaused_;
     if (txnHandler.egressPaused_) {
       return;
     }
@@ -316,7 +317,7 @@ void WebTransportTxnHandler::onEOM() noexcept {
 }
 
 void WebTransportTxnHandler::onError(const HTTPException& error) noexcept {
-  VLOG(6) << __func__ << "; ex=" << error.describe();
+  PRX_VLOG(6) << __func__ << "; ex=" << error.describe();
   if (wtClientCb_) { // terminal event for WtClientCb
     std::exchange(wtClientCb_, nullptr)->onErr(error);
   }
@@ -330,14 +331,14 @@ void WebTransportTxnHandler::onDatagram(
 }
 
 void WebTransportTxnHandler::onEgressPaused() noexcept {
-  VLOG(6) << __func__;
+  PRX_VLOG(6) << __func__;
   // cancel writeLoopCb if scheduled
   writeLooper_.cancel();
   egressPaused_ = true;
 }
 
 void WebTransportTxnHandler::onEgressResumed() noexcept {
-  VLOG(6) << __func__;
+  PRX_VLOG(6) << __func__;
   // schedule writeLoopCb
   writeLooper_.schedule();
   egressPaused_ = false;
@@ -358,14 +359,14 @@ auto WtClientCallback::resetPromise() noexcept -> WtReqResultPromise {
 void WtClientCallback::onHeaders(std::unique_ptr<HTTPMessage> msg) noexcept {
   if (msg->isFinal()) {
     auto p = resetPromise();
-    CHECK(p.valid());
+    PRX_CHECK(p.valid());
     p.setValue(std::move(msg));
   }
 }
 
 void WtClientCallback::onErr(const HTTPException& ex) noexcept {
   auto p = resetPromise();
-  CHECK(p.valid());
+  PRX_CHECK(p.valid());
   p.setException(ex);
 }
 

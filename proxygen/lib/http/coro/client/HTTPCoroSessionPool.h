@@ -11,7 +11,7 @@
 #include "proxygen/lib/http/coro/HTTPCoroSession.h"
 #include "proxygen/lib/http/coro/client/HTTPCoroConnector.h"
 #include "proxygen/lib/http/coro/client/HTTPSessionFactory.h"
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <folly/IntrusiveList.h>
 
@@ -125,11 +125,11 @@ class HTTPCoroSessionPool {
     if (!isDraining()) {
       drain();
     }
-    XCHECK_EQ(waiters_.size(), 0UL);
-    XCHECK_EQ(connectsInProgress_, 0UL);
-    XCHECK(idleSessions_.empty());
-    XCHECK(availableSessions_.empty());
-    XCHECK(fullSessions_.empty());
+    PRX_CHECK_EQ(waiters_.size(), 0UL);
+    PRX_CHECK_EQ(connectsInProgress_, 0UL);
+    PRX_CHECK(idleSessions_.empty());
+    PRX_CHECK(availableSessions_.empty());
+    PRX_CHECK(fullSessions_.empty());
   }
 
   [[nodiscard]] bool isSecure() const {

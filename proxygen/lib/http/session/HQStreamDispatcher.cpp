@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/session/HQStreamDispatcher.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 
@@ -17,26 +18,27 @@ HQStreamDispatcherBase::HQStreamDispatcherBase(
 
 void HQStreamDispatcherBase::peekError(quic::StreamId id,
                                        quic::QuicError error) noexcept {
-  VLOG(4) << __func__ << ": peekError streamID=" << id << " error: " << error;
+  PRX_VLOG(4) << __func__ << ": peekError streamID=" << id
+              << " error: " << error;
 
   switch (error.code.type()) {
     case quic::QuicErrorCode::Type::ApplicationErrorCode: {
       auto errorCode =
           static_cast<HTTP3::ErrorCode>(*error.code.asApplicationErrorCode());
-      VLOG(4) << "peekError: QUIC Application Error: " << toString(errorCode)
-              << " streamID=" << id;
+      PRX_VLOG(4) << "peekError: QUIC Application Error: "
+                  << toString(errorCode) << " streamID=" << id;
       break;
     }
     case quic::QuicErrorCode::Type::LocalErrorCode: {
       quic::LocalErrorCode& errorCode = *error.code.asLocalErrorCode();
-      VLOG(4) << "peekError: QUIC Local Error: " << errorCode
-              << " streamID=" << id;
+      PRX_VLOG(4) << "peekError: QUIC Local Error: " << errorCode
+                  << " streamID=" << id;
       break;
     }
     case quic::QuicErrorCode::Type::TransportErrorCode: {
       quic::TransportErrorCode& errorCode = *error.code.asTransportErrorCode();
-      VLOG(4) << "peekError: QUIC Transport Error: " << errorCode
-              << " streamID=" << id;
+      PRX_VLOG(4) << "peekError: QUIC Transport Error: " << errorCode
+                  << " streamID=" << id;
       break;
     }
   }
@@ -57,7 +59,7 @@ void HQStreamDispatcherBase::onDataAvailable(
   auto maybeClearPeekCallback = folly::makeGuard([&] {
     if (peekFirst.eof) {
       // Chunk offset 0 with EOF means we must dispatch, or clear the cb
-      VLOG(4) << "Undispatchable stream (EOF before preface complete)";
+      PRX_VLOG(4) << "Undispatchable stream (EOF before preface complete)";
       callback_.rejectStream(releaseOwnership(id));
     }
   });
@@ -68,8 +70,8 @@ void HQStreamDispatcherBase::onDataAvailable(
   }
 
   // Look for a stream preface in the first read buffer
-  VLOG(4) << "Attempting peek dispatch stream=" << id
-          << " len=" << dataBuf->computeChainDataLength();
+  PRX_VLOG(4) << "Attempting peek dispatch stream=" << id
+              << " len=" << dataBuf->computeChainDataLength();
   folly::io::Cursor cursor(dataBuf);
   auto preface = quic::follyutils::decodeQuicInteger(cursor);
   if (!preface) {
@@ -142,10 +144,10 @@ HQStreamDispatcherBase::HandleStreamResult HQUniStreamDispatcher::handleStream(
       }
     }
     case hq::UnidirectionalStreamType::GREASE:
-      VLOG(4) << "Hey, a grease stream id=" << id;
+      PRX_VLOG(4) << "Hey, a grease stream id=" << id;
       break;
     default:
-      LOG(ERROR) << "Unrecognized type=" << folly::to_underlying(*type);
+      PRX_LOG(ERROR) << "Unrecognized type=" << folly::to_underlying(*type);
   }
   return HandleStreamResult::REJECT;
 }
@@ -182,7 +184,8 @@ HQStreamDispatcherBase::HandleStreamResult HQBidiStreamDispatcher::handleStream(
       }
     }
     default: {
-      LOG(ERROR) << "Unrecognized type=" << static_cast<uint64_t>(type.value());
+      PRX_LOG(ERROR) << "Unrecognized type="
+                     << static_cast<uint64_t>(type.value());
     }
   }
   return HandleStreamResult::REJECT;

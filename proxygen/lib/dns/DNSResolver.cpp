@@ -9,7 +9,7 @@
 #include "proxygen/lib/dns/DNSResolver.h"
 
 #include <folly/Conv.h>
-#include <glog/logging.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::SocketAddress;
 using proxygen::DNSResolver;
@@ -128,8 +128,8 @@ std::string DNSResolver::getPtrName(const SocketAddress& address) {
     }
 
     default:
-      LOG(FATAL) << "Unsupported address family " << address.getFamily()
-                 << " could not be turned into a PTR name";
+      PRX_LOG(FATAL) << "Unsupported address family " << address.getFamily()
+                     << " could not be turned into a PTR name";
   }
 
   return std::string(buf);

@@ -10,8 +10,8 @@
 
 #include <folly/Indestructible.h>
 
-#include <glog/logging.h>
 #include <list>
+#include <proxygen/lib/utils/LogShim.h>
 
 using std::list;
 
@@ -116,7 +116,7 @@ StaticHeaderTable::StaticHeaderTable(const char* entries[][2], int size)
   init(byteCount);
   hlist.reverse();
   for (auto& header : hlist) {
-    CHECK(add(std::move(header)));
+    PRX_CHECK(add(std::move(header)));
   }
 }
 

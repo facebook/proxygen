@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/CodecProtocol.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -35,17 +36,17 @@ std::unique_ptr<HTTPCodec> DefaultHTTPCodecFactory::getCodec(
     }
     case CodecProtocol::HQ:
     case CodecProtocol::HTTP_3: {
-      LOG(WARNING) << __func__ << " doesn't yet support H3";
+      PRX_LOG(WARNING) << __func__ << " doesn't yet support H3";
       return nullptr;
     }
     case CodecProtocol::HTTP_BINARY:
-      LOG(WARNING) << __func__ << " doesn't yet support HTTPBinaryCodec";
+      PRX_LOG(WARNING) << __func__ << " doesn't yet support HTTPBinaryCodec";
       return nullptr;
     case CodecProtocol::HTTP_1_1: {
       if (!chosenProto.empty() &&
           !HTTP1xCodec::supportsNextProtocol(chosenProto)) {
-        LOG(ERROR) << "Chosen protocol \"" << chosenProto
-                   << "\" is unimplemented. ";
+        PRX_LOG(ERROR) << "Chosen protocol \"" << chosenProto
+                       << "\" is unimplemented. ";
         return nullptr;
       }
 
@@ -53,7 +54,7 @@ std::unique_ptr<HTTPCodec> DefaultHTTPCodecFactory::getCodec(
           direction, config.h1.forceHTTP1xCodecTo1_1, config.strictValidation);
     }
     case CodecProtocol::TUNNEL_LITE:
-      LOG(WARNING) << __func__ << " doesn't support TUNNEL_LITE";
+      PRX_LOG(WARNING) << __func__ << " doesn't support TUNNEL_LITE";
       return nullptr;
     default:
       // should be unreachable, getCodecProtocolFromStr returns HTTP_1_1 by

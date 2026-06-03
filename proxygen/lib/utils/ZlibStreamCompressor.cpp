@@ -9,6 +9,7 @@
 #include <proxygen/lib/utils/ZlibStreamCompressor.h>
 
 #include <folly/io/Cursor.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using folly::IOBuf;
 
@@ -24,7 +25,7 @@ namespace proxygen {
 namespace {
 
 std::unique_ptr<IOBuf> addOutputBuffer(z_stream* stream, uint32_t length) {
-  CHECK_EQ(stream->avail_out, 0);
+  PRX_CHECK_EQ(stream->avail_out, 0u);
 
   auto buf = IOBuf::create(length);
   buf->append(buf->capacity());
@@ -62,8 +63,8 @@ void ZlibStreamCompressor::init() {
   zlibStream_.avail_out = 0;
   zlibStream_.next_out = Z_NULL;
 
-  DCHECK(level_ == Z_DEFAULT_COMPRESSION ||
-         (level_ >= Z_NO_COMPRESSION && level_ <= Z_BEST_COMPRESSION))
+  PRX_DCHECK(level_ == Z_DEFAULT_COMPRESSION ||
+             (level_ >= Z_NO_COMPRESSION && level_ <= Z_BEST_COMPRESSION))
       << "Invalid Zlib compression level. level=" << level_;
 
   switch (type_) {
@@ -81,12 +82,12 @@ void ZlibStreamCompressor::init() {
       status_ = deflateInit(&zlibStream_, level_);
       break;
     default:
-      DCHECK(false) << "Unsupported zlib compression type.";
+      PRX_DCHECK(false) << "Unsupported zlib compression type.";
       break;
   }
 
   if (status_ != Z_OK) {
-    LOG(ERROR) << "error initializing zlib stream. r=" << status_;
+    PRX_LOG(ERROR) << "error initializing zlib stream. r=" << status_;
   }
 }
 
@@ -123,7 +124,7 @@ std::unique_ptr<IOBuf> ZlibStreamCompressor::compress(const IOBuf* in,
       while (zlibStream_.avail_in != 0) {
         status_ = deflateHelper(&zlibStream_, out.get(), Z_NO_FLUSH);
         if (status_ != Z_OK) {
-          LOG(DFATAL) << "Deflate failed: " << zlibStream_.msg;
+          PRX_LOG(DFATAL) << "Deflate failed: " << zlibStream_.msg;
           return nullptr;
         }
       }
@@ -136,7 +137,7 @@ std::unique_ptr<IOBuf> ZlibStreamCompressor::compress(const IOBuf* in,
     } while (status_ == Z_OK);
 
     if (status_ != Z_STREAM_END) {
-      LOG(DFATAL) << "Deflate failed: " << zlibStream_.msg;
+      PRX_LOG(DFATAL) << "Deflate failed: " << zlibStream_.msg;
       return nullptr;
     }
   } else {
@@ -145,7 +146,7 @@ std::unique_ptr<IOBuf> ZlibStreamCompressor::compress(const IOBuf* in,
     } while (zlibStream_.avail_out == 0);
 
     if (status_ != Z_OK) {
-      LOG(DFATAL) << "Deflate failed: " << zlibStream_.msg;
+      PRX_LOG(DFATAL) << "Deflate failed: " << zlibStream_.msg;
       return nullptr;
     }
   }

@@ -10,6 +10,7 @@
 #include <folly/Benchmark.h>
 #include <folly/container/F14Map.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/PerfectIndexMap.h>
 #include <unordered_map>
 
@@ -118,7 +119,7 @@ void F14GetBench(folly::F14FastMap<std::string, std::string>& testMap,
       folly::Optional<std::string> result =
           (it == testMap.end() ? folly::none
                                : (folly::Optional<std::string>)it->second);
-      CHECK(result != folly::none);
+      PRX_CHECK(result != folly::none);
     }
   }
 }
@@ -156,7 +157,7 @@ void UnorderedMapGetBench(std::unordered_map<std::string, std::string>& testMap,
       folly::Optional<std::string> result =
           (it == testMap.end() ? folly::none
                                : (folly::Optional<std::string>)it->second);
-      CHECK(result != folly::none);
+      PRX_CHECK(result != folly::none);
     }
   }
 }
@@ -166,7 +167,7 @@ void PerfectIndexMapGetCodeBench(DefaultPerfectIndexMap& map,
                                  int iters) {
   for (int i = 0; i < iters; ++i) {
     for (auto const& key : keys) {
-      CHECK(map.getSingleOrNone(key) != folly::none);
+      PRX_CHECK(map.getSingleOrNone(key) != folly::none);
     }
   }
 }
@@ -176,7 +177,7 @@ void PerfectIndexMapGetStringBench(DefaultPerfectIndexMap& map,
                                    int iters) {
   for (int i = 0; i < iters; ++i) {
     for (auto const& key : keys) {
-      CHECK(map.getSingleOrNone(*key) != folly::none);
+      PRX_CHECK(map.getSingleOrNone(*key) != folly::none);
     }
   }
 }

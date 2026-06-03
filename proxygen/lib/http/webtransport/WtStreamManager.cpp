@@ -64,7 +64,7 @@
 #include <proxygen/lib/http/webtransport/WtStreamManager.h>
 
 #include <deque>
-#include <folly/logging/xlog.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 // fwd decls for Accessor
 namespace {
@@ -162,6 +162,15 @@ enum class WriteHandleState : uint8_t {
   Closed    /* invalid, tx rst_stream or eom sent */
 };
 
+[[maybe_unused]] inline std::ostream& operator<<(std::ostream& os,
+                                                 ReadHandleState s) {
+  return os << static_cast<uint32_t>(s);
+}
+[[maybe_unused]] inline std::ostream& operator<<(std::ostream& os,
+                                                 WriteHandleState s) {
+  return os << static_cast<uint32_t>(s);
+}
+
 struct ReadHandle : public WebTransport::StreamReadHandle {
   // why doesn't using StreamReadHandle::StreamReadHandle work here?
   ReadHandle(uint64_t id, uint64_t initRecvWnd, Accessor acc) noexcept;
@@ -229,14 +238,14 @@ namespace proxygen::detail {
 void Accessor::maybeGrantFc(ReadHandle* rh, uint64_t bytesRead) noexcept {
   // TODO(@damlaj): user-defined flow control values and release when 50% is
   // read
-  XLOG(DBG6) << __func__ << "; rh=" << rh;
+  PRX_VLOG(6) << __func__ << "; rh=" << rh;
   if (rh) { // handle stream-level flow control
     uint64_t initStreamRecvFc = sm_.initStreamRecvFc(rh->getID());
     auto& streamRecv = rh->streamRecvFc_;
     // if peer has less than rwnd / 2 to send, issue fc
     bool issueFc = streamRecv.getAvailable() <= (initStreamRecvFc / 2);
-    XLOG(DBG6) << __func__ << "avail=" << streamRecv.getAvailable()
-               << "; issue=" << issueFc;
+    PRX_VLOG(6) << __func__ << "avail=" << streamRecv.getAvailable()
+                << "; issue=" << issueFc;
     if (issueFc) {
       streamRecv.grant(streamRecv.getCurrentOffset() + initStreamRecvFc);
       sm_.enqueueEvent(MaxStreamData{{streamRecv.getMaxOffset()}, rh->getID()});
@@ -248,9 +257,9 @@ void Accessor::maybeGrantFc(ReadHandle* rh, uint64_t bytesRead) noexcept {
   sm_.connBytesRead_ += bytesRead;
   bool issueFc =
       (connRecv.getMaxOffset() - sm_.connBytesRead_) <= (initConnRecvFc / 2);
-  XLOG(DBG6) << __func__ << "; connMaxOffset=" << connRecv.getMaxOffset()
-             << "; connBytesRead_" << sm_.connBytesRead_
-             << "; issue=" << issueFc;
+  PRX_VLOG(6) << __func__ << "; connMaxOffset=" << connRecv.getMaxOffset()
+              << "; connBytesRead_" << sm_.connBytesRead_
+              << "; issue=" << issueFc;
   if (issueFc) {
     connRecv.grant(connRecv.getCurrentOffset() + initConnRecvFc);
     sm_.enqueueEvent(MaxConnData{connRecv.getMaxOffset()});
@@ -272,14 +281,14 @@ void Accessor::onStreamWritable(WriteHandle& wh) noexcept {
 }
 
 void Accessor::done(WriteHandle& wh) noexcept {
-  XCHECK_EQ(wh.state_, WriteHandleState::Closed);
+  PRX_CHECK_EQ(wh.state_, WriteHandleState::Closed);
   if (wh.rh_->state_ == ReadHandleState::Closed) { // bidi done
     sm_.erase(wh.getID());
   }
 }
 
 void Accessor::done(ReadHandle& rh) noexcept {
-  XCHECK_EQ(rh.state_, ReadHandleState::Closed);
+  PRX_CHECK_EQ(rh.state_, ReadHandleState::Closed);
   if (rh.wh_->state_ == WriteHandleState::Closed) { // bidi done
     sm_.erase(rh.getID());
   }
@@ -357,7 +366,7 @@ WtStreamManager::WtStreamManager(WtDir dir,
       connSendFc_(config.peerMaxConnData),
       egressCb_(egressCb),
       ingressCb_(ingressCb) {
-  XCHECK(dir <= WtDir::Server) << "invalid dir";
+  PRX_CHECK(dir <= WtDir::Server) << "invalid dir";
   if (config.trackClosedStreams) {
     closedStreams_ = std::make_unique<ClosedStreams>();
   }
@@ -399,7 +408,7 @@ void WtStreamManager::enqueueEvent(Event&& ev) noexcept {
 }
 
 WtStreamManager::Result WtStreamManager::onMaxStreams(MaxStreamsBidi bidi) {
-  XCHECK_LE(bidi.maxStreams, kMaxVarint);
+  PRX_CHECK_LE(bidi.maxStreams, kMaxVarint);
   // the "StreamType" is derived from a self bidi id, simply use
   // nextStreamIds_
   auto& maxBidi = maxStreams_.getMaxStreams(nextStreamIds_.bidi);
@@ -409,7 +418,7 @@ WtStreamManager::Result WtStreamManager::onMaxStreams(MaxStreamsBidi bidi) {
 }
 
 WtStreamManager::Result WtStreamManager::onMaxStreams(MaxStreamsUni uni) {
-  XCHECK_LE(uni.maxStreams, kMaxVarint);
+  PRX_CHECK_LE(uni.maxStreams, kMaxVarint);
   // the "StreamType" is derived from a self uni id, simply use nextStreamIds_
   auto& maxUni = maxStreams_.getMaxStreams(nextStreamIds_.uni);
   bool valid = uni.maxStreams >= maxUni;
@@ -456,8 +465,8 @@ bool WtStreamManager::streamLimitExceeded(uint64_t streamId) const noexcept {
   uint64_t opened = streamsCounter_.getCounter(streamId).opened;
   uint64_t limit = maxStreams_.getMaxStreams(streamId);
   bool exceeded = opened >= limit;
-  XLOG_IF(ERR, exceeded) << __func__ << "; opened=" << opened
-                         << "; limit=" << limit << "; id=" << streamId;
+  PRX_LOG_IF(ERROR, exceeded) << __func__ << "; opened=" << opened
+                              << "; limit=" << limit << "; id=" << streamId;
   return exceeded;
 }
 
@@ -472,7 +481,7 @@ WtStreamManager::BidiHandle* WtStreamManager::getOrCreateBidiHandleImpl(
     return nullptr;
   }
 
-  XLOG(DBG8) << "creating id=" << streamId;
+  PRX_VLOG(8) << "creating id=" << streamId;
   streamsCounter_.getCounter(streamId).opened++;
   it = streams_.emplace(streamId, BidiHandle::make(streamId, *this)).first;
   return it->second.get();
@@ -544,7 +553,7 @@ uint64_t WtStreamManager::streamBytesReceived(
 }
 
 WtStreamManager::Result WtStreamManager::onMaxData(MaxConnData data) noexcept {
-  XLOG(DBG9) << __func__ << " maxData=" << data.maxData;
+  PRX_VLOG(9) << __func__ << " maxData=" << data.maxData;
   if (!connSendFc_.grant(data.maxData)) {
     return Fail;
   }
@@ -557,8 +566,8 @@ WtStreamManager::Result WtStreamManager::onMaxData(MaxConnData data) noexcept {
     if (writeHandle.bufferedSendData_.canSendData()) {
       writableStreams_.insert(writeHandle.getID(), writeHandle.getPriority());
     } else {
-      XLOG(ERR) << "Stream " << writeHandle.getID()
-                << " in connFcBlockedStreams_ but !canSendData";
+      PRX_LOG(ERROR) << "Stream " << writeHandle.getID()
+                     << " in connFcBlockedStreams_ but !canSendData";
     }
   }
 
@@ -571,15 +580,15 @@ WtStreamManager::Result WtStreamManager::onMaxData(MaxConnData data) noexcept {
 WtStreamManager::Result WtStreamManager::onMaxData(
     MaxStreamData data) noexcept {
   // TODO(@damlaj): connection-level err if not egress stream?
-  XLOG(DBG9) << __func__ << "; id=" << data.streamId
-             << "; maxData=" << data.maxData;
+  PRX_VLOG(9) << __func__ << "; id=" << data.streamId
+              << "; maxData=" << data.maxData;
   auto* eh = writehandle_ptr_cast(getEgressHandle(data.streamId));
   return (eh && eh->onMaxData(data.maxData)) ? Ok : Fail;
 }
 
 WtStreamManager::Result WtStreamManager::onStopSending(
     StopSending data) noexcept {
-  XLOG(DBG9) << __func__ << "; id=" << data.streamId << "; err=" << data.err;
+  PRX_VLOG(9) << __func__ << "; id=" << data.streamId << "; err=" << data.err;
   if (auto* eh = writehandle_ptr_cast(getEgressHandle(data.streamId))) {
     eh->onStopSending(data.err);
     return Ok;
@@ -589,7 +598,7 @@ WtStreamManager::Result WtStreamManager::onStopSending(
 
 WtStreamManager::Result WtStreamManager::onResetStream(
     ResetStream data) noexcept {
-  XLOG(DBG9) << __func__ << "; id=" << data.streamId << "; err=" << data.err;
+  PRX_VLOG(9) << __func__ << "; id=" << data.streamId << "; err=" << data.err;
   if (auto* rh = readhandle_ptr_cast(getIngressHandle(data.streamId))) {
     auto ex = makeWtException(uint32_t(data.err), "rx reset_stream");
     rh->cancel(std::move(ex), data.reliableSize);
@@ -630,8 +639,8 @@ WtBufferedStreamData::DequeueResult WtStreamManager::dequeue(
     connFcBlockedStreams_.insert(&wh);
   }
 
-  XLOG(DBG8) << __func__ << "; atMost=" << atMost << "; len=" << len
-             << "; fin=" << res.fin;
+  PRX_VLOG(8) << __func__ << "; atMost=" << atMost << "; len=" << len
+              << "; fin=" << res.fin;
   return res;
 }
 
@@ -663,7 +672,7 @@ void WtStreamManager::shutdown(CloseSession cs) noexcept {
     return;
   }
   shutdown_ = true;
-  XLOG(DBG4) << __func__ << "; ec=" << cs.err << "; err=" << cs.msg;
+  PRX_VLOG(4) << __func__ << "; ec=" << cs.err << "; err=" << cs.msg;
   auto ex = makeWtException(cs.err, cs.msg);
   auto streams = std::move(streams_);
   for (auto& [_, handle] : streams) {
@@ -713,7 +722,7 @@ void WtStreamManager::erase(uint64_t streamId) noexcept {
   auto& counter = streamsCounter_.getCounter(streamId);
   const uint64_t opened = counter.opened;
   const uint64_t closed = ++counter.closed;
-  XCHECK_GE(opened, closed);
+  PRX_CHECK_GE(opened, closed);
   // if peer stream, we may need to advertise additional MaxStreams credit.
   if (isPeer(streamId)) {
     // compute the number of peer openable streams; if it is <= half of the
@@ -724,8 +733,8 @@ void WtStreamManager::erase(uint64_t streamId) noexcept {
                                          : wtConfig_.selfMaxStreamsUni;
     auto& maxStreams = maxStreams_.getMaxStreams(streamId);
     const uint64_t openable = maxStreams - closed;
-    XLOG(DBG6) << "init=" << initStreamLimit << "; limit=" << maxStreams
-               << "; opened=" << opened << "; closed=" << closed;
+    PRX_VLOG(6) << "init=" << initStreamLimit << "; limit=" << maxStreams
+                << "; opened=" << opened << "; closed=" << closed;
     if (openable <= initStreamLimit / 2) {
       maxStreams += (initStreamLimit - openable);
       isBidi(streamId) ? enqueueEvent(MaxStreamsBidi{maxStreams})
@@ -748,8 +757,8 @@ WtStreamManager::WtWriteHandle* WtStreamManager::nextWritable() const noexcept {
   auto streamId = writableStreams_.peek();
   auto* wh =
       writehandle_ptr_cast(streamId ? getEgressHandle(*streamId) : nullptr);
-  XLOG(DBG6) << __func__ << "; wh=" << wh
-             << "; connSendFc.avail=" << connSendFc_.getAvailable();
+  PRX_VLOG(6) << __func__ << "; wh=" << wh
+              << "; connSendFc.avail=" << connSendFc_.getAvailable();
   return (wh && (connSendFc_.getAvailable() > 0 ||
                  wh->bufferedSendData_.onlyFinPending()))
              ? wh
@@ -800,7 +809,7 @@ struct WtStreamManager::ClosedStreams {
     const int64_t id = streamId >> 2;
     Interval interval{id, id};
     auto it = std::lower_bound(deque.begin(), deque.end(), interval);
-    XCHECK_NE(it, deque.end());
+    PRX_CHECK(it != deque.end());
     it = deque.insert(it, interval); // insert after
     // potentially merge std::prev(), it, & std::next()
     for (int8_t idx = 0; idx < 2; idx++) {
@@ -820,7 +829,7 @@ struct WtStreamManager::ClosedStreams {
     Interval interval{.start = id, .end = id};
     auto it =
         std::prev(std::upper_bound(deque.cbegin(), deque.cend(), interval));
-    XCHECK_NE(it, deque.end());
+    PRX_CHECK(it != deque.end());
     return it->within(id);
   }
 
@@ -851,14 +860,14 @@ ReadHandle::ReadHandle(uint64_t id, uint64_t initRecvWnd, Accessor acc) noexcept
 }
 
 folly::SemiFuture<StreamData> ReadHandle::readStreamData() {
-  XLOG_IF(FATAL, promise_.valid()) << "one pending read at a time";
+  PRX_LOG_IF(FATAL, promise_.valid()) << "one pending read at a time";
   if (!ingress_.chain.empty() || ingress_.fin) {
     auto len = ingress_.chain.computeChainDataLength();
     bytesRead_ += len;
     // only issue conn-level fc if we've rx'd fin
     smAccessor_.maybeGrantFc(ingress_.fin ? nullptr : this, len);
     auto res = StreamData{ingress_.chain.pop(), ingress_.fin};
-    XLOG(DBG6) << __func__ << "; len=" << len << "; fin=" << res.fin;
+    PRX_VLOG(6) << __func__ << "; len=" << len << "; fin=" << res.fin;
     if (rcb_) {
       rcb_->readReady(*this);
     }
@@ -877,7 +886,7 @@ folly::SemiFuture<StreamData> ReadHandle::readStreamData() {
 
 folly::Expected<folly::Unit, ReadHandle::ErrCode> ReadHandle::stopSending(
     uint32_t error) { // wait for peer eom or rst_stream
-  XCHECK_NE(state_, ReadHandleState::Closed);
+  PRX_CHECK_NE(state_, ReadHandleState::Closed);
   const auto prevState = std::exchange(state_, ReadHandleState::HalfClosed);
   if (prevState == ReadHandleState::Open) { // egress at most one ss
     smAccessor_.stopSending(*this, error);
@@ -899,8 +908,8 @@ Result ReadHandle::enqueue(StreamData&& data) noexcept {
     ingress_.chain.appendToChain(std::move(data.data));
   }
   ingress_.fin = data.fin;
-  XLOG(DBG6) << __func__ << "; len=" << len << "; fin=" << data.fin
-             << "; p.valid()=" << promise_.valid();
+  PRX_VLOG(6) << __func__ << "; len=" << len << "; fin=" << data.fin
+              << "; p.valid()=" << promise_.valid();
   if (auto p = resetPromise(); p.valid()) {
     // issue only conn-level fc if we've rx'd fin
     smAccessor_.maybeGrantFc(ingress_.fin ? nullptr : this, len);
@@ -927,7 +936,7 @@ Result ReadHandle::enqueue(StreamData&& data) noexcept {
  */
 void ReadHandle::cancel(folly::exception_wrapper ex,
                         uint64_t reliableSize) noexcept {
-  XLOG(DBG8) << __func__ << "; ex=" << ex.what();
+  PRX_VLOG(8) << __func__ << "; ex=" << ex.what();
   // ensures future reads after reliableSize bytes have been read fail
   ex_ = std::move(ex);
   reliableSize = (reliableSize == kInvalidVarint) ? bytesRead_ : reliableSize;
@@ -973,13 +982,13 @@ WriteHandle::writeStreamData(
     WebTransport::ByteEventCallback* byteEventCallback) {
   // TODO(@damlaj): handle reset stream; elide unnecessarily recomputing len
   auto len = computeChainLength(data);
-  XLOG_IF(ERR, !(len || fin)) << "no-op writeStreamData";
+  PRX_LOG_IF(ERROR, !(len || fin)) << "no-op writeStreamData";
   bool connBlocked = smAccessor_.connSend().buffer(len);
   bool streamBlocked =
       bufferedSendData_.enqueue(std::move(data), fin, byteEventCallback);
-  XLOG(DBG6) << __func__ << "; id=" << id_ << "; len=" << len << "; fin=" << fin
-             << "; connBlocked=" << connBlocked
-             << "; streamBlocked=" << streamBlocked;
+  PRX_VLOG(6) << __func__ << "; id=" << id_ << "; len=" << len
+              << "; fin=" << fin << "; connBlocked=" << connBlocked
+              << "; streamBlocked=" << streamBlocked;
   if (bufferedSendData_.canSendData()) {
     smAccessor_.onStreamWritable(*this); // stream is now writable
   }
@@ -996,7 +1005,7 @@ folly::Expected<folly::Unit, WriteHandle::ErrCode> WriteHandle::resetStream(
 
 folly::Expected<folly::Unit, WriteHandle::ErrCode> WriteHandle::setPriority(
     quic::PriorityQueue::Priority priority) {
-  XCHECK_NE(state_, WriteHandleState::Closed) << "setPriority after close";
+  PRX_CHECK_NE(state_, WriteHandleState::Closed) << "setPriority after close";
 
   StreamWriteHandle::setPriority(priority);
   smAccessor_.writableStreams().update(getID(), getPriority());
@@ -1016,7 +1025,7 @@ Result WriteHandle::onMaxData(uint64_t offset) {
 
 folly::Expected<folly::SemiFuture<uint64_t>, WriteHandle::ErrCode>
 WriteHandle::awaitWritable() {
-  XCHECK(!promise_.valid()) << "at most one pending awaitWritable";
+  PRX_CHECK(!promise_.valid()) << "at most one pending awaitWritable";
   const auto bufferAvailable = bufferedSendData_.window().getBufferAvailable();
   if (bufferAvailable > 0) {
     return folly::makeSemiFuture(bufferAvailable);
@@ -1033,7 +1042,7 @@ WritePromise WriteHandle::resetPromise() noexcept {
 // TODO(@damlaj): StreamData and DequeueResult should be the same struct
 WtBufferedStreamData::DequeueResult WriteHandle::dequeue(
     uint64_t atMost) noexcept {
-  XCHECK_NE(state_, WriteHandleState::Closed) << "dequeue after close";
+  PRX_CHECK_NE(state_, WriteHandleState::Closed) << "dequeue after close";
 
   auto res = bufferedSendData_.dequeue(atMost);
   const auto bufferAvailable = bufferedSendData_.window().getBufferAvailable();
@@ -1044,8 +1053,8 @@ WtBufferedStreamData::DequeueResult WriteHandle::dequeue(
   }
 
   auto bytesDequeued = computeChainLength(res.data);
-  XLOG(DBG6) << __func__ << "; id=" << id_ << "; len=" << bytesDequeued
-             << "; fin=" << res.fin;
+  PRX_VLOG(6) << __func__ << "; id=" << id_ << "; len=" << bytesDequeued
+              << "; fin=" << res.fin;
 
   // Erase if blocked (wrote nothing) or done (!canSendData)
   // Consume if wrote data and still have more
@@ -1060,7 +1069,7 @@ WtBufferedStreamData::DequeueResult WriteHandle::dequeue(
 }
 
 void WriteHandle::cancel(folly::exception_wrapper ex) noexcept {
-  XLOG(DBG8) << __func__ << "; ex=" << ex.what();
+  PRX_VLOG(8) << __func__ << "; ex=" << ex.what();
   ex_ = std::move(ex);
   bufferedSendData_.clear(id_);
   // any pending awaitWritable should be resolved with ex

@@ -16,6 +16,7 @@
 #include <folly/portability/OpenSSL.h>
 #include <proxygen/httpserver/samples/hq/HQLoggerHelper.h>
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/QuicConstants.h>
 
 using namespace folly;
@@ -88,7 +89,7 @@ Client::Client(EventBase* eventBase,
       connector_(this, transactionTimeouts),
       serverName_(serverName),
       plaintextProto_(plaintextProto) {
-  CHECK_GT(requests_, 0);
+  PRX_CHECK_GT(requests_, 0u);
   connector_.setPlaintextProtocol(plaintextProto);
 }
 
@@ -102,7 +103,7 @@ Client::~Client() {
     // drain() might cause synchronous destruction, protect ourselves
     // from it.
     DelayedDestructionBase::DestructorGuard guard(session_);
-    VLOG(4) << "shutting down session";
+    PRX_VLOG(4) << "shutting down session";
     session_->dropConnection("shutting down");
     // The above will destroy session_ and kill all the transactions
     // But we don't need any callbacks because we're toast
@@ -306,7 +307,7 @@ void Client::sendRequest() {
     // happen once the connect succeeds.
     return;
   }
-  CHECK(session_);
+  PRX_CHECK(session_);
   uint32_t requestsThisLoop = 0;
   while ((outstandingTransactions_ <
           uint32_t(FLAGS_max_outstanding_transactions)) &&
@@ -343,10 +344,10 @@ void Client::sendRequest() {
 }
 
 void Client::connectSuccess(proxygen::HQUpstreamSession* session) {
-  CHECK(!session_);
+  PRX_CHECK(!session_);
   const auto transport = session->getQuicSocket();
-  auto client =
-      CHECK_NOTNULL(dynamic_cast<const quic::QuicClientTransport*>(transport));
+  auto client = PRX_CHECK_NOTNULL(
+      dynamic_cast<const quic::QuicClientTransport*>(transport));
   if (client->isTLSResumed()) {
     stats_.addResume();
   } else {
@@ -360,7 +361,7 @@ void Client::connectError(const quic::QuicErrorCode&) {
 }
 
 void Client::connectSuccess(HTTPUpstreamSession* session) {
-  CHECK(!session_);
+  PRX_CHECK(!session_);
   session->setByteEventTracker(nullptr);
   if (sslContext_) {
     auto sslSocket = dynamic_cast<AsyncSSLSocket*>(session->getTransport());
@@ -368,10 +369,10 @@ void Client::connectSuccess(HTTPUpstreamSession* session) {
     unsigned nextProtoLength = 0;
     sslSocket->getSelectedNextProtocol(&nextProto, &nextProtoLength);
     if (nextProto) {
-      VLOG(4) << "Client selected next protocol "
-              << string((const char*)nextProto, nextProtoLength);
+      PRX_VLOG(4) << "Client selected next protocol "
+                  << string((const char*)nextProto, nextProtoLength);
     } else {
-      VLOG(4) << "Client did not select a next protocol";
+      PRX_VLOG(4) << "Client did not select a next protocol";
     }
     if (sslSocket->getSSLSessionReused()) {
       stats_.addResume();
@@ -397,7 +398,7 @@ void Client::connectError(const AsyncSocketException& /*ex*/) {
 }
 
 void Client::connectSuccessCommon(HTTPSessionBase* session) {
-  CHECK(!session_);
+  PRX_CHECK(!session_);
   session_ = session;
   session_->setInfoCallback(&collector_);
   session->setFlowControl(FLAGS_stream_flow_control,
@@ -424,14 +425,14 @@ void Client::connectErrorCommon() {
 // HTTPTransaction::Handler callbacks
 
 void Client::TransactionHandler::detachTransaction() noexcept {
-  DCHECK(!waitingForResponse_);
-  DCHECK(!inMessage_);
+  PRX_DCHECK(!waitingForResponse_);
+  PRX_DCHECK(!inMessage_);
   if (!parent_->inDestructor_) {
-    DCHECK_GT(parent_->outstandingTransactions_, 0);
+    PRX_DCHECK_GT(parent_->outstandingTransactions_, 0u);
     parent_->outstandingTransactions_--;
-    VLOG(3) << __func__ << " requestsSent=" << parent_->requestsSent_
-            << " requests=" << parent_->requests_
-            << " outstanding=" << parent_->outstandingTransactions_;
+    PRX_VLOG(3) << __func__ << " requestsSent=" << parent_->requestsSent_
+                << " requests=" << parent_->requests_
+                << " outstanding=" << parent_->outstandingTransactions_;
     if (!parent_->isLoopCallbackScheduled()) {
       parent_->Client::eventBase_->runInLoop(parent_);
     }

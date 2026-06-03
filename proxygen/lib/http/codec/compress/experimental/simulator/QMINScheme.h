@@ -19,6 +19,7 @@
 #include "qmin_common.h" // @manual
 #include "qmin_dec.h"    // @manual
 #include "qmin_enc.h"    // @manual
+#include <proxygen/lib/utils/LogShim.h>
 #else
 /* Stub implementation for when you don't have QMIN */
 extern "C" {
@@ -204,8 +205,9 @@ class QMINScheme : public CompressionScheme {
     if (qms_ctl[1].sz) {
       auto ack = std::make_unique<QMINAck>(
           qms_ctl[1].write_off, qms_ctl[1].buf, qms_ctl[1].sz);
-      VLOG(4) << "sent ACK for instance " << qms_idstr
-              << " off: " << qms_ctl[1].write_off << "; sz: " << qms_ctl[1].sz;
+      PRX_VLOG(4) << "sent ACK for instance " << qms_idstr
+                  << " off: " << qms_ctl[1].write_off
+                  << "; sz: " << qms_ctl[1].sz;
       qms_ctl[1].write_off += qms_ctl[1].sz;
       qms_ctl[1].sz = 0;
       return std::move(ack);
@@ -218,12 +220,12 @@ class QMINScheme : public CompressionScheme {
   void recvAck(std::unique_ptr<Ack> generic_ack) override {
     struct stream_chunk *chunk = nullptr;
 
-    CHECK(generic_ack);
+    PRX_CHECK(generic_ack);
     auto ack = dynamic_cast<QMINAck *>(generic_ack.get());
-    CHECK_NOTNULL(ack);
+    PRX_CHECK_NOTNULL(ack);
 
-    VLOG(4) << "received ACK for instance " << qms_idstr
-            << " off: " << ack->qma_off << "; sz: " << ack->qma_sz;
+    PRX_VLOG(4) << "received ACK for instance " << qms_idstr
+                << " off: " << ack->qma_off << "; sz: " << ack->qma_sz;
 
     chunk = stream_chunk_new(ack->qma_off, ack->qma_buf, ack->qma_sz);
     insert_chunk(&qms_streams[0], chunk);
@@ -231,7 +233,7 @@ class QMINScheme : public CompressionScheme {
     while ((chunk = maybe_pop_chunk(&qms_streams[0]))) {
       ssize_t nread = qmin_enc_cmds_in(qms_enc, chunk->sc_buf, chunk->sc_sz);
       if (nread < 0 || (size_t)nread != chunk->sc_sz) {
-        VLOG(1) << "error: qmin_enc_cmds_in failed";
+        PRX_VLOG(1) << "error: qmin_enc_cmds_in failed";
         assert(0);
       }
       free(chunk);
@@ -275,11 +277,11 @@ class QMINScheme : public CompressionScheme {
           comp_sz += nw;
           break;
         case QES_NOBUFS:
-          VLOG(1) << "compressed header does not fit into temporary "
-                     "output buffer";
+          PRX_VLOG(1) << "compressed header does not fit into temporary "
+                         "output buffer";
           return {flags, nullptr};
         case QES_ERR:
-          VLOG(1) << "error: " << strerror(errno);
+          PRX_VLOG(1) << "error: " << strerror(errno);
           assert(0);
           return {flags, nullptr};
       }
@@ -288,12 +290,12 @@ class QMINScheme : public CompressionScheme {
     {
       size_t sz = 0;
       char *state = qmin_enc_to_str(qms_enc, &sz);
-      VLOG(4) << "encoder state: " << state;
+      PRX_VLOG(4) << "encoder state: " << state;
       free(state);
     }
 
     if (0 != qmin_enc_end_stream_headers(qms_enc)) {
-      VLOG(1) << "error: qmin_enc_end_stream_headers failed";
+      PRX_VLOG(1) << "error: qmin_enc_end_stream_headers failed";
       assert(0);
     }
 
@@ -371,7 +373,7 @@ class QMINScheme : public CompressionScheme {
       while ((chunk = maybe_pop_chunk(&qms_streams[1]))) {
         nread = qmin_dec_cmds_in(qms_dec, chunk->sc_buf, chunk->sc_sz);
         if (nread < 0 || (size_t)nread != chunk->sc_sz) {
-          VLOG(1) << "error: qmin_dec_cmds_in failed";
+          PRX_VLOG(1) << "error: qmin_dec_cmds_in failed";
           assert(0);
         }
         free(chunk);
@@ -385,7 +387,7 @@ class QMINScheme : public CompressionScheme {
       nread = qmin_dec_decode(
           qms_dec, buf, end - buf, outbuf, sizeof(outbuf), &name_len, &val_len);
       if (nread < 0) {
-        VLOG(1) << "error: decoder failed!";
+        PRX_VLOG(1) << "error: decoder failed!";
         assert(0);
         return;
       }
@@ -399,7 +401,7 @@ class QMINScheme : public CompressionScheme {
 
     if (0 != qmin_dec_stream_done(qms_dec, stream_id)) {
       assert(0);
-      VLOG(1) << "error: qmin_dec_stream_done failed";
+      PRX_VLOG(1) << "error: qmin_dec_stream_done failed";
     }
 
     proxygen::HTTPHeaderSize sz;
@@ -420,13 +422,13 @@ class QMINScheme : public CompressionScheme {
     size_t avail = sizeof(qms_ctl[idx].buf) - qms_ctl[idx].sz;
     assert(avail >= sz);
     if (avail < sz) {
-      VLOG(1) << "Truncating control message from " << sz << " to " << avail
-              << "bytes";
+      PRX_VLOG(1) << "Truncating control message from " << sz << " to " << avail
+                  << "bytes";
       sz = avail;
     }
     memcpy(qms_ctl[idx].buf + qms_ctl[idx].sz, buf, sz);
     qms_ctl[idx].sz += sz;
-    VLOG(4) << "Wrote " << sz << " bytes to control channel";
+    PRX_VLOG(4) << "Wrote " << sz << " bytes to control channel";
   }
 
   static void write_enc2dec(void *ctx, const void *buf, size_t sz) {

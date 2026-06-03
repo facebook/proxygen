@@ -15,6 +15,7 @@
 
 #include <folly/io/IOBufQueue.h>
 #include <list>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen::detail {
 
@@ -43,7 +44,7 @@ struct BufferedFlowController {
   // increment)
   void commit(uint64_t len) {
     window_.reserve(len);
-    CHECK_LE(getCurrentOffset(), getBufferedOffset());
+    PRX_CHECK_LE(getCurrentOffset(), getBufferedOffset());
   }
 
   [[nodiscard]] bool grant(uint64_t offset) {

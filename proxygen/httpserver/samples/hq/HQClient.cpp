@@ -21,6 +21,7 @@
 #include <proxygen/httpserver/samples/hq/H1QUpstreamSession.h>
 #include <proxygen/httpserver/samples/hq/HQLoggerHelper.h>
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/UtilInl.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/client/QuicClientTransport.h>
@@ -44,14 +45,15 @@ int HQClient::start(const folly::SocketAddress& localAddress) {
   initializeQLogger();
 
   // TODO: turn on cert verification
-  LOG(INFO) << "HQClient connecting to " << params_.remoteAddress->describe();
+  PRX_LOG(INFO) << "HQClient connecting to "
+                << params_.remoteAddress->describe();
   quicClient_->start(this, nullptr);
   evb_.loop();
   return failed_ ? -1 : 0;
 }
 
 void HQClient::onConnectionSetupError(quic::QuicError code) noexcept {
-  LOG(ERROR) << "Failed to establish QUIC connection: " << code.message;
+  PRX_LOG(ERROR) << "Failed to establish QUIC connection: " << code.message;
   quicClient_->setConnectionSetupCallback(nullptr);
   connectError(code);
 }
@@ -129,8 +131,8 @@ HQClient::sendRequest(const proxygen::URL& requestUrl) {
     filename = folly::to<std::string>(params_.outdir, "/", filename);
     canWrite = client->saveResponseToFile(filename);
     if (!canWrite) {
-      LOG(ERROR) << "Can not write output to file '" << filename
-                 << "' printing to stdout instead";
+      PRX_LOG(ERROR) << "Can not write output to file '" << filename
+                     << "' printing to stdout instead";
     }
   }
   client->sendRequest(txn);
@@ -152,7 +154,7 @@ void HQClient::drainSession() {
 }
 
 void HQClient::sendRequests(bool closeSession, uint64_t numOpenableStreams) {
-  VLOG(10) << "http-version:" << params_.httpVersion;
+  PRX_VLOG(10) << "http-version:" << params_.httpVersion;
   do {
     proxygen::URL requestUrl(httpPaths_.front().str(), /*secure=*/true);
     sendRequest(requestUrl);
@@ -174,10 +176,10 @@ void HQClient::sendRequests(bool closeSession, uint64_t numOpenableStreams) {
                                ? "0.0.0.0"
                                : "::";
         auto bindRes = newSock->bind(folly::SocketAddress(bindAddress, 0));
-        CHECK(!bindRes.hasError());
+        PRX_CHECK(!bindRes.hasError());
         auto startProbeRes =
             quicClient_->startPathProbe(std::move(newSock), this);
-        CHECK(!startProbeRes.hasError()) << startProbeRes.error();
+        PRX_CHECK(!startProbeRes.hasError()) << startProbeRes.error();
       }
       std::chrono::milliseconds gap = requestGaps_.front();
       requestGaps_.pop_front();
@@ -199,7 +201,7 @@ void HQClient::sendRequests(bool closeSession, uint64_t numOpenableStreams) {
         };
       }
     };
-    CHECK(!curls_.empty());
+    PRX_CHECK(!curls_.empty());
     curls_.back()->setEOMFunc(callSendRequestsAfterADelay);
   }
 }
@@ -211,7 +213,7 @@ void HQClient::connectSuccess() {
   }
   uint64_t numOpenableStreams =
       quicClient_->getNumOpenableBidirectionalStreams();
-  CHECK_GT(numOpenableStreams, 0);
+  PRX_CHECK_GT(numOpenableStreams, 0u);
   httpPaths_.insert(
       httpPaths_.end(), params_.httpPaths.begin(), params_.httpPaths.end());
   for (auto const& s : params_.requestGaps) {
@@ -250,7 +252,7 @@ void HQClient::connectSuccess() {
             std::max(rtt, std::chrono::milliseconds(1)));
       }
     };
-    CHECK(!curls_.empty());
+    PRX_CHECK(!curls_.empty());
     curls_.back()->setEOMFunc(selfSchedulingRequestRunner);
   }
 }
@@ -264,23 +266,24 @@ void HQClient::sendKnobFrame(const folly::StringPiece str) {
   BufPtr buf(folly::IOBuf::create(str.size()));
   memcpy(buf->writableData(), str.data(), str.size());
   buf->append(str.size());
-  VLOG(10) << "Sending Knob Frame to peer. KnobSpace: " << std::hex << knobSpace
-           << " KnobId: " << std::dec << knobId << " Knob Blob" << str;
+  PRX_VLOG(10) << "Sending Knob Frame to peer. KnobSpace: " << std::hex
+               << knobSpace << " KnobId: " << std::dec << knobId << " Knob Blob"
+               << str;
   const auto knobSent = quicClient_->setKnob(0xfaceb00c, 100, std::move(buf));
   if (knobSent.hasError()) {
-    LOG(ERROR) << "Failed to send Knob frame to peer. Received error: "
-               << knobSent.error();
+    PRX_LOG(ERROR) << "Failed to send Knob frame to peer. Received error: "
+                   << knobSent.error();
   }
 }
 
 void HQClient::onReplaySafe() noexcept {
-  VLOG(4) << "Transport replay safe";
+  PRX_VLOG(4) << "Transport replay safe";
   replaySafe_ = true;
 }
 
 void HQClient::connectError(const quic::QuicError& error) {
-  LOG(ERROR) << "HQClient failed to connect, error=" << toString(error.code)
-             << ", msg=" << error.message;
+  PRX_LOG(ERROR) << "HQClient failed to connect, error=" << toString(error.code)
+                 << ", msg=" << error.message;
   failed_ = true;
   evb_.terminateLoopSoon();
 }
@@ -348,20 +351,21 @@ void HQClient::initializeQLogger() {
 
 void HQClient::onPathValidationResult(const PathInfo& pathInfo) {
   if (pathInfo.status == PathStatus::Validated) {
-    LOG(INFO) << fmt::format(
+    PRX_LOG(INFO) << fmt::format(
         "Path probe successful. Migrating connection to: local address = {}, "
         "peer address = {}",
         pathInfo.localAddress.describe(),
         pathInfo.peerAddress.describe());
     auto migrationRes = quicClient_->migrateConnection(pathInfo.id);
     if (migrationRes.hasError()) {
-      LOG(ERROR) << "Failed to migrate connection: " << migrationRes.error();
+      PRX_LOG(ERROR) << "Failed to migrate connection: "
+                     << migrationRes.error();
     }
   } else {
-    LOG(ERROR) << "Path probe timed out. Deleting the path.";
+    PRX_LOG(ERROR) << "Path probe timed out. Deleting the path.";
     auto removeRes = quicClient_->removePath(pathInfo.id);
     if (removeRes.hasError()) {
-      LOG(ERROR) << "Failed to remove path: " << removeRes.error();
+      PRX_LOG(ERROR) << "Failed to remove path: " << removeRes.error();
       failed_ = true;
       evb_.terminateLoopSoon();
     }

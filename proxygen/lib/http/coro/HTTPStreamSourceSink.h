@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/sink/HTTPSink.h>
 #include <proxygen/lib/utils/ConditionalGate.h>
 
+#include <proxygen/lib/utils/LogShim.h>
 #include <utility>
 
 namespace proxygen::coro {
@@ -128,11 +129,11 @@ class HTTPStreamSourceUpstreamSink
   }
   // Flow control
   void pauseIngress() override {
-    XLOG(DBG8) << __func__;
+    PRX_VLOG(8) << __func__;
     ingressResumed_.reset();
   }
   void resumeIngress() override {
-    XLOG(DBG8) << __func__;
+    PRX_VLOG(8) << __func__;
     ingressResumed_.signal();
     /**
      * due to InlineExecutor being used, this will resume read loop inline and

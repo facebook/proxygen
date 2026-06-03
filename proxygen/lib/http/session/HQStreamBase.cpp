@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/session/HQStreamBase.h>
 
 #include <proxygen/lib/http/session/HQSession.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 namespace proxygen {
 
@@ -32,7 +33,7 @@ const HTTPCodec& HQStreamBase::getCodec() const noexcept {
     return *realCodecPtr_->get();
   }
   // must be the current codec
-  return *CHECK_NOTNULL(&codecFilterChain.getChainEnd());
+  return *PRX_CHECK_NOTNULL(&codecFilterChain.getChainEnd());
 }
 
 HQSession& HQStreamBase::getSession() const noexcept {
@@ -61,12 +62,12 @@ HQSession& HQStreamBase::getSession() const noexcept {
 folly::Function<void()> HQStreamBase::setActiveCodec(const std::string& where) {
   if (!realCodecPtr_->get()) {
     // already the active codec, no-op
-    CHECK(!realCodec_);
+    PRX_CHECK(!realCodec_);
     return [] {};
   }
-  VLOG(5) << "Pushing active codec from " << where;
-  CHECK_LT(session_.codecStack_.size(), HQSession::kMaxCodecStackDepth);
-  CHECK(!session_.codecStack_.back().codec);
+  PRX_VLOG(5) << "Pushing active codec from " << where;
+  PRX_CHECK_LT(session_.codecStack_.size(), HQSession::kMaxCodecStackDepth);
+  PRX_CHECK(!session_.codecStack_.back().codec);
   // Set the requested codec as the chain destination, and store the previous
   // codec to its spot in the codecStack
   session_.codecStack_.back().codec =
@@ -78,9 +79,9 @@ folly::Function<void()> HQStreamBase::setActiveCodec(const std::string& where) {
   codecFilterChain.setCallback(this);
   return [this, where] {
     // put this codec back where it belongs
-    VLOG(5) << "Popping active codec from " << where;
+    PRX_VLOG(5) << "Popping active codec from " << where;
     auto codecPtr = session_.codecStack_.back().codecPtr;
-    CHECK(!session_.codecStack_.back().codec);
+    PRX_CHECK(!session_.codecStack_.back().codec);
     // pop the stack
     session_.codecStack_.pop_back();
     // move previous codec from the stack to active
@@ -94,13 +95,14 @@ folly::Function<void()> HQStreamBase::setActiveCodec(const std::string& where) {
 size_t HQStreamBase::generateStreamPreface() {
   // Request (aka HQStreamTransport) streams do not type set.
   // If "generateStreamPreface" is invoked on those, its a bug
-  CHECK(type_.has_value())
+  PRX_CHECK(type_.has_value())
       << "Can not generate preface on streams without a type";
-  VLOG(4) << "generating stream preface for " << type_.value()
-          << " stream streamID=" << getEgressStreamId() << " sess=" << session_;
+  PRX_VLOG(4) << "generating stream preface for " << type_.value()
+              << " stream streamID=" << getEgressStreamId()
+              << " sess=" << session_;
   auto res = hq::writeStreamPreface(
       writeBuf_, static_cast<hq::StreamTypeType>(type_.value()));
-  CHECK(res.has_value());
+  PRX_CHECK(res.has_value());
   return res.value();
 }
 } // namespace proxygen

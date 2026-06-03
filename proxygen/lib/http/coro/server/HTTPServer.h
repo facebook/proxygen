@@ -13,9 +13,9 @@
 #include <folly/container/F14Map.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/io/async/AsyncSignalHandler.h>
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/H3EarlyDataHandler.h>
 #include <proxygen/lib/sampling/Sampling.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <quic/server/QuicHandshakeSocketHolder.h>
 #include <quic/server/QuicServer.h>
 #include <signal.h>
@@ -155,7 +155,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
    */
   std::optional<folly::SocketAddress> address() const {
     if (!serverSockets_.empty()) {
-      XCHECK_EQ(serverSockets_.size(), 1UL)
+      PRX_CHECK_EQ(serverSockets_.size(), 1UL)
           << "Attempt to use address() on an implementation that supports "
              "multiple addresses";
       folly::SocketAddress address;
@@ -226,7 +226,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
   };
 
   void addObserver(Observer* observer) {
-    CHECK_NOTNULL(observer);
+    PRX_CHECK_NOTNULL(observer);
     observers_.insert(observer);
   }
 
@@ -257,7 +257,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
       std::shared_ptr<quic::QuicSocket> quicSocket) override;
   void onConnectionSetupError(std::shared_ptr<quic::QuicSocket>,
                               quic::QuicError error) override {
-    XLOG(ERR) << "Failed to accept QUIC connection: " << error.message;
+    PRX_LOG(ERROR) << "Failed to accept QUIC connection: " << error.message;
   }
   void run(std::function<void()> onSuccess);
   void globalDrainImpl();
@@ -335,7 +335,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
     }
 
     void signalReceived(int signum) noexcept override {
-      XLOG(DBG2) << "Received signal " << signum << ", initiating drain";
+      PRX_VLOG(2) << "Received signal " << signum << ", initiating drain";
       server_.drain();
     }
 

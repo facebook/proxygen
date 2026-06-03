@@ -14,11 +14,11 @@
 #include "proxygen/lib/http/coro/util/TimedBaton.h"
 
 #include "proxygen/lib/http/session/test/MockHTTPSessionStats.h"
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/CodecProtocol.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -81,23 +81,23 @@ class TestCoroMultiplexTransport : public TestHTTPTransport {
       , public quic::QuicSocket::ConnectionCallback {
    public:
     void onNewBidirectionalStream(quic::StreamId /*id*/) noexcept override {
-      XLOG(FATAL) << __func__ << " on dummy conn cb";
+      PRX_LOG(FATAL) << __func__ << " on dummy conn cb";
     }
     void onNewUnidirectionalStream(quic::StreamId /*id*/) noexcept override {
-      XLOG(FATAL) << __func__ << " on dummy conn cb";
+      PRX_LOG(FATAL) << __func__ << " on dummy conn cb";
     }
     void onStopSending(quic::StreamId /*id*/,
                        quic::ApplicationErrorCode /*error*/) noexcept override {
-      XLOG(FATAL) << __func__ << " on dummy conn cb";
+      PRX_LOG(FATAL) << __func__ << " on dummy conn cb";
     }
     void onConnectionEnd() noexcept override {
-      XLOG(FATAL) << __func__ << " on dummy conn cb";
+      PRX_LOG(FATAL) << __func__ << " on dummy conn cb";
     }
     void onConnectionSetupError(quic::QuicError code) noexcept override {
       onConnectionError(std::move(code));
     }
     void onConnectionError(quic::QuicError /*code*/) noexcept override {
-      XLOG(FATAL) << __func__ << " on dummy conn cb";
+      PRX_LOG(FATAL) << __func__ << " on dummy conn cb";
     }
   };
 
@@ -254,7 +254,7 @@ class HTTPCoroSessionTest : public testing::TestWithParam<TestParams> {
                 bool(expectedError_) || bool(notExpectedError_));
       if (!expectedError_ && !notExpectedError_) {
         for (auto &stream : muxTransport_->socketDriver_.streams_) {
-          XLOG(DBG2) << "Verifying stream=" << stream.first;
+          PRX_VLOG(2) << "Verifying stream=" << stream.first;
           EXPECT_TRUE(stream.second.unsentBuf.empty());
           EXPECT_TRUE(stream.second.pendingWriteBuf.empty());
         }
@@ -303,7 +303,7 @@ class HTTPCoroSessionTest : public testing::TestWithParam<TestParams> {
   }
 
   void parseOutputUniplex() {
-    XCHECK(!isHQ());
+    PRX_CHECK(!isHQ());
     folly::IOBufQueue parseOutputStream{folly::IOBufQueue::cacheChainLength()};
     for (auto &event : transportState_.writeEvents) {
       parseOutputStream.append(event.move());

@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/utils/LogShim.h>
 
 using namespace proxygen;
 using namespace std;
@@ -61,7 +62,7 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
                const HTTPException& error,
                bool /*newTxn*/) override {
     ++errors;
-    LOG(ERROR) << "parse error " << error;
+    PRX_LOG(ERROR) << "parse error " << error;
   }
 
   uint32_t headersComplete{0};
@@ -493,7 +494,7 @@ TEST(HTTP1xCodecTest, TestChunkedUpstream) {
   ASSERT_EQ("5\r\nHello\r\n", bodyFromBuf->moveToFbString());
 
   codec.generateBody(buf, txnID, std::move(body2), HTTPCodec::NoPadding, true);
-  LOG(WARNING) << "len chain" << buf.chainLength();
+  PRX_LOG(WARNING) << "len chain" << buf.chainLength();
 
   auto eomFromBuf = buf.split(buf.chainLength());
   ASSERT_EQ("5\r\nWorld\r\n0\r\n\r\n", eomFromBuf->moveToFbString());
@@ -988,7 +989,7 @@ TEST(HTTP1xCodecTest, TestChunkResponseSerialization) {
 
   std::string tmp;
   blob.appendToString(tmp);
-  VLOG(2) << "serializeMessage blob: " << tmp;
+  PRX_VLOG(2) << "serializeMessage blob: " << tmp;
 
   // deserialize
   HTTP1xCodec upCodec(TransportDirection::UPSTREAM);

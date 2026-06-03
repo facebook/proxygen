@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
+#include <proxygen/lib/utils/LogShim.h>
 #include <proxygen/lib/utils/Logging.h>
 
 using folly::IOBuf;
@@ -31,7 +32,7 @@ HPACKEncodeBuffer::HPACKEncodeBuffer(uint32_t growthSize)
 
 void HPACKEncodeBuffer::addHeadroom(uint32_t headroom) {
   // we expect that this function is called before any encoding happens
-  CHECK(bufQueuePtr_->front() == nullptr);
+  PRX_CHECK(bufQueuePtr_->front() == nullptr);
   // create a custom IOBuf and add it to the queue
   unique_ptr<IOBuf> buf = IOBuf::create(std::max(headroom, growthSize_));
   buf->advance(headroom);
@@ -54,11 +55,11 @@ uint32_t HPACKEncodeBuffer::encodeInteger(
 uint32_t HPACKEncodeBuffer::encodeInteger(uint64_t value,
                                           uint8_t instruction,
                                           uint8_t nbit) {
-  CHECK(nbit > 0 && nbit <= 8);
+  PRX_CHECK(nbit > 0 && nbit <= 8);
   uint32_t count = 0;
   uint8_t mask = HPACK::NBIT_MASKS[nbit];
   // The instruction should not extend into mask
-  DCHECK_EQ(instruction & mask, 0);
+  PRX_DCHECK_EQ(instruction & mask, 0);
 
   // write the first byte
   uint8_t byte = instruction;
@@ -106,9 +107,9 @@ uint32_t HPACKEncodeBuffer::encodeHuffman(uint8_t instruction,
   static const auto& huffmanTree = huffman::huffTree();
   uint32_t size = huffmanTree.getEncodeSize(literal);
   // add the length
-  DCHECK_LE(nbit, 7);
+  PRX_DCHECK_LE(nbit, 7);
   auto huffmanOn = uint8_t(1 << nbit);
-  DCHECK_EQ(instruction & huffmanOn, 0);
+  PRX_DCHECK_EQ(instruction & huffmanOn, 0);
   uint32_t count = encodeInteger(size, instruction | huffmanOn, nbit);
   // ensure we have enough bytes before performing the encoding
   count += huffmanTree.encode(literal, buf_);
