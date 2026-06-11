@@ -265,7 +265,9 @@ class HTTPClient {
       std::chrono::milliseconds connectTimeout,
       std::chrono::milliseconds readTimeout,
       std::string clientCertPath = "",
-      std::string clientKeyPath = "");
+      std::string clientKeyPath = "",
+      HTTPCoroConnector::ConnectHeaderMap connectHeaders =
+          HTTPCoroConnector::ConnectHeaderMap());
 
  private:
   static std::vector<std::string>& defaultCAPaths();
