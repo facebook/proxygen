@@ -669,6 +669,10 @@ CO_TEST_P_X(HTTPClientTests, Connect) {
                                                               timeout));
   EXPECT_FALSE(sess.hasException());
 
+  HTTPCoroConnector::ConnectHeaderMap connectHeaders = {
+      {"Proxy-Authorization", "Basic dGVzdA=="},
+      {"X-Proxy-Trace", "trace-id"}};
+  testHandler_->expectedConnectHeaders_ = connectHeaders;
   auto sessViaProxy = co_await co_awaitTry(
       HTTPClient::getHTTPSessionViaProxy(*sess,
                                          "example.com",
@@ -676,7 +680,10 @@ CO_TEST_P_X(HTTPClientTests, Connect) {
                                          true,
                                          transportImpl(TransportType::TCP),
                                          timeout,
-                                         timeout));
+                                         timeout,
+                                         /*clientCertPath=*/"",
+                                         /*clientKeyPath=*/"",
+                                         std::move(connectHeaders)));
   EXPECT_FALSE(sessViaProxy.hasException());
 
   (*sessViaProxy)->initiateDrain();

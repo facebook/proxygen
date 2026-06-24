@@ -292,7 +292,8 @@ folly::coro::Task<HTTPCoroSession*> HTTPClient::getHTTPSessionViaProxy(
     std::chrono::milliseconds connectTimeout,
     std::chrono::milliseconds readTimeout,
     std::string clientCertPath,
-    std::string clientKeyPath) {
+    std::string clientKeyPath,
+    HTTPCoroConnector::ConnectHeaderMap connectHeaders) {
   HTTPCoroConnector::ConnectionParams connParams;
   auto tlsParams =
       makeTLSParams(clientCertPath, clientKeyPath, kDefaultNextProtocols);
@@ -308,7 +309,8 @@ folly::coro::Task<HTTPCoroSession*> HTTPClient::getHTTPSessionViaProxy(
                                       connectUnique,
                                       connectTimeout,
                                       connParams,
-                                      getSessionParams(readTimeout)));
+                                      getSessionParams(readTimeout),
+                                      std::move(connectHeaders)));
   co_return res;
 }
 

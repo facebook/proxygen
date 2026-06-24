@@ -24,6 +24,7 @@
 #include <string>
 
 #include "proxygen/lib/http/coro/HTTPCoroSession.h"
+#include "proxygen/lib/http/coro/transport/HTTPConnectStream.h"
 #include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/sampling/Sampling.h>
@@ -177,7 +178,10 @@ class HTTPCoroConnector {
       const SessionParams& sessionParams = defaultSessionParams(),
       std::chrono::milliseconds happyEyeballsTimeout = kHappyEyeballsDelay);
 
-  // For HTTP connections over HTTP CONNECT
+  // For HTTP connections over HTTP CONNECT. `connectHeaders` is forwarded
+  // to `HTTPConnectStream::connect[Unique]` so callers can inject
+  // `Proxy-Authorization` and similar.
+  using ConnectHeaderMap = HTTPConnectStream::RequestHeaderMap;
   static folly::coro::Task<HTTPCoroSession*> proxyConnect(
       HTTPCoroSession* proxySession,
       HTTPCoroSession::RequestReservation reservation,
@@ -185,7 +189,8 @@ class HTTPCoroConnector {
       bool connectUnique,
       std::chrono::milliseconds timeout,
       const ConnectionParams& connParams = defaultConnectionParams(),
-      const SessionParams& sessionParams = defaultSessionParams());
+      const SessionParams& sessionParams = defaultSessionParams(),
+      ConnectHeaderMap connectHeaders = ConnectHeaderMap());
 
   static folly::coro::Task<HTTPCoroSession*> connect(
       folly::EventBase* evb,

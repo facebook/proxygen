@@ -658,17 +658,26 @@ folly::coro::Task<HTTPCoroSession*> HTTPCoroConnector::proxyConnect(
     bool connectUnique,
     std::chrono::milliseconds timeout,
     const ConnectionParams& connParams,
-    const SessionParams& sessionParams) {
+    const SessionParams& sessionParams,
+    ConnectHeaderMap connectHeaders) {
 
   // egress bufer option?
   XLOG(DBG2) << "Sending CONNECT to " << authority;
   std::unique_ptr<HTTPConnectStream> connectStream;
   if (connectUnique) {
     connectStream = co_await co_nothrow(HTTPConnectStream::connectUnique(
-        proxySession, std::move(reservation), authority, timeout));
+        proxySession,
+        std::move(reservation),
+        authority,
+        timeout,
+        std::move(connectHeaders)));
   } else {
     connectStream = co_await co_nothrow(HTTPConnectStream::connect(
-        proxySession, std::move(reservation), authority, timeout));
+        proxySession,
+        std::move(reservation),
+        authority,
+        timeout,
+        std::move(connectHeaders)));
   }
   auto peerAddr = connectStream->peerAddr_;
   co_return co_await co_nothrow(connectImpl(proxySession->getEventBase(),

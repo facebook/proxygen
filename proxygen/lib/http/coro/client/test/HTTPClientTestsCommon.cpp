@@ -94,6 +94,10 @@ folly::coro::Task<HTTPSourceHolder> TestHandler::handleRequest(
   EXPECT_EQ(request->isSecure(), ctx->getSetupTransportInfo().secure);
 
   if (request->getMethod() == HTTPMethod::CONNECT) {
+    for (const auto& expectedHeader : expectedConnectHeaders_) {
+      EXPECT_EQ(request->getHeaders().getSingleOrEmpty(expectedHeader.first),
+                expectedHeader.second);
+    }
     // Hack to silence the expect in connectHandler
     request->getHeaders().add("Foo", "Bar");
     auto hybridSource = new HTTPHybridSource(std::move(headerEvent.headers),

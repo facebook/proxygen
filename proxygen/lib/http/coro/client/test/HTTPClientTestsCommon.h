@@ -55,6 +55,7 @@ class TestHandler : public HTTPHandler {
       HTTPSourceHolder requestSource) override;
 
   ConnectHandler connectHandler_;
+  HTTPCoroConnector::ConnectHeaderMap expectedConnectHeaders_;
 };
 
 class HTTPClientTests : public TestWithParam<TransportType> {
