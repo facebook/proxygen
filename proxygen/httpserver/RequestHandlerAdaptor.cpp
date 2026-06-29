@@ -116,7 +116,7 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
           .sendWithEOM();
     }
   } else if (error.getDirection() == HTTPException::Direction::INGRESS) {
-    setError(kErrorRead);
+    setError(error.hasProxygenError() ? error.getProxygenError() : kErrorRead);
 
     if (!txn_->canSendHeaders()) {
       sendAbort(folly::none);
