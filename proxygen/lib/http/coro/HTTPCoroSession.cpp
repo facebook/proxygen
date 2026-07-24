@@ -587,7 +587,8 @@ void HTTPUniplexTransportSession::start() {
     codec_.addFilters(std::move(rateLimitFilter));
   }
   codec_.setCallback(this);
-  ::proxygen::detail::setEgressWtHttpSettings(codec_->getEgressSettings());
+  ::proxygen::detail::setEgressWtHttpSettings(direction_,
+                                              codec_->getEgressSettings());
   sendPreface();
 }
 
@@ -3864,7 +3865,7 @@ folly::coro::Task<WtReqResult> HTTPCoroSession::sendWtReq(
       isHQCodecProtocol(getCodecProtocol())
           ? ::proxygen::detail::supportsH3Wt(
                 codec_->getTransportDirection(), ingress, egress)
-          : ::proxygen::detail::supportsH2Wt({ingress, egress});
+          : ::proxygen::detail::supportsH2Wt(direction_, ingress, egress);
   const bool validWtReq = HTTPWebTransport::isConnectMessage(msg);
   if (!(wtEnabled && validWtReq)) {
     auto err = !validWtReq ? kInvalidWtReq : kWtNotSupported;

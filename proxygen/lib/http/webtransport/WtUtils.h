@@ -18,9 +18,10 @@ class HTTPSettings;
 
 namespace proxygen::detail {
 
-// if ENABLE_CONNECT_PROTOCOL is set; applies some default h2 wt settings on the
-// HttpSettings (e.g. MaxData, MaxStreamData, etc.)
-void setEgressWtHttpSettings(HTTPSettings* settings) noexcept;
+// if ENABLE_CONNECT_PROTOCOL is set for downstream, applies some default h2 wt
+// settings on the HttpSettings (e.g. MaxData, MaxStreamData, etc.)
+void setEgressWtHttpSettings(TransportDirection dir,
+                             HTTPSettings* settings) noexcept;
 
 // if ENABLE_CONNECT_PROTOCOL is set; applies default h3 wt settings on the
 // HttpSettings (e.g. MaxData, MaxStreams)
@@ -42,14 +43,13 @@ void writeWtBidiFramePrefix(folly::IOBufQueue& q,
 
 /**
  * http/2 wt draft:
- * > In order to indicate support for WebTransport, both the client and the
- * > server MUST send a SETTINGS_WEBTRANSPORT_MAX_SESSIONS value greater than
- * > "0" in their SETTINGS frame
- *
- * > An endpoint needs to send both SETTINGS_ENABLE_CONNECT_PROTOCOL and
- * > SETTINGS_WEBTRANSPORT_MAX_SESSIONS for WebTransport to be enabled.
+ *  The server sends a SETTINGS_WT_ENABLED setting with a value of "1" to
+ *  indicate that it supports WebTransport over HTTP/2. Note that the client
+ *  does not need to send any value to indicate support for WebTransport
  */
-bool supportsH2Wt(std::initializer_list<const HTTPSettings*> settings) noexcept;
+bool supportsH2Wt(TransportDirection dir,
+                  const HTTPSettings* ingress,
+                  const HTTPSettings* egress) noexcept;
 
 /**
  * http/3 wt draft:
@@ -111,8 +111,8 @@ struct NotifyPeerStreamsGuard {
 
 /**
  * This is a helper utility (applicable to both http/2 and http/3) to capsules
- * received on the CONNECT stream to the WtStreamManager. This is pretty much a
- * 1:1 mapping to the WtStreamManager api.
+ * received on the CONNECT stream to the WtStreamManager. This is pretty much
+ * a 1:1 mapping to the WtStreamManager api.
  */
 class WtSessionBase; // fwd-decl
 struct WtCapsuleCallback : WebTransportCapsuleCodec::Callback {

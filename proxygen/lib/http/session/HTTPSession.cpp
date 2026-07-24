@@ -204,7 +204,8 @@ std::chrono::milliseconds HTTPSession::getDrainTimeout() const {
 void HTTPSession::startNow() {
   CHECK(!started_);
   started_ = true;
-  detail::setEgressWtHttpSettings(codec_->getEgressSettings());
+  detail::setEgressWtHttpSettings(codec_->getTransportDirection(),
+                                  codec_->getEgressSettings());
 
   codec_->generateSettings(writeBuf_);
   if (connFlowControl_) {
@@ -2715,8 +2716,9 @@ void HTTPSession::invokeOnAllTransactions(
 
 bool HTTPSession::supportsWebTransport() const noexcept {
   const auto& codec = getCodec();
-  return detail::supportsH2Wt(
-      {codec.getIngressSettings(), codec.getEgressSettings()});
+  return detail::supportsH2Wt(codec.getTransportDirection(),
+                              codec.getIngressSettings(),
+                              codec.getEgressSettings());
 }
 
 bool HTTPSession::tryWtSession(HTTPTransaction& txn,
