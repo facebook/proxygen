@@ -217,23 +217,9 @@ size_t HQControlCodec::generateSettings(folly::IOBufQueue& writeBuf) {
   CHECK(!sentSettings_);
   sentSettings_ = true;
   std::deque<hq::SettingPair> settings;
-  for (auto& setting : getEgressSettings()->getAllSettings()) {
-    auto id = httpToHqSettingsId(setting.id);
-    // unknown ids will return folly::none
+  for (const auto& setting : getEgressSettings()->getAllSettings()) {
+    auto id = httpToHqSettingsId(setting.id); // unknown id returns folly::none
     if (id) {
-      switch (*id) {
-        case hq::SettingId::HEADER_TABLE_SIZE:
-        case hq::SettingId::MAX_HEADER_LIST_SIZE:
-        case hq::SettingId::QPACK_BLOCKED_STREAMS:
-        case hq::SettingId::ENABLE_CONNECT_PROTOCOL:
-        case hq::SettingId::H3_DATAGRAM:
-        case hq::SettingId::H3_DATAGRAM_RFC:
-        case hq::SettingId::ENABLE_WEBTRANSPORT:
-        case hq::SettingId::H3_WT_MAX_SESSIONS:
-        case hq::SettingId::WT_INITIAL_MAX_DATA:
-        case hq::SettingId::WT_ENABLED:
-          break;
-      }
       settings.emplace_back(*id, (SettingValue)setting.value);
     }
   }
