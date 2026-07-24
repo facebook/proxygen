@@ -1515,6 +1515,32 @@ TEST_F(HTTP2CodecTest, BasicSetting) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+TEST_F(HTTP2CodecTest, WebTransportSettings) {
+  constexpr auto kWtSettings =
+      std::array{SettingsId::WT_ENABLED,
+                 SettingsId::WT_INITIAL_MAX_DATA,
+                 SettingsId::WT_INITIAL_MAX_STREAM_DATA_UNI,
+                 SettingsId::WT_INITIAL_MAX_STREAM_DATA_BIDI,
+                 SettingsId::WT_INITIAL_MAX_STREAMS_UNI,
+                 SettingsId::WT_INITIAL_MAX_STREAMS_BIDI};
+
+  auto* settings = upstreamCodec_.getEgressSettings();
+  settings->clearSettings();
+  for (auto id : kWtSettings) {
+    settings->setSetting(id, 1);
+  }
+
+  // expect ::onSettings to contain all of kWtSettings
+  upstreamCodec_.generateSettings(output_);
+  parse();
+  const auto& ingressSettings = callbacks_.ingressSettings;
+  EXPECT_EQ(ingressSettings.size(), kWtSettings.size());
+  for (size_t i = 0; i < ingressSettings.size(); i++) {
+    EXPECT_EQ(ingressSettings[i].id, kWtSettings[i]);
+    EXPECT_EQ(ingressSettings[i].value, 1);
+  }
+}
+
 TEST_F(HTTP2CodecTest, SettingsAck) {
   upstreamCodec_.generateSettingsAck(output_);
 

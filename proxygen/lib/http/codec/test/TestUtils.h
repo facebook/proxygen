@@ -233,6 +233,9 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
         wtInitialMaxData = setting.value;
       }
     }
+
+    ingressSettings.insert(
+        ingressSettings.end(), inSettings.cbegin(), inSettings.cend());
   }
 
   void onSettingsAck() override {
@@ -330,6 +333,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     msg.reset();
     lastParseError.reset();
     lastErrorCode = ErrorCode::NO_ERROR;
+    ingressSettings.clear();
   }
 
   void dumpCounters(int verbosity) const {
@@ -404,6 +408,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   std::unique_ptr<HTTPException> lastParseError;
   ErrorCode lastErrorCode;
   std::vector<HTTPCodec::StreamID> goawayStreamIds;
+  SettingsList ingressSettings;
 };
 
 MATCHER_P(PtrBufHasLen, n, "") {

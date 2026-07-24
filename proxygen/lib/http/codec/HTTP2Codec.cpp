@@ -756,6 +756,16 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
   SettingsList settingsList;
   for (auto& setting : settings) {
     switch (setting.first) {
+      case SettingsId::MAX_HEADER_LIST_SIZE:
+      case SettingsId::MAX_CONCURRENT_STREAMS:
+      // wt settings
+      case SettingsId::WT_ENABLED:
+      case SettingsId::WT_INITIAL_MAX_DATA:
+      case SettingsId::WT_INITIAL_MAX_STREAM_DATA_UNI:
+      case SettingsId::WT_INITIAL_MAX_STREAM_DATA_BIDI:
+      case SettingsId::WT_INITIAL_MAX_STREAMS_UNI:
+      case SettingsId::WT_INITIAL_MAX_STREAMS_BIDI:
+        break;
       case SettingsId::HEADER_TABLE_SIZE: {
         uint32_t tableSize = setting.second;
         if (setting.second > http2::kMaxHeaderTableSize) {
@@ -776,8 +786,6 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
           VLOG(4) << goawayErrorMessage_;
           return ErrorCode::PROTOCOL_ERROR;
         }
-        break;
-      case SettingsId::MAX_CONCURRENT_STREAMS:
         break;
       case SettingsId::INITIAL_WINDOW_SIZE:
         if (setting.second == 0 ||
@@ -804,8 +812,6 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
         }
         ingressSettings_.setSetting(SettingsId::MAX_FRAME_SIZE, setting.second);
         break;
-      case SettingsId::MAX_HEADER_LIST_SIZE:
-        break;
       case SettingsId::ENABLE_CONNECT_PROTOCOL:
         if (setting.second > 1) {
           goawayErrorMessage_ = folly::to<string>(
@@ -817,13 +823,11 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
           return ErrorCode::PROTOCOL_ERROR;
         }
         break;
-      case SettingsId::WT_ENABLED:
       case SettingsId::_HQ_QPACK_BLOCKED_STREAMS:
       case SettingsId::_HQ_DATAGRAM:
       case SettingsId::_HQ_DATAGRAM_RFC:
       case SettingsId::ENABLE_WEBTRANSPORT:
       case SettingsId::H3_WT_MAX_SESSIONS:
-      case SettingsId::WT_INITIAL_MAX_DATA:
         // These are not handled, fall through to default
       default:
         continue; // ignore unknown setting
@@ -1442,6 +1446,12 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
       case SettingsId::MAX_CONCURRENT_STREAMS:
       case SettingsId::INITIAL_WINDOW_SIZE:
       case SettingsId::MAX_FRAME_SIZE:
+      case SettingsId::WT_ENABLED:
+      case SettingsId::WT_INITIAL_MAX_DATA:
+      case SettingsId::WT_INITIAL_MAX_STREAM_DATA_UNI:
+      case SettingsId::WT_INITIAL_MAX_STREAM_DATA_BIDI:
+      case SettingsId::WT_INITIAL_MAX_STREAMS_UNI:
+      case SettingsId::WT_INITIAL_MAX_STREAMS_BIDI:
         break;
       case SettingsId::MAX_HEADER_LIST_SIZE:
         headerCodec_.setMaxUncompressed(setting.value);
@@ -1451,14 +1461,13 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
           continue;
         }
         break;
-      case SettingsId::WT_ENABLED:
       case SettingsId::_HQ_QPACK_BLOCKED_STREAMS:
       case SettingsId::_HQ_DATAGRAM:
       case SettingsId::_HQ_DATAGRAM_RFC:
-      case SettingsId::ENABLE_WEBTRANSPORT:
+      case SettingsId::H3_WT_ENABLED:
       case SettingsId::H3_WT_MAX_SESSIONS:
-      case SettingsId::WT_INITIAL_MAX_DATA:
-        // These are not handled, fall through to default
+      case SettingsId::ENABLE_WEBTRANSPORT:
+      // These are not handled, fall through to default
       default:
         LOG(ERROR) << "ignore unknown settingsId="
                    << std::underlying_type<SettingsId>::type(setting.id)
