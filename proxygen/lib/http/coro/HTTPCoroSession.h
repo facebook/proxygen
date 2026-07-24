@@ -494,6 +494,13 @@ class HTTPCoroSession
     return peerAddr_;
   }
 
+  const std::string& getUserSessionId() const {
+    return userSessionId_;
+  }
+  void setUserSessionId(std::string userSessionId) {
+    userSessionId_ = std::move(userSessionId);
+  }
+
   const wangle::TransportInfo& getSetupTransportInfo() const override {
     return setupTransportInfo_;
   }
@@ -560,6 +567,7 @@ class HTTPCoroSession
   TransportDirection direction_;
   folly::SocketAddress localAddr_;
   folly::SocketAddress peerAddr_;
+  std::string userSessionId_;
   HTTPCodecFilterChain codec_;
   std::shared_ptr<HTTPHandler> handler_;
   HTTPSessionStats* sessionStats_{nullptr};

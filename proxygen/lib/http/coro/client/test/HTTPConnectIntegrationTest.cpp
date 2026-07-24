@@ -53,6 +53,11 @@ class ConnectHandler : public HTTPHandler {
     auto connectSource = std::make_unique<ConnectSource>(
         std::make_unique<folly::coro::Transport>(std::move(transport).value()),
         std::move(requestSource));
+    // Set an arbitrary CONNECT-200 header the client reads back off the
+    // session.
+    HTTPHeaders connectResponseHeaders;
+    connectResponseHeaders.set("X-FB-Fwdproxy-Request-Id", "test-id");
+    connectSource->setConnectResponseHeaders(std::move(connectResponseHeaders));
     co_withExecutor(evb, connectSource->readRequestSendUpstream()).start();
     co_return connectSource.release();
   }
@@ -191,6 +196,22 @@ CO_TEST_F_X(HTTPConnectIntegrationTest, Simple) {
                       /*url=*/URL{authority}));
   XCHECK(!resp.hasException()) << "resp ex=" << resp.exception();
   XCHECK_EQ(resp->headers->getStatusCode(), 200);
+
+  serverSess.value()->initiateDrain();
+  proxySess->initiateDrain();
+}
+
+CO_TEST_F_X(HTTPConnectIntegrationTest, ConnectResponseHeadersOnSession) {
+  auto proxySess = co_await getProxySess();
+  auto authority = folly::to<std::string>(
+      "https://localhost:", getServAddr().getPort(), "/");
+  // The connector auto-captures fwdproxy's CONNECT-200 request-id header (set
+  // by the proxy handler above) into the tunnel session's userSessionId.
+  auto serverSess = co_await co_awaitTry(proxyConnect(proxySess, authority));
+  XCHECK(!serverSess.hasException())
+      << "serverSess ex=" << serverSess.exception().what();
+
+  EXPECT_EQ("test-id", serverSess.value()->getUserSessionId());
 
   serverSess.value()->initiateDrain();
   proxySess->initiateDrain();

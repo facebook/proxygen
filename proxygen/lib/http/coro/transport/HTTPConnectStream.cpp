@@ -115,6 +115,10 @@ folly::coro::Task<void> HTTPConnectStream::connectImpl(
                   << upstreamAddress << " err=" << ex.what();
       }
     }
+    // fwdproxy echoes its per-connection request id here; capture it for
+    // request<->egress-log correlation.
+    userSessionId_ = headerEvent.headers->getHeaders().getSingleOrEmpty(
+        "X-FB-Fwdproxy-Request-ID");
     break; // meh
   }
   // Successfully connected!

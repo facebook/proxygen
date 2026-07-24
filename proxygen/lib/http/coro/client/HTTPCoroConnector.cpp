@@ -548,6 +548,10 @@ folly::coro::Task<CoroSessionHandle> connectImpl(
 
   folly::Try<std::unique_ptr<CoroTransportIf>> socket;
   bool isSecure = true;
+  std::string userSessionId;
+  if (connectStream) {
+    userSessionId = connectStream->extractUserSessionId();
+  }
   if (connParams.fizzContextAndVerifier.fizzContext) {
     socket = co_await co_awaitTry(connectFizz(
         evb, serverAddr, std::move(connectStream), timeout, connParams, tinfo));
@@ -599,6 +603,9 @@ folly::coro::Task<CoroSessionHandle> connectImpl(
   }
   auto session = HTTPCoroSession::makeUpstreamCoroSession(
       std::move(*socket), std::move(codec), std::move(tinfo));
+  if (!userSessionId.empty()) {
+    session->setUserSessionId(std::move(userSessionId));
+  }
   setupSession(session, sessionParams);
   co_return session;
 }

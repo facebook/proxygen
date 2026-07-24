@@ -77,6 +77,10 @@ class HTTPConnectStream
   void shutdownRead();
   void shutdownWrite();
 
+  const std::string& extractUserSessionId() const {
+    return userSessionId_;
+  }
+
   CoroSessionHandle session_{nullptr};
   folly::EventBase* eventBase_;
   size_t egressBufferSize_;
@@ -84,6 +88,7 @@ class HTTPConnectStream
   std::shared_ptr<HTTPSourceHolder> ingressSource_;
   folly::SocketAddress localAddr_;
   folly::SocketAddress peerAddr_;
+  std::string userSessionId_;
   folly::Optional<HTTPError> egressError_;
 
  private:

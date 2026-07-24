@@ -66,7 +66,15 @@ class ConnectSource : public HTTPSource {
     resp->setHTTPVersion(1, 1);
     resp->setStatusCode(200);
     resp->setStatusMessage("Connected");
+    connectResponseHeaders_.forEach(
+        [&resp](const std::string& name, const std::string& value) {
+          resp->getHeaders().add(name, value);
+        });
     co_return HTTPHeaderEvent(std::move(resp), false);
+  }
+
+  void setConnectResponseHeaders(HTTPHeaders headers) {
+    connectResponseHeaders_ = std::move(headers);
   }
 
   // Read from the upstream socket and return as HTTPBodyEvents
@@ -105,6 +113,7 @@ class ConnectSource : public HTTPSource {
   }
 
  private:
+  HTTPHeaders connectResponseHeaders_;
   std::unique_ptr<folly::coro::Transport> transport_;
   HTTPSourceHolder reqSource_;
   enum class Event { ReadRequestComplete, WriteResponseComplete };
