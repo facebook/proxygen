@@ -182,7 +182,8 @@ struct ReadHandle : public WebTransport::StreamReadHandle {
   uint64_t bytesRead_{0};
   ReadPromise promise_{emptyReadPromise()};
   ReadHandleState state_;
-  WriteHandle* wh_{nullptr}; // ptr to the symmetric wh
+  WtStreamManager::BidiHandle* bidi_{nullptr}; // ptr to the owning BidiHandle /
+                                               // symmetric wh
 };
 struct WriteHandle : public WebTransport::StreamWriteHandle {
   WriteHandle(uint64_t id, uint64_t initSendWnd, Accessor acc) noexcept;
@@ -211,12 +212,32 @@ struct WriteHandle : public WebTransport::StreamWriteHandle {
   uint64_t err{kInvalidVarint};
   WritePromise promise_{emptyWritePromise()};
   WriteHandleState state_;
-  ReadHandle* rh_{nullptr}; // ptr to the symmetric rh
+  WtStreamManager::BidiHandle* bidi_{nullptr}; // ptr to the owning BidiHandle /
+                                               // symmetric wh
 };
 
 } // namespace
 
 namespace proxygen::detail {
+
+struct WtStreamManager::BidiHandle {
+  WriteHandle wh;
+  ReadHandle rh;
+  folly::relaxed_atomic<size_t> refs{1}; // original ref owned by the library
+
+  static BidiHandlePtr make(uint64_t id, WtStreamManager& sm) noexcept;
+
+ private:
+  BidiHandle(uint64_t id, WtStreamManager& sm) noexcept;
+};
+
+struct WtStreamManager::BidiHandleDeleter {
+  void operator()(BidiHandle* p) noexcept {
+    if (p && --p->refs == 0) {
+      delete p;
+    }
+  }
+};
 
 /**
  * If rh == nullptr, ::maybeGrantFc only releases connection-level flow
@@ -273,14 +294,14 @@ void Accessor::onStreamWritable(WriteHandle& wh) noexcept {
 
 void Accessor::done(WriteHandle& wh) noexcept {
   XCHECK_EQ(wh.state_, WriteHandleState::Closed);
-  if (wh.rh_->state_ == ReadHandleState::Closed) { // bidi done
+  if (wh.bidi_->rh.state_ == ReadHandleState::Closed) { // bidi done
     sm_.erase(wh.getID());
   }
 }
 
 void Accessor::done(ReadHandle& rh) noexcept {
   XCHECK_EQ(rh.state_, ReadHandleState::Closed);
-  if (rh.wh_->state_ == WriteHandleState::Closed) { // bidi done
+  if (rh.bidi_->wh.state_ == WriteHandleState::Closed) { // bidi done
     sm_.erase(rh.getID());
   }
 }
@@ -417,40 +438,54 @@ WtStreamManager::Result WtStreamManager::onMaxStreams(MaxStreamsUni uni) {
   return (Result)valid;
 }
 
-struct WtStreamManager::BidiHandle {
-  WriteHandle wh;
-  ReadHandle rh;
+/*static*/ WtStreamManager::BidiHandlePtr WtStreamManager::BidiHandle::make(
+    uint64_t id, WtStreamManager& sm) noexcept {
+  return BidiHandlePtr(new BidiHandle(id, sm), {});
+}
 
-  BidiHandle(uint64_t id, WtStreamManager& sm)
-      : wh(id, sm.initStreamSendFc(id), Accessor{sm}),
-        rh(id, sm.initStreamRecvFc(id), Accessor{sm}) {
-    // link ReadHandle<->WriteHandle
-    wh.rh_ = &rh;
-    rh.wh_ = &wh;
-    if (sm.isPeer(id)) {
-      /**
-       * NOTE: & TODO: This is intentionally invoked now, before the stream is
-       * inserted into the map. This is to prevent the case where an
-       * application bidirectionally resets a stream inline (from
-       * IngressCallback::onNewPeerStream) and causes its subsequent
-       * deallocation while the handle is returned to the backing transport
-       * (e.g. the ::getOrCreateBidiHandle invocation that caused this stream
-       * allocation in the first place).
-       *
-       * The backing transport must accumulate these streams and deliver them
-       * to the application in the next EventBase loop. The more appropriate
-       * fix here is for the containing class to pass in a folly::Executor to
-       * StreamManager, allowing WtStreamManager to defer invoking
-       * ::onNewPeerStream (effectively asynchronous w.r.t stream allocation).
-       */
-      sm.ingressCb_.onNewPeerStream(id);
-    }
-  }
-
-  static std::unique_ptr<BidiHandle> make(uint64_t id, WtStreamManager& sm) {
-    return std::make_unique<BidiHandle>(id, sm);
+WtStreamManager::BidiHandle::BidiHandle(uint64_t id,
+                                        WtStreamManager& sm) noexcept
+    : wh(id, sm.initStreamSendFc(id), Accessor{sm}),
+      rh(id, sm.initStreamRecvFc(id), Accessor{sm}) {
+  // link ReadHandle<->WriteHandle
+  wh.bidi_ = this;
+  rh.bidi_ = this;
+  if (sm.isPeer(id)) {
+    /**
+     * NOTE: & TODO: This is intentionally invoked now, before the stream is
+     * inserted into the map. This is to prevent the case where an
+     * application bidirectionally resets a stream inline (from
+     * IngressCallback::onNewPeerStream) and causes its subsequent
+     * deallocation while the handle is returned to the backing transport
+     * (e.g. the ::getOrCreateBidiHandle invocation that caused this stream
+     * allocation in the first place).
+     *
+     * The backing transport must accumulate these streams and deliver them
+     * to the application in the next EventBase loop. The more appropriate
+     * fix here is for the containing class to pass in a folly::Executor to
+     * StreamManager, allowing WtStreamManager to defer invoking
+     * ::onNewPeerStream (effectively asynchronous w.r.t stream allocation).
+     */
+    sm.ingressCb_.onNewPeerStream(id);
   }
 };
+
+void WtStreamManager::WtWriteHandleDel::operator()(WtWriteHandle* p) noexcept {
+  auto* eh = writehandle_ptr_cast(p);
+  if (eh && eh->state_ == WriteHandleState::Open &&
+      !eh->bufferedSendData_.hasEnqueuedFin()) {
+    eh->resetStream(WebTransport::kInternalError);
+  }
+  BidiHandleDeleter{}(eh ? eh->bidi_ : nullptr);
+}
+
+void WtStreamManager::WtReadHandleDel::operator()(WtReadHandle* p) noexcept {
+  auto* ih = readhandle_ptr_cast(p);
+  if (ih && ih->state_ == ReadHandleState::Open) {
+    ih->stopSending(WebTransport::kInternalError);
+  }
+  BidiHandleDeleter{}(ih ? ih->bidi_ : nullptr);
+}
 
 bool WtStreamManager::streamLimitExceeded(uint64_t streamId) const noexcept {
   uint64_t opened = streamsCounter_.getCounter(streamId).opened;
@@ -492,9 +527,9 @@ WebTransport::StreamReadHandle* WtStreamManager::getOrCreateIngressHandle(
   return handle ? &handle->rh : nullptr;
 }
 
-WebTransport::BidiStreamHandle WtStreamManager::getOrCreateBidiHandle(
-    uint64_t streamId) noexcept {
-  WebTransport::BidiStreamHandle res{nullptr, nullptr};
+auto WtStreamManager::getOrCreateBidiHandle(uint64_t streamId) noexcept
+    -> BidiStreamHandle {
+  BidiStreamHandle res{nullptr, nullptr};
   if (auto* handle = getOrCreateBidiHandleImpl(streamId)) {
     res.readHandle = isIngress(streamId) ? &handle->rh : nullptr;
     res.writeHandle = isEgress(streamId) ? &handle->wh : nullptr;
@@ -502,9 +537,24 @@ WebTransport::BidiStreamHandle WtStreamManager::getOrCreateBidiHandle(
   return res;
 }
 
-WebTransport::BidiStreamHandle WtStreamManager::getBidiHandle(
-    uint64_t streamId) const noexcept {
-  WebTransport::BidiStreamHandle res{nullptr, nullptr};
+auto WtStreamManager::createEgressUserHandle() noexcept -> WtWriteHandlePtr {
+  auto res = toUserHandle(
+      {.readHandle = nullptr, .writeHandle = createEgressHandle()});
+  return std::move(res.wh);
+}
+
+auto WtStreamManager::getOrCreateBidiUserHandle(uint64_t streamId) noexcept
+    -> BidiStreamUserHandle {
+  return toUserHandle(getOrCreateBidiHandle(streamId));
+}
+
+auto WtStreamManager::createBidiUserHandle() noexcept -> BidiStreamUserHandle {
+  return toUserHandle(createBidiHandle());
+}
+
+auto WtStreamManager::getBidiHandle(uint64_t streamId) const noexcept
+    -> BidiStreamHandle {
+  BidiStreamHandle res{nullptr, nullptr};
   auto it = streams_.find(streamId);
   if (it != streams_.end()) {
     res.readHandle = isIngress(streamId) ? &it->second->rh : nullptr;
@@ -519,7 +569,7 @@ WtStreamManager::WtWriteHandle* WtStreamManager::createEgressHandle() noexcept {
   return handle;
 }
 
-WebTransport::BidiStreamHandle WtStreamManager::createBidiHandle() noexcept {
+auto WtStreamManager::createBidiHandle() noexcept -> BidiStreamHandle {
   auto handle = getOrCreateBidiHandle(nextStreamIds_.bidi);
   if (handle.readHandle || handle.writeHandle) {
     nextStreamIds_.bidi += kStreamIdInc;
@@ -705,7 +755,8 @@ uint64_t WtStreamManager::initStreamSendFc(uint64_t streamId) const noexcept {
 }
 
 void WtStreamManager::erase(uint64_t streamId) noexcept {
-  bool erased = streams_.erase(streamId) > 0;
+  const bool erased = streams_.erase(streamId) > 0;
+  XLOG(DBG8) << __func__ << "; id=" << streamId << "; erased=" << erased;
   if (!erased) { // may not be in map if invoked via ::shutdown
     return;
   }
@@ -714,11 +765,13 @@ void WtStreamManager::erase(uint64_t streamId) noexcept {
   const uint64_t opened = counter.opened;
   const uint64_t closed = ++counter.closed;
   XCHECK_GE(opened, closed);
-  // if peer stream, we may need to advertise additional MaxStreams credit.
   if (isPeer(streamId)) {
-    // compute the number of peer openable streams; if it is <= half of the
-    // initMaxStreams advertised to peer, we advertise additional MaxStreams
-    // credit
+    /**
+     * If closing a peer stream, we may need to advertise additional MaxStreams
+     * credit. Computes the number of streams the peer can open; if it is <=
+     * half of the initMaxStreams advertised to peer, we advertise additional
+     * MaxStreams credit
+     */
     const uint64_t initStreamLimit = isBidi(streamId)
                                          ? wtConfig_.selfMaxStreamsBidi
                                          : wtConfig_.selfMaxStreamsUni;
@@ -837,6 +890,20 @@ void WtStreamManager::onClosed(uint64_t streamId) const noexcept {
   }
 }
 
+auto WtStreamManager::toUserHandle(BidiStreamHandle bidi) const noexcept
+    -> BidiStreamUserHandle {
+  if (auto* wh = writehandle_ptr_cast(bidi.writeHandle)) {
+    ++wh->bidi_->refs;
+  }
+  if (auto* ih = readhandle_ptr_cast(bidi.readHandle)) {
+    ++ih->bidi_->refs;
+  }
+  BidiStreamUserHandle res;
+  res.rh.reset(bidi.readHandle);
+  res.wh.reset(bidi.writeHandle);
+  return res;
+}
+
 } // namespace proxygen::detail
 
 /**
@@ -852,6 +919,9 @@ ReadHandle::ReadHandle(uint64_t id, uint64_t initRecvWnd, Accessor acc) noexcept
 
 folly::SemiFuture<StreamData> ReadHandle::readStreamData() {
   XLOG_IF(FATAL, promise_.valid()) << "one pending read at a time";
+  if (state_ == ReadHandleState::Closed) { // nothing to do
+    return ex_ ? ex_ : makeWtException(kInternalWtErr, "closed");
+  }
   if (!ingress_.chain.empty() || ingress_.fin) {
     auto len = ingress_.chain.computeChainDataLength();
     bytesRead_ += len;
@@ -865,7 +935,6 @@ folly::SemiFuture<StreamData> ReadHandle::readStreamData() {
     finish(ingress_.fin);
     return folly::makeSemiFuture(std::move(res));
   }
-  // always deliver buffered data (even if rx fin) prior to delivering err
   if (auto ex = ex_) {
     finish(/*done=*/true);
     return folly::makeSemiFuture<StreamData>(std::move(ex));
@@ -877,11 +946,11 @@ folly::SemiFuture<StreamData> ReadHandle::readStreamData() {
 
 folly::Expected<folly::Unit, ReadHandle::ErrCode> ReadHandle::stopSending(
     uint32_t error) { // wait for peer eom or rst_stream
-  XCHECK_NE(state_, ReadHandleState::Closed);
-  const auto prevState = std::exchange(state_, ReadHandleState::HalfClosed);
-  if (prevState == ReadHandleState::Open) { // egress at most one ss
-    smAccessor_.stopSending(*this, error);
+  if (state_ >= ReadHandleState::HalfClosed) { // egress at most one ss
+    return folly::makeUnexpected(ReadHandle::ErrCode::SEND_ERROR);
   }
+  state_ = ReadHandleState::HalfClosed;
+  smAccessor_.stopSending(*this, error);
   if (auto p = resetPromise(); p.valid()) { // resolve pending read with ex
     p.setException(makeWtException(kInternalWtErr, "tx stop_sending"));
   }
@@ -971,7 +1040,10 @@ WriteHandle::writeStreamData(
     std::unique_ptr<folly::IOBuf> data,
     bool fin,
     WebTransport::ByteEventCallback* byteEventCallback) {
-  // TODO(@damlaj): handle reset stream; elide unnecessarily recomputing len
+  if (state_ == WriteHandleState::Closed) {
+    return folly::makeUnexpected(WriteHandle::ErrCode::SEND_ERROR);
+  }
+  // TODO(@damlaj): elide unnecessarily recomputing len
   auto len = computeChainLength(data);
   XLOG_IF(ERR, !(len || fin)) << "no-op writeStreamData";
   bool connBlocked = smAccessor_.connSend().buffer(len);
@@ -988,6 +1060,9 @@ WriteHandle::writeStreamData(
 
 folly::Expected<folly::Unit, WriteHandle::ErrCode> WriteHandle::resetStream(
     uint32_t error) {
+  if (state_ == WriteHandleState::Closed) { // nothing to do
+    return folly::makeUnexpected(WriteHandle::ErrCode::SEND_ERROR);
+  }
   smAccessor_.resetStream(*this, error, /*reliableSize=*/0);
   // **beware cancel must be last** (`this` can be deleted immediately after)
   cancel(folly::make_exception_wrapper<WtException>(error, "tx reset_stream"));
@@ -996,11 +1071,11 @@ folly::Expected<folly::Unit, WriteHandle::ErrCode> WriteHandle::resetStream(
 
 folly::Expected<folly::Unit, WriteHandle::ErrCode> WriteHandle::setPriority(
     quic::PriorityQueue::Priority priority) {
-  XCHECK_NE(state_, WriteHandleState::Closed) << "setPriority after close";
-
+  if (state_ == WriteHandleState::Closed) { // nothing to do
+    return folly::makeUnexpected(WriteHandle::ErrCode::SEND_ERROR);
+  }
   StreamWriteHandle::setPriority(priority);
   smAccessor_.writableStreams().update(getID(), getPriority());
-
   return folly::unit;
 }
 
@@ -1017,6 +1092,9 @@ Result WriteHandle::onMaxData(uint64_t offset) {
 folly::Expected<folly::SemiFuture<uint64_t>, WriteHandle::ErrCode>
 WriteHandle::awaitWritable() {
   XCHECK(!promise_.valid()) << "at most one pending awaitWritable";
+  if (state_ == WriteHandleState::Closed) { // nothing to do
+    return folly::makeUnexpected(WriteHandle::ErrCode::SEND_ERROR);
+  }
   const auto bufferAvailable = bufferedSendData_.window().getBufferAvailable();
   if (bufferAvailable > 0) {
     return folly::makeSemiFuture(bufferAvailable);

@@ -760,8 +760,9 @@ CO_TEST_P_X(WtTest, MaxStreamsBidiUni) {
   // rst_stream for bidi or eom for uni)
   for (auto& handle : wtHandlerCtx->peerStreams) {
     // read handle is unconditional for peer-initiated streams
+    const bool bidi = quic::isBidirectionalStream(handle.readHandle->getID());
     auto res = co_await co_awaitTry(handle.readHandle->readStreamData());
-    EXPECT_FALSE(res.hasException());
+    EXPECT_EQ(res.hasException(), bidi);
     if (handle.writeHandle) {
       handle.writeHandle->resetStream(0);
     }

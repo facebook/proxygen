@@ -30,7 +30,8 @@
  *
  * WtStreamManager, as the name suggestions, simply manages the stream state of
  * WebTransport streams. Following good design philosophy, as much as possible
- * is hidden from the user of this class.
+ * is hidden from the user of this class. The backing transport must invoke
+ * ::shutdown() prior to destruction.
  *
  * There are two channels to interact with this class:
  *
@@ -136,6 +137,39 @@ struct WtStreamManager {
   using StreamData = WebTransport::StreamData;
   using ReadPromise = folly::Promise<StreamData>;
   using ReadFut = folly::SemiFuture<StreamData>;
+  using BidiStreamHandle = WebTransport::BidiStreamHandle;
+
+  /**
+   * User raii handles given to the application by the backing transport. These
+   * handles must be destructed in the same EventBase as the backing transport.
+   * Only returned from the three apis below ending in "UserHandle"
+   *
+   * Notes:
+   * - For ReadHandle: if a terminal ingress event has not been read (i.e. fin
+   *   or exception yielded) prior to the unique_ptr being destructed,
+   *   ::stopSending will be invoked.
+   *
+   * - For WriteHandle: if a terminal egress event has not been sent (i.e.
+   *   rst_stream or fin) has not sent prior to the unique_ptr being destructed,
+   *   ::resetStream will be invoked.
+   */
+  struct WtWriteHandleDel {
+    void operator()(WtWriteHandle* p) noexcept;
+  };
+  struct WtReadHandleDel {
+    void operator()(WtReadHandle* p) noexcept;
+  };
+  using WtWriteHandlePtr = std::unique_ptr<WtWriteHandle, WtWriteHandleDel>;
+  using WtReadHandlePtr = std::unique_ptr<WtReadHandle, WtReadHandleDel>;
+  struct BidiStreamUserHandle {
+    WtReadHandlePtr rh;
+    WtWriteHandlePtr wh;
+  };
+
+  WtWriteHandlePtr createEgressUserHandle() noexcept;
+  BidiStreamUserHandle createBidiUserHandle() noexcept;
+  BidiStreamUserHandle getOrCreateBidiUserHandle(uint64_t streamId) noexcept;
+
   /**
    * - Gets the stream if it exists
    * - Otherwise attempts to create the stream if sufficient stream credit
@@ -144,11 +178,10 @@ struct WtStreamManager {
    */
   WtWriteHandle* getOrCreateEgressHandle(uint64_t streamId) noexcept;
   WtReadHandle* getOrCreateIngressHandle(uint64_t streamId) noexcept;
-  WebTransport::BidiStreamHandle getOrCreateBidiHandle(
-      uint64_t streamId) noexcept;
+  BidiStreamHandle getOrCreateBidiHandle(uint64_t streamId) noexcept;
 
   // Gets a stream if it already exists, otherwise nullptr
-  [[nodiscard]] WebTransport::BidiStreamHandle getBidiHandle(
+  [[nodiscard]] BidiStreamHandle getBidiHandle(
       uint64_t streamId) const noexcept;
   [[nodiscard]] WtWriteHandle* getEgressHandle(
       uint64_t streamId) const noexcept;
@@ -163,7 +196,7 @@ struct WtStreamManager {
    * getOrCreate(Ingress|Egress)Handle apis to create a handle.
    */
   WtWriteHandle* createEgressHandle() noexcept;
-  WebTransport::BidiStreamHandle createBidiHandle() noexcept;
+  BidiStreamHandle createBidiHandle() noexcept;
 
   /**
    * per-stream callbacks that may be useful to transports that support stream
@@ -332,6 +365,9 @@ struct WtStreamManager {
   // returns the ids of open streams
   std::vector<uint64_t> streamIds() const noexcept;
 
+  struct BidiHandle;
+  friend struct BidiHandle;
+
  private:
   [[nodiscard]] bool isSelf(uint64_t streamId) const noexcept;
   [[nodiscard]] bool isPeer(uint64_t streamId) const noexcept;
@@ -345,8 +381,16 @@ struct WtStreamManager {
   void enqueueEvent(Event&& ev) noexcept;
   void onStreamWritable(WtWriteHandle& wh) noexcept;
   [[nodiscard]] bool hasEvent() const noexcept;
-  struct BidiHandle;
-  friend struct BidiHandle;
+
+  /**
+   * Converts from a WebTransport::BidiStreamHandle to BidiStreamUserHandle.
+   * Temporarily here until we transfer all uses to WtStreamManager.
+   */
+  BidiStreamUserHandle toUserHandle(BidiStreamHandle handle) const noexcept;
+
+  struct BidiHandleDeleter;
+  using BidiHandlePtr = std::unique_ptr<BidiHandle, BidiHandleDeleter>;
+
   BidiHandle* getOrCreateBidiHandleImpl(uint64_t streamId) noexcept;
   [[nodiscard]] uint64_t initStreamRecvFc(uint64_t streamId) const noexcept;
   [[nodiscard]] uint64_t initStreamSendFc(uint64_t streamId) const noexcept;
@@ -366,7 +410,7 @@ struct WtStreamManager {
 
   const WtDir dir_;
 
-  std::map<uint64_t, std::unique_ptr<BidiHandle>> streams_;
+  std::map<uint64_t, BidiHandlePtr> streams_;
 
   // used for stream initiators
   struct NextStreamIds {

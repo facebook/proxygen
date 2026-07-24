@@ -30,6 +30,7 @@ WtBufferedStreamData::FcRes WtBufferedStreamData::enqueue(
   XCHECK(pendingWrites_.empty() || !pendingWrites_.back().fin)
       << "enqueue after fin";
 
+  enqueuedFin_ |= fin;
   auto len = data ? data->computeChainDataLength() : 0;
   uint64_t offset = window_.getBufferedOffset() + (len ? len - 1 : 0);
   auto* lastWrite = pendingWrites_.empty() ? nullptr : &pendingWrites_.back();
@@ -82,7 +83,11 @@ WtBufferedStreamData::DequeueResult WtBufferedStreamData::dequeue(
   return res;
 }
 
-bool WtBufferedStreamData::onlyFinPending() const {
+bool WtBufferedStreamData::hasEnqueuedFin() const noexcept {
+  return enqueuedFin_;
+}
+
+bool WtBufferedStreamData::onlyFinPending() const noexcept {
   const auto* front =
       pendingWrites_.empty() ? nullptr : &pendingWrites_.front();
   return front && front->buf.empty() && front->fin;

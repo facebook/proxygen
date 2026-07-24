@@ -1364,4 +1364,117 @@ TEST(WtStreamManager, CannotOpenPreviouslyClosedStreams) {
   }
 }
 
+TEST(WtStreamManager, UserHandlesTest) {
+  // test handle deallocs before WtStreamManager dealloc
+  {
+    WtConfig config;
+    WtSmEgressCb egressCb;
+    WtSmIngressCb ingressCb;
+    auto priorityQueue = std::make_unique<quic::HTTPPriorityQueue>();
+
+    WtStreamManager streamManager{
+        detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
+
+    auto bidi = streamManager.getOrCreateBidiUserHandle(0x00);
+    EXPECT_TRUE(bidi.rh && bidi.wh);
+
+    bidi.rh.reset(); // resetting rh before terminal ingress event (i.e. fin or
+                     // rx'ing rst_stream) triggers stop_sending
+    auto events = streamManager.moveEvents();
+    auto* ss = std::get_if<StopSending>(&events.at(0));
+    EXPECT_TRUE(ss && ss->err == WebTransport::kInternalError);
+
+    bidi.wh.reset(); // resetting wh before terminal egress event (i.e.
+                     // fin or tx'ing rst_stream) triggers a rst_stream
+    events = streamManager.moveEvents();
+    auto* rst = std::get_if<ResetStream>(&events.at(0));
+    EXPECT_TRUE(rst && rst->err == WebTransport::kInternalError);
+
+    // if fin is enqueued, don't reset stream when raii handle is destructed
+    auto uni = streamManager.createEgressUserHandle();
+    CHECK(uni);
+    uni->writeStreamData(
+        /*data=*/nullptr, /*fin=*/true, /*byteEventCallback=*/nullptr);
+    uni.reset();
+
+    events = streamManager.moveEvents(); // no rst_stream since fin enqueued
+    EXPECT_TRUE(events.empty());
+  }
+
+  // test WtStreamManager dealloc before handles
+  {
+    WtConfig config;
+    WtSmEgressCb egressCb;
+    WtSmIngressCb ingressCb;
+    auto priorityQueue = std::make_unique<quic::HTTPPriorityQueue>();
+
+    std::optional<WtStreamManager> streamManager{std::in_place,
+                                                 detail::WtDir::Client,
+                                                 config,
+                                                 egressCb,
+                                                 ingressCb,
+                                                 *priorityQueue};
+
+    auto h = streamManager->getOrCreateBidiUserHandle(0x00);
+    EXPECT_TRUE(h.rh && h.wh);
+    streamManager->shutdown(CloseSession{.err = 0, .msg = "err"});
+    streamManager.reset(); // destroy
+
+    // all ReadHandle apis will return an error synchronously
+    auto read = h.rh->readStreamData();
+    EXPECT_TRUE(read.isReady() && read.hasException());
+    EXPECT_TRUE(h.rh->stopSending(0).hasError());
+
+    // all WriteHandle apis will return an error synchronously
+    EXPECT_TRUE(
+        h.wh->writeStreamData(
+                /*data=*/nullptr, /*fin=*/true, /*byteEventCallback=*/nullptr)
+            .hasError());
+    EXPECT_TRUE(h.wh->resetStream(0).hasError());
+    EXPECT_TRUE(h.wh->setPriority({}).hasError());
+    EXPECT_TRUE(h.wh->awaitWritable().hasError());
+
+    h.rh.reset();
+    h.wh.reset();
+  }
+
+  // general api tests
+  {
+    WtConfig config;
+    WtSmEgressCb egressCb;
+    WtSmIngressCb ingressCb;
+    auto priorityQueue = std::make_unique<quic::HTTPPriorityQueue>();
+    WtStreamManager streamManager{
+        detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
+
+    { // bidi tests
+      // allowed to open a single bidi stream
+      auto bidi = streamManager.createBidiUserHandle();
+      EXPECT_TRUE(bidi.rh && bidi.wh);
+
+      // next bidi fails (lack of stream credit)
+      bidi = streamManager.createBidiUserHandle();
+      EXPECT_FALSE(bidi.rh && bidi.wh);
+
+      // first bidi stream we opened lookup succeeds
+      bidi = streamManager.getOrCreateBidiUserHandle(0);
+      EXPECT_TRUE(bidi.rh && bidi.wh);
+      streamManager.onResetStream({.streamId = 0});
+    }
+    { // uni tests
+      // allowed to open a single uni stream
+      auto uni = streamManager.createEgressUserHandle();
+      EXPECT_TRUE(uni);
+
+      // next uni fails (lack of stream credit)
+      uni = streamManager.createEgressUserHandle();
+      EXPECT_FALSE(uni);
+
+      // earlier uni handle reassigned caused destructor to run and egress a
+      // rst_stream => stream deallocated
+      EXPECT_FALSE(streamManager.hasStreams());
+    }
+  }
+}
+
 } // namespace proxygen::coro::test

@@ -115,8 +115,12 @@ class WtBufferedStreamData {
    */
   DequeueResult dequeue(uint64_t atMost) noexcept;
 
+  // returns true whether the user application has enqueued a fin (whether
+  // flushed to transport or not)
+  [[nodiscard]] bool hasEnqueuedFin() const noexcept;
+
   // returns true if there's only a pending fin
-  [[nodiscard]] bool onlyFinPending() const;
+  [[nodiscard]] bool onlyFinPending() const noexcept;
 
   bool grant(uint64_t offset) noexcept {
     return window_.grant(offset);
@@ -154,6 +158,7 @@ class WtBufferedStreamData {
 
   BufferedFlowController window_;
   std::list<PendingWrite> pendingWrites_;
+  bool enqueuedFin_{false};
 };
 
 } // namespace proxygen::detail
