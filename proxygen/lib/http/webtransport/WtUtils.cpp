@@ -86,7 +86,7 @@ void setEgressWtH3Settings(HTTPSettings& settings) noexcept {
   const bool supportsWt =
       settings.getSetting(SettingsId::ENABLE_CONNECT_PROTOCOL,
                           /*defaultVal=*/0) &&
-      settings.getSetting(SettingsId::WT_ENABLED, /*defaultVal=*/0);
+      settings.getSetting(SettingsId::H3_WT_ENABLED, /*defaultVal=*/0);
   if (supportsWt) {
     settings.setIfNotPresent(SettingsId::WT_INITIAL_MAX_DATA, kWtInitMaxData);
     settings.setIfNotPresent(SettingsId::WT_INITIAL_MAX_STREAMS_UNI,
@@ -155,11 +155,11 @@ WtStreamManager::WtConfig getH3WtConfig(const HTTPSettings* ingress,
 bool supportsH2Wt(
     std::initializer_list<const HTTPSettings*> settings) noexcept {
   constexpr auto kEnableConnectProto = SettingsId::ENABLE_CONNECT_PROTOCOL;
-  constexpr auto kEnableWtMaxSess = SettingsId::WT_MAX_SESSIONS;
+  constexpr auto kWtEnabled = SettingsId::WT_ENABLED;
   return std::all_of(settings.begin(), settings.end(), [](auto* settings) {
     return settings &&
            settings->getSetting(kEnableConnectProto, /*defaultVal=*/0) &&
-           settings->getSetting(kEnableWtMaxSess, /*defaultVal=*/0);
+           settings->getSetting(kWtEnabled, /*defaultVal=*/0);
   });
 }
 
@@ -169,7 +169,7 @@ bool supportsH3Wt(TransportDirection dir,
   const HTTPSettings* server = isUpstream(dir) ? ingress : egress;
   const HTTPSettings* client = isUpstream(dir) ? egress : ingress;
   bool serverOk = server &&
-                  server->getSetting(SettingsId::WT_ENABLED,
+                  server->getSetting(SettingsId::H3_WT_ENABLED,
                                      /*defaultVal=*/0) &&
                   server->getSetting(SettingsId::ENABLE_CONNECT_PROTOCOL,
                                      /*defaultVal=*/0) &&

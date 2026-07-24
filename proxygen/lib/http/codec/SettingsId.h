@@ -26,7 +26,7 @@ enum class SettingsId : uint64_t {
 
   ENABLE_CONNECT_PROTOCOL = 8,
 
-  WT_MAX_SESSIONS = 0x2b60,
+  WT_ENABLED = 0x2b60,
   WT_INITIAL_MAX_DATA = 0x2b61,
   WT_INITIAL_MAX_STREAM_DATA_UNI = 0x2b62,
   WT_INITIAL_MAX_STREAM_DATA_BIDI = 0x2b63,
@@ -42,7 +42,7 @@ enum class SettingsId : uint64_t {
   _HQ_DATAGRAM_RFC = HQ_SETTINGS_MASK | 0x33,
   ENABLE_WEBTRANSPORT = 0x2b603742,
   H3_WT_MAX_SESSIONS = 0x14e9cd29,
-  WT_ENABLED = 0x2c7cf000,
+  H3_WT_ENABLED = 0x2c7cf000,
 };
 
 using SettingPair = std::pair<SettingsId, uint32_t>;

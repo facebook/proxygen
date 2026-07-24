@@ -817,7 +817,7 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
           return ErrorCode::PROTOCOL_ERROR;
         }
         break;
-      case SettingsId::WT_MAX_SESSIONS:
+      case SettingsId::WT_ENABLED:
       case SettingsId::_HQ_QPACK_BLOCKED_STREAMS:
       case SettingsId::_HQ_DATAGRAM:
       case SettingsId::_HQ_DATAGRAM_RFC:
@@ -1451,7 +1451,7 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
           continue;
         }
         break;
-      case SettingsId::WT_MAX_SESSIONS:
+      case SettingsId::WT_ENABLED:
       case SettingsId::_HQ_QPACK_BLOCKED_STREAMS:
       case SettingsId::_HQ_DATAGRAM:
       case SettingsId::_HQ_DATAGRAM_RFC:

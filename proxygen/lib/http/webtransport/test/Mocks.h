@@ -192,7 +192,7 @@ struct DummyWtHandler : public WebTransportHandler {
 
 // test utils
 static constexpr auto kWtSettings = {SettingsId::ENABLE_CONNECT_PROTOCOL,
-                                     SettingsId::WT_MAX_SESSIONS};
+                                     SettingsId::WT_ENABLED};
 
 // hack to enable/disable wt on codec for tests
 inline void setCodecWtSettings(HTTPCodec& codec, bool enabled) noexcept {
