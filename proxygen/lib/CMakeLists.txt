@@ -30,11 +30,16 @@ add_custom_command(
 add_custom_command(
     OUTPUT ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/stats/StatsWrapper.h
     COMMAND
+        ${CMAKE_COMMAND} -E make_directory
+        ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/stats
+    COMMAND
         ${CMAKE_CURRENT_SOURCE_DIR}/stats/gen_StatsWrapper.sh
-        ${PROXYGEN_FBCODE_ROOT}
+        ${PROXYGEN_GENERATED_ROOT}
     DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/stats/gen_StatsWrapper.sh
         ${CMAKE_CURRENT_SOURCE_DIR}/stats/BaseStats.h
     COMMENT "Generating StatsWrapper.h"
+    VERBATIM
 )
 
 add_custom_command(
