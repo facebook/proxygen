@@ -9,6 +9,7 @@
 #pragma once
 
 #include <folly/io/Cursor.h>
+#include <limits>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
@@ -53,6 +54,8 @@ class ParseResult {
  */
 class HTTPBinaryCodec : public HTTPCodec {
  public:
+  static constexpr uint64_t kDefaultMaxFieldSectionSize = uint64_t{128} * 1024;
+
   // Default strictValidation to false for now to match existing behavior
   explicit HTTPBinaryCodec(TransportDirection direction);
   HTTPBinaryCodec(TransportDirection direction, bool knownEgressLength);
@@ -77,6 +80,18 @@ class HTTPBinaryCodec : public HTTPCodec {
   }
   void setCallback(Callback* callback) override {
     callback_ = callback;
+  }
+  void setMaxFieldSectionSize(uint64_t size) {
+    maxFieldSectionSize_ =
+        (size == 0) ? std::numeric_limits<uint64_t>::max() : size;
+  }
+  uint64_t getMaxFieldSectionSize() const {
+    return maxFieldSectionSize_;
+  }
+  // Ignored while ingress parsing is in progress.
+  void setBodyStreamingEnabled(bool enabled);
+  bool getBodyStreamingEnabled() const {
+    return bodyStreamingEnabled_;
   }
   bool isBusy() const override {
     return false;
@@ -169,6 +184,7 @@ class HTTPBinaryCodec : public HTTPCodec {
                                     bool& knownLength);
   ParseResult parseKnownLengthString(folly::io::Cursor& cursor,
                                      size_t remaining,
+                                     uint64_t maxLength,
                                      folly::StringPiece stringName,
                                      std::string& stringValue);
   ParseResult parseRequestControlData(folly::io::Cursor& cursor,
@@ -182,6 +198,8 @@ class HTTPBinaryCodec : public HTTPCodec {
                            HeaderDecodeInfo& decodeInfo,
                            bool knownLength);
   ParseResult parseContent(folly::io::Cursor& cursor, size_t remaining);
+  ParseResult parseBufferedContentHelper(folly::io::Cursor& cursor,
+                                         size_t remaining);
   ParseResult parseSingleContentHelper(folly::io::Cursor& cursor,
                                        size_t remaining);
   ParseResult parseKnownLengthContentHelper(folly::io::Cursor& cursor,
@@ -195,6 +213,7 @@ class HTTPBinaryCodec : public HTTPCodec {
                                       HeaderDecodeInfo& decodeInfo,
                                       size_t& parsed,
                                       size_t& remaining,
+                                      uint64_t maxLength,
                                       size_t& numHeaders);
   ParseResult parseKnownLengthHeadersHelper(folly::io::Cursor& cursor,
                                             size_t remaining,
@@ -211,6 +230,8 @@ class HTTPBinaryCodec : public HTTPCodec {
   bool isRequest_{true};
   bool knownEgressLength_{true};
   bool knownIngressLength_{false};
+  bool bodyStreamingEnabled_{true};
+  uint64_t maxFieldSectionSize_{kDefaultMaxFieldSectionSize};
   enum class ParseState : uint8_t {
     FRAMING_INDICATOR = 0,
     INFORMATIONAL_RESPONSE = 1,
@@ -240,10 +261,13 @@ class HTTPBinaryCodec : public HTTPCodec {
   StreamID ingressTxnID_;
 
   folly::IOBufQueue bufferedIngress_{folly::IOBufQueue::cacheChainLength()};
-  // We don't need to use an IOBufQueue for msgBody_ since we are writing a
-  // complete message to it and don't need to rely on the efficient size
-  // computation provided by IOBufQueue
+  // The piece of the current content chunk that is about to be handed to
+  // onBody. Content is delivered incrementally, so this holds one piece rather
+  // than the whole chunk.
   std::unique_ptr<folly::IOBuf> msgBody_;
+  // Bytes still outstanding for the content chunk being delivered, set while a
+  // chunk has only partially arrived so that later ingress resumes mid-chunk
+  folly::Optional<uint64_t> remainingContentLength_;
 
   HeaderDecodeInfo decodeInfo_;
   std::unique_ptr<HTTPMessage> msg_;
