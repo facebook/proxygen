@@ -11,6 +11,8 @@
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
+#include <algorithm>
+
 #define HANDLE_ERROR_OR_WAITING_PARSE_RESULT(parseResult)           \
   if ((parseResult).parseResultState_ == ParseResultState::ERROR) { \
     parseError_ = (parseResult).error_;                             \
@@ -55,6 +57,13 @@ HTTPBinaryCodec::HTTPBinaryCodec(TransportDirection direction,
 
 HTTPBinaryCodec::~HTTPBinaryCodec() = default;
 
+void HTTPBinaryCodec::setBodyStreamingEnabled(bool enabled) {
+  if (state_ != ParseState::FRAMING_INDICATOR || !bufferedIngress_.empty()) {
+    return;
+  }
+  bodyStreamingEnabled_ = enabled;
+}
+
 ParseResult HTTPBinaryCodec::parseFramingIndicator(folly::io::Cursor& cursor,
                                                    bool& request,
                                                    bool& knownLength) {
@@ -86,6 +95,7 @@ ParseResult HTTPBinaryCodec::parseFramingIndicator(folly::io::Cursor& cursor,
 ParseResult HTTPBinaryCodec::parseKnownLengthString(
     folly::io::Cursor& cursor,
     size_t remaining,
+    uint64_t maxLength,
     folly::StringPiece stringName,
     std::string& stringValue) {
   size_t parsed = 0;
@@ -97,6 +107,14 @@ ParseResult HTTPBinaryCodec::parseKnownLengthString(
   }
   // Increase parsed by the number of bytes read
   parsed += encodedStringLength->second;
+  if (encodedStringLength->first > maxLength) {
+    return ParseResult(
+        fmt::format("Failure to parse: {} of declared length {} exceeds the "
+                    "remaining field section budget of {}",
+                    stringName,
+                    encodedStringLength->first,
+                    maxLength));
+  }
   // If this would cause us to go beyond "remaining", we need to wait for more
   // data
   if (encodedStringLength->first > remaining - parsed) {
@@ -124,7 +142,8 @@ ParseResult HTTPBinaryCodec::parseRequestControlData(folly::io::Cursor& cursor,
 
   // Parse method
   std::string method;
-  auto methodRes = parseKnownLengthString(cursor, remaining, "method", method);
+  auto methodRes = parseKnownLengthString(
+      cursor, remaining, maxFieldSectionSize_, "method", method);
   if (methodRes.parseResultState_ == ParseResultState::ERROR ||
       methodRes.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
     return methodRes;
@@ -135,7 +154,8 @@ ParseResult HTTPBinaryCodec::parseRequestControlData(folly::io::Cursor& cursor,
 
   // Parse scheme
   std::string scheme;
-  auto schemeRes = parseKnownLengthString(cursor, remaining, "scheme", scheme);
+  auto schemeRes = parseKnownLengthString(
+      cursor, remaining, maxFieldSectionSize_, "scheme", scheme);
   if (schemeRes.parseResultState_ == ParseResultState::ERROR ||
       schemeRes.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
     return schemeRes;
@@ -153,8 +173,8 @@ ParseResult HTTPBinaryCodec::parseRequestControlData(folly::io::Cursor& cursor,
 
   // Parse authority
   std::string authority;
-  auto authorityRes =
-      parseKnownLengthString(cursor, remaining, "authority", authority);
+  auto authorityRes = parseKnownLengthString(
+      cursor, remaining, maxFieldSectionSize_, "authority", authority);
   if (authorityRes.parseResultState_ == ParseResultState::ERROR ||
       authorityRes.parseResultState_ ==
           ParseResultState::WAITING_FOR_MORE_DATA) {
@@ -165,7 +185,8 @@ ParseResult HTTPBinaryCodec::parseRequestControlData(folly::io::Cursor& cursor,
 
   // Parse path
   std::string path;
-  auto pathRes = parseKnownLengthString(cursor, remaining, "path", path);
+  auto pathRes = parseKnownLengthString(
+      cursor, remaining, maxFieldSectionSize_, "path", path);
   if (pathRes.parseResultState_ == ParseResultState::ERROR ||
       pathRes.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
     return pathRes;
@@ -205,10 +226,11 @@ ParseResult HTTPBinaryCodec::parseSingleHeaderHelper(
     HeaderDecodeInfo& decodeInfo,
     size_t& parsed,
     size_t& remaining,
+    uint64_t maxLength,
     size_t& numHeaders) {
   std::string headerName;
-  auto headerNameRes =
-      parseKnownLengthString(cursor, remaining, "headerName", headerName);
+  auto headerNameRes = parseKnownLengthString(
+      cursor, remaining, maxLength, "headerName", headerName);
   if (headerNameRes.parseResultState_ == ParseResultState::ERROR ||
       headerNameRes.parseResultState_ ==
           ParseResultState::WAITING_FOR_MORE_DATA) {
@@ -216,10 +238,11 @@ ParseResult HTTPBinaryCodec::parseSingleHeaderHelper(
   }
   parsed += headerNameRes.bytesParsed_;
   remaining -= headerNameRes.bytesParsed_;
+  maxLength -= std::min<uint64_t>(maxLength, headerNameRes.bytesParsed_);
 
   std::string headerValue;
-  auto headerValueRes =
-      parseKnownLengthString(cursor, remaining, "headerValue", headerValue);
+  auto headerValueRes = parseKnownLengthString(
+      cursor, remaining, maxLength, "headerValue", headerValue);
   if (headerValueRes.parseResultState_ == ParseResultState::ERROR ||
       headerValueRes.parseResultState_ ==
           ParseResultState::WAITING_FOR_MORE_DATA) {
@@ -257,14 +280,28 @@ ParseResult HTTPBinaryCodec::parseKnownLengthHeadersHelper(
   // Increase parsed and decrease remaining by the number of bytes read
   parsed += lengthOfHeaders->second;
   remaining -= lengthOfHeaders->second;
+  // Reject an oversized declaration before buffering anything for it, rather
+  // than waiting for the whole section to arrive
+  if (lengthOfHeaders->first > maxFieldSectionSize_) {
+    return ParseResult(
+        fmt::format("Declared {} section length {} exceeds the maximum field "
+                    "section size of {}",
+                    isTrailers ? "trailer" : "header",
+                    lengthOfHeaders->first,
+                    maxFieldSectionSize_));
+  }
   if (remaining < lengthOfHeaders->first) {
     return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
   }
 
   size_t numHeaders = 0;
   while (parsed < lengthOfHeaders->first) {
-    auto result = parseSingleHeaderHelper(
-        cursor, decodeInfo, parsed, remaining, numHeaders);
+    auto result = parseSingleHeaderHelper(cursor,
+                                          decodeInfo,
+                                          parsed,
+                                          remaining,
+                                          maxFieldSectionSize_,
+                                          numHeaders);
     if (result.parseResultState_ == ParseResultState::ERROR ||
         result.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
       return result;
@@ -285,11 +322,25 @@ ParseResult HTTPBinaryCodec::parseIndeterminateLengthHeadersHelper(
   size_t numHeaders = 0;
   // Continue parsing headers until we reach the Content Terminator field (0)
   while (currentByte != nullptr && *currentByte != 0x00) {
+    // A field whose declared length cannot fit in what is left of the section
+    // has to be rejected on sight: waiting for it to arrive would retain the
+    // fields already parsed plus the whole declaration
+    const uint64_t sectionBudget =
+        maxFieldSectionSize_ - std::min<uint64_t>(parsed, maxFieldSectionSize_);
     auto result = parseSingleHeaderHelper(
-        cursor, decodeInfo, parsed, remaining, numHeaders);
+        cursor, decodeInfo, parsed, remaining, sectionBudget, numHeaders);
     if (result.parseResultState_ == ParseResultState::ERROR ||
         result.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
       return result;
+    }
+    // There is no declared length to check against, so bound the section by
+    // what has actually been seen
+    if (parsed > maxFieldSectionSize_) {
+      return ParseResult(
+          fmt::format("Unterminated {} section exceeds the maximum field "
+                      "section size of {}",
+                      isTrailers ? "trailer" : "header",
+                      maxFieldSectionSize_));
     }
     // If we have reached the end of the cursor at this point, we must be
     // waiting for more data since we haven't seen a Content Terminator field
@@ -323,45 +374,74 @@ ParseResult HTTPBinaryCodec::parseContent(folly::io::Cursor& cursor,
              : parseIndeterminateLengthContentHelper(cursor, remaining);
 }
 
-ParseResult HTTPBinaryCodec::parseSingleContentHelper(folly::io::Cursor& cursor,
-                                                      size_t remaining) {
-  size_t parsed = 0;
-
-  // Parse the contentLength and advance cursor
+ParseResult HTTPBinaryCodec::parseBufferedContentHelper(
+    folly::io::Cursor& cursor, size_t remaining) {
   auto contentLength = quic::follyutils::decodeQuicInteger(cursor);
-  if (!contentLength) {
+  if (!contentLength || remaining < contentLength->second) {
     return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
   }
-  // Check that we had enough bytes to parse contentLength, otherwise the
-  // "remaining - parsed" below underflows
-  if (remaining < contentLength->second) {
-    return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
-  }
-  // Increase parsed by the number of bytes read
-  parsed += contentLength->second;
+
+  const size_t parsed = contentLength->second;
   if (contentLength->first == 0) {
     return ParseResult(parsed);
   }
-  // Check that we have not gone beyond "remaining"
   if (contentLength->first > remaining - parsed) {
     return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
   }
 
-  // Write the data to msgBody_ and then advance the cursor
   msgBody_ = std::make_unique<folly::IOBuf>();
-  if (contentLength->first > 0 && msgBody_) {
-    cursor.cloneAtMost(*msgBody_.get(), contentLength->first);
+  cursor.cloneAtMost(*msgBody_, contentLength->first);
+  return ParseResult(parsed + contentLength->first);
+}
+
+ParseResult HTTPBinaryCodec::parseSingleContentHelper(folly::io::Cursor& cursor,
+                                                      size_t remaining) {
+  if (!bodyStreamingEnabled_) {
+    return parseBufferedContentHelper(cursor, remaining);
   }
 
-  // Increase parsed by the number of bytes read
-  parsed += contentLength->first;
+  size_t parsed = 0;
+
+  // A chunk whose length prefix was consumed on an earlier call resumes here
+  if (!remainingContentLength_) {
+    // Parse the contentLength and advance cursor
+    auto contentLength = quic::follyutils::decodeQuicInteger(cursor);
+    if (!contentLength) {
+      return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
+    }
+    // Check that we had enough bytes to parse contentLength
+    if (remaining < contentLength->second) {
+      return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
+    }
+    // Increase parsed and decrease remaining by the number of bytes read
+    parsed += contentLength->second;
+    remaining -= contentLength->second;
+    if (contentLength->first == 0) {
+      return ParseResult(parsed);
+    }
+    remainingContentLength_ = contentLength->first;
+  }
+
+  const size_t available =
+      std::min<uint64_t>(*remainingContentLength_, remaining);
+  if (available > 0) {
+    msgBody_ = std::make_unique<folly::IOBuf>();
+    cursor.cloneAtMost(*msgBody_, available);
+    parsed += available;
+    *remainingContentLength_ -= available;
+  }
+
+  if (*remainingContentLength_ > 0) {
+    return ParseResult(parsed, ParseResultState::WAITING_FOR_MORE_DATA);
+  }
+  remainingContentLength_.reset();
   return ParseResult(parsed);
 }
 
 ParseResult HTTPBinaryCodec::parseKnownLengthContentHelper(
     folly::io::Cursor& cursor, size_t remaining) {
   auto parseResult = parseSingleContentHelper(cursor, remaining);
-  if (parseResult.parseResultState_ == ParseResultState::DONE && msgBody_ &&
+  if (parseResult.parseResultState_ != ParseResultState::ERROR && msgBody_ &&
       callback_) {
     callback_->onBody(ingressTxnID_, std::move(msgBody_), 0);
   }
@@ -381,16 +461,16 @@ ParseResult HTTPBinaryCodec::parseIndeterminateLengthContentHelper(
     if (parseResult.parseResultState_ == ParseResultState::ERROR) {
       return parseResult;
     }
-    // Report the bytes of the chunks already handed to the callback, otherwise
-    // they are not trimmed and are parsed and delivered a second time
-    if (parseResult.parseResultState_ ==
-        ParseResultState::WAITING_FOR_MORE_DATA) {
-      return ParseResult(parsed, ParseResultState::WAITING_FOR_MORE_DATA);
-    }
-    // After successfully processing a body chunk, we call onBody
+    // After processing a body chunk, whole or partial, we call onBody
     parsed += parseResult.bytesParsed_;
     if (msgBody_ && callback_) {
       callback_->onBody(ingressTxnID_, std::move(msgBody_), 0);
+    }
+    // Report the bytes already handed to the callback so that they are not
+    // parsed and delivered a second time once the chunk resumes
+    if (parseResult.parseResultState_ ==
+        ParseResultState::WAITING_FOR_MORE_DATA) {
+      return ParseResult(parsed, ParseResultState::WAITING_FOR_MORE_DATA);
     }
     // If we have reached the end of the cursor at this point, we must
     // be waiting for more data since we haven't seen a Content
@@ -563,7 +643,8 @@ size_t HTTPBinaryCodec::onIngress(const folly::IOBuf& buf) {
 }
 
 void HTTPBinaryCodec::onIngressEOF() {
-  if (!parseError_ && !bufferedIngress_.empty()) {
+  if (!parseError_ &&
+      (!bufferedIngress_.empty() || remainingContentLength_.value_or(0) > 0)) {
     // Case where the ingress EOF is received before the entire message is
     // parsed
     callback_->onError(ingressTxnID_,
