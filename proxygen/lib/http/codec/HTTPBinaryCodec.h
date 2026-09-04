@@ -88,11 +88,6 @@ class HTTPBinaryCodec : public HTTPCodec {
   uint64_t getMaxFieldSectionSize() const {
     return maxFieldSectionSize_;
   }
-  // Ignored while ingress parsing is in progress.
-  void setBodyStreamingEnabled(bool enabled);
-  bool getBodyStreamingEnabled() const {
-    return bodyStreamingEnabled_;
-  }
   bool isBusy() const override {
     return false;
   }
@@ -198,8 +193,6 @@ class HTTPBinaryCodec : public HTTPCodec {
                            HeaderDecodeInfo& decodeInfo,
                            bool knownLength);
   ParseResult parseContent(folly::io::Cursor& cursor, size_t remaining);
-  ParseResult parseBufferedContentHelper(folly::io::Cursor& cursor,
-                                         size_t remaining);
   ParseResult parseSingleContentHelper(folly::io::Cursor& cursor,
                                        size_t remaining);
   ParseResult parseKnownLengthContentHelper(folly::io::Cursor& cursor,
@@ -230,7 +223,6 @@ class HTTPBinaryCodec : public HTTPCodec {
   bool isRequest_{true};
   bool knownEgressLength_{true};
   bool knownIngressLength_{false};
-  bool bodyStreamingEnabled_{true};
   uint64_t maxFieldSectionSize_{kDefaultMaxFieldSectionSize};
   enum class ParseState : uint8_t {
     FRAMING_INDICATOR = 0,

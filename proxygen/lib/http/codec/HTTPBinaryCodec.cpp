@@ -57,13 +57,6 @@ HTTPBinaryCodec::HTTPBinaryCodec(TransportDirection direction,
 
 HTTPBinaryCodec::~HTTPBinaryCodec() = default;
 
-void HTTPBinaryCodec::setBodyStreamingEnabled(bool enabled) {
-  if (state_ != ParseState::FRAMING_INDICATOR || !bufferedIngress_.empty()) {
-    return;
-  }
-  bodyStreamingEnabled_ = enabled;
-}
-
 ParseResult HTTPBinaryCodec::parseFramingIndicator(folly::io::Cursor& cursor,
                                                    bool& request,
                                                    bool& knownLength) {
@@ -374,32 +367,8 @@ ParseResult HTTPBinaryCodec::parseContent(folly::io::Cursor& cursor,
              : parseIndeterminateLengthContentHelper(cursor, remaining);
 }
 
-ParseResult HTTPBinaryCodec::parseBufferedContentHelper(
-    folly::io::Cursor& cursor, size_t remaining) {
-  auto contentLength = quic::follyutils::decodeQuicInteger(cursor);
-  if (!contentLength || remaining < contentLength->second) {
-    return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
-  }
-
-  const size_t parsed = contentLength->second;
-  if (contentLength->first == 0) {
-    return ParseResult(parsed);
-  }
-  if (contentLength->first > remaining - parsed) {
-    return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
-  }
-
-  msgBody_ = std::make_unique<folly::IOBuf>();
-  cursor.cloneAtMost(*msgBody_, contentLength->first);
-  return ParseResult(parsed + contentLength->first);
-}
-
 ParseResult HTTPBinaryCodec::parseSingleContentHelper(folly::io::Cursor& cursor,
                                                       size_t remaining) {
-  if (!bodyStreamingEnabled_) {
-    return parseBufferedContentHelper(cursor, remaining);
-  }
-
   size_t parsed = 0;
 
   // A chunk whose length prefix was consumed on an earlier call resumes here
