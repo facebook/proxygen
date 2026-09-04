@@ -1362,34 +1362,6 @@ TEST_F(HttpBinaryDownstreamCodecTest, testFieldIsBoundedByRemainingSection) {
   EXPECT_NE(callback.lastParseError, nullptr);
 }
 
-// Setting the maximum to 0 turns enforcement off, so a declaration that would
-// otherwise be rejected is accepted again. This is the runtime escape hatch.
-TEST_F(HttpBinaryDownstreamCodecTest, testMaxFieldSectionSizeZeroDisables) {
-  folly::IOBufQueue preamble{folly::IOBufQueue::cacheChainLength()};
-  folly::io::QueueAppender appender(&preamble, 128);
-  writeRequestPreamble(appender, 0 /* request, known length */);
-  writeVarint(appender, kAbsurdDeclaredLength);
-
-  FakeHTTPCodecCallback callback;
-  binaryCodecKnownLength_->setMaxFieldSectionSize(0);
-  EXPECT_EQ(binaryCodecKnownLength_->getMaxFieldSectionSize(),
-            std::numeric_limits<uint64_t>::max());
-  binaryCodecKnownLength_->setCallback(&callback);
-  binaryCodecKnownLength_->onIngress(*preamble.front());
-
-  // Deliberately well under the buffered-ingress ceiling added later in this
-  // stack: disabling the field section limit does not disable that one, and
-  // this test is about the field section limit alone
-  auto filler = makeFiller(kFillerChunkSize);
-  for (size_t i = 0; i < kFillerChunkCount / 4; i++) {
-    binaryCodecKnownLength_->onIngress(*filler);
-  }
-
-  // Enforcement is off, so the codec waits for the declared section instead of
-  // rejecting it -- the pre-ceiling behaviour
-  EXPECT_EQ(callback.lastParseError, nullptr);
-}
-
 // A declared content length is also a varint. The codec must hand body bytes
 // to the callback as they arrive rather than buffering the whole chunk.
 TEST_F(HttpBinaryDownstreamCodecTest, testLargeKnownLengthContentIsStreamed) {

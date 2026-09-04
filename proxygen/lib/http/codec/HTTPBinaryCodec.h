@@ -82,8 +82,7 @@ class HTTPBinaryCodec : public HTTPCodec {
     callback_ = callback;
   }
   void setMaxFieldSectionSize(uint64_t size) {
-    maxFieldSectionSize_ =
-        (size == 0) ? std::numeric_limits<uint64_t>::max() : size;
+    maxFieldSectionSize_ = size;
   }
   uint64_t getMaxFieldSectionSize() const {
     return maxFieldSectionSize_;
