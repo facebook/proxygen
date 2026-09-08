@@ -137,11 +137,17 @@ class H2WtSession
   // invoked when both reads&writes are done; derived classes can clean up
   void onDone() noexcept override;
 
+  WtExpected<folly::Unit>::Type sendDatagram(
+      IoBufPtr datagram) noexcept override;
+
   const folly::SocketAddress& getLocalAddress() const noexcept override;
   const folly::SocketAddress& getPeerAddress() const noexcept override;
   HTTPTransactionHandler& getTxnHandler() noexcept {
     return txnHandler_;
   }
+
+  using WtSessionBase::moveEgressDatagrams;
+  using WtSessionBase::moveIngressDatagrams;
 
  private:
   // private constructor, use ::make to construct

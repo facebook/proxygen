@@ -3082,6 +3082,24 @@ TEST_F(H2WtUpstreamTest, PeerBidiAndTransportEom) {
   EXPECT_TRUE(read->hasException());
 }
 
+TEST_F(H2WtUpstreamTest, SimpleDatagramTest) {
+  constexpr std::string_view kDatagram = "abcdefghijklmnopqrstuvwxyz";
+  auto datagram = folly::IOBuf::copyBuffer(kDatagram);
+  // test ingress datagram path
+  writeDatagram(server.wtBuf, {.httpDatagramPayload = datagram->clone()});
+  deliverWtData(server.wtBuf.move());
+  // wait until we get a datagram
+  while (wt.handlerCtx->dgrams.empty()) {
+    loopN(1);
+  }
+  EXPECT_EQ(wt.handlerCtx->dgrams[0]->toString(), kDatagram);
+
+  // test egress datagram path
+  wt.sess->sendDatagram(datagram->clone());
+  server.wtCodecCb.waitForEvent(eventBase_);
+  EXPECT_TRUE(server.wtCodecCb.datagram.has_value());
+}
+
 // Register and instantiate all our type-parameterized tests
 REGISTER_TYPED_TEST_SUITE_P(HTTPUpstreamTest, ImmediateEof);
 

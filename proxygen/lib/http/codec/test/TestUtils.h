@@ -478,6 +478,7 @@ struct WtCapsuleCodecCallback : public WebTransportCapsuleCodec::Callback {
   std::optional<WTMaxStreamDataCapsule> msd;
   std::optional<WTMaxStreamsCapsule> bidiMaxStreams;
   std::optional<WTMaxStreamsCapsule> uniMaxStreams;
+  std::optional<DatagramCapsule> datagram;
 
  private:
   folly::SemiPromiseContract<folly::Unit> event{

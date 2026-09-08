@@ -35,6 +35,7 @@ struct WebTransportWriteLoop
 
  private:
   void runLoopCallback() noexcept final;
+  std::vector<WtSessionBase::IoBufPtr> egressDatagrams() noexcept;
   WtHttpSession& wtHttpSess_;
   WtStreamManager& sm_;
   folly::IOBufQueue buf_{folly::IOBufQueue::cacheChainLength()};
@@ -64,6 +65,7 @@ struct WebTransportReadLoop
 
  private:
   void runLoopCallback() noexcept final;
+  std::vector<WtSessionBase::IoBufPtr> ingressDatagrams() noexcept;
 };
 
 WtHttpSession::WtHttpSession(WtLooper& readLoop, WtLooper& writeLoop) noexcept
@@ -89,8 +91,7 @@ void WtHttpSession::readsDone() noexcept {
 }
 
 void WtHttpSession::onHttpError(const HTTPException&) noexcept {
-  auto selfKeepAlive =
-      this->self; // keep self alive until end of ::onError scope
+  auto ka = this->self; // keep self alive until end of ::onError scope
   readsDone();
   writesDone();
 }
@@ -164,6 +165,13 @@ const folly::SocketAddress& H2WtSession::getPeerAddress() const noexcept {
   return txnHandler_.peerAddr_;
 }
 
+WtExpected<folly::Unit>::Type H2WtSession::sendDatagram(
+    IoBufPtr datagram) noexcept {
+  WtSessionBase::sendDatagram(std::move(datagram));
+  txnHandler_.writeLooper_.schedule();
+  return folly::unit;
+}
+
 /*static*/ auto H2WtSession::make(folly::EventBase* evb,
                                   WtDir dir,
                                   WtStreamManager::WtConfig wtConfig,
@@ -213,6 +221,11 @@ WebTransportReadLoop::WebTransportReadLoop(
       capsuleCb_(sm, static_cast<H2WtSession&>(wtHttpSess)) {
 }
 
+std::vector<WtSessionBase::IoBufPtr>
+WebTransportReadLoop::ingressDatagrams() noexcept {
+  return static_cast<H2WtSession&>(wtHttpSess_).moveIngressDatagrams();
+}
+
 void WebTransportReadLoop::runLoopCallback() noexcept {
   auto& txnHandler = wtHttpSess_.txnHandler_;
   auto [data, eom] = txnHandler.moveBufferedIngress();
@@ -221,6 +234,12 @@ void WebTransportReadLoop::runLoopCallback() noexcept {
   wtCodec_.onIngress(std::move(data), eom);
   { // handle any new peer streams
     NotifyPeerStreamsGuard notify{*this, sm_, *wtHandler_};
+  }
+
+  // deliver datagrams to application
+  auto datagrams = ingressDatagrams();
+  for (auto& datagram : datagrams) {
+    wtHandler_->onDatagram(std::move(datagram));
   }
 
   if (eom || txnHandler.ex_) {
@@ -235,6 +254,11 @@ WebTransportWriteLoop::WebTransportWriteLoop(folly::EventBase* evb,
                                              WtHttpSession& wtHttpSess,
                                              WtStreamManager& sm) noexcept
     : WtLooper(evb, Type::Write), wtHttpSess_(wtHttpSess), sm_(sm) {
+}
+
+std::vector<WtSessionBase::IoBufPtr>
+WebTransportWriteLoop::egressDatagrams() noexcept {
+  return static_cast<H2WtSession&>(wtHttpSess_).moveEgressDatagrams();
 }
 
 void WebTransportWriteLoop::runLoopCallback() noexcept {
@@ -265,7 +289,15 @@ void WebTransportWriteLoop::runLoopCallback() noexcept {
   for (auto& ev : ctrl) {
     std::visit(eventVisitor_, ev);
   }
+
+  // flush all pending datagrams (TODO: limit datagrams per write loop?)
+  auto datagrams = egressDatagrams();
+  for (auto& datagram : datagrams) {
+    writeDatagram(buf_, {.httpDatagramPayload = std::move(datagram)});
+  }
+
   txn->sendBody(buf_.move());
+
   // write stream data
   while (auto* wh = sm_.nextWritable()) {
     VLOG(4) << "id=" << wh->getID() << "; wh=" << wh

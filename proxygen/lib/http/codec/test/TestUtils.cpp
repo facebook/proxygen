@@ -331,6 +331,11 @@ void WtCapsuleCodecCallback::onMaxStreamsUni(
   signal();
 }
 
+void WtCapsuleCodecCallback::onDatagram(DatagramCapsule dgram) noexcept {
+  datagram.emplace(std::move(dgram));
+  signal();
+}
+
 void WtCapsuleCodecCallback::onDataBlocked(WTDataBlockedCapsule) noexcept {
 }
 
@@ -347,9 +352,6 @@ void WtCapsuleCodecCallback::onStreamsBlockedBidi(
 
 void WtCapsuleCodecCallback::onStreamsBlockedUni(
     WTStreamsBlockedCapsule) noexcept {
-}
-
-void WtCapsuleCodecCallback::onDatagram(DatagramCapsule) noexcept {
 }
 
 void WtCapsuleCodecCallback::onCloseSession(
