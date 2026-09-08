@@ -139,8 +139,8 @@ H2WtSession::IoBufPtr H2WtSession::frameDatagram(IoBufPtr datagram) noexcept {
 H2WtSession::~H2WtSession() noexcept {
   // abort txn and detach handler if applicable
   if (auto* txn = std::exchange(txnHandler_.txn_, nullptr)) {
-    txn->sendAbort();
     txn->setHandler(nullptr);
+    txn->sendAbort();
   }
 }
 
