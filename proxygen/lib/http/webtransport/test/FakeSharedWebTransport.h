@@ -55,6 +55,7 @@ class FakeStreamHandle
 
   folly::SemiFuture<WebTransport::StreamData> readStreamData() override {
     XCHECK(!promise_) << "One read at a time";
+    readCount_++;
     if (writeErr_) {
       auto exwrapper =
           folly::make_exception_wrapper<WebTransport::Exception>(*writeErr_);
@@ -71,6 +72,7 @@ class FakeStreamHandle
     }
   }
   GenericApiRet stopSending(uint32_t code) override {
+    stopSendingCount_++;
     auto& ex = WebTransport::StreamWriteHandle::ex_;
     if (!ex) {
       ex = folly::make_exception_wrapper<WebTransport::Exception>(code);
@@ -209,6 +211,10 @@ class FakeStreamHandle
   folly::IOBufQueue buf_{folly::IOBufQueue::cacheChainLength()};
   uint32_t dataWritten_{0};
   uint32_t dataDelivered_{0};
+  // This handle survives its FIN, unlike a real one, so tests assert on these
+  // instead of on a use-after-free.
+  uint32_t readCount_{0};
+  uint32_t stopSendingCount_{0};
   bool fin_{false};
   folly::Optional<std::tuple<uint8_t, uint64_t, bool>> pri;
   folly::Optional<uint32_t> writeErr_;

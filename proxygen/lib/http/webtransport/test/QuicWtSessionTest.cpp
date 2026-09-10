@@ -732,6 +732,33 @@ TEST_F(QuicWtSessionTest, ConnectionEndWithError) {
   session_.reset();
 }
 
+TEST(QuicWtSessionStandaloneTest, CloseSessionHandlerCanDestroySession) {
+  folly::EventBase eventBase;
+  MockQuicSocketDriver socketDriver{&eventBase,
+                                    nullptr,
+                                    nullptr,
+                                    MockQuicSocketDriver::TransportEnum::SERVER,
+                                    "alpn1"};
+  StrictMock<MockWebTransportHandler> handler;
+  int closeCount = 0;
+  auto session =
+      std::make_shared<QuicWtSession>(socketDriver.getSocket(), &handler);
+
+  EXPECT_CALL(handler, onSessionEnd(folly::Optional<uint32_t>{WT_ERROR_1}))
+      .WillOnce([&](auto) { session.reset(); });
+  EXPECT_CALL(*socketDriver.getSocket(), close(_))
+      .Times(2)
+      .WillRepeatedly(Invoke([&](quic::Optional<quic::QuicError> errorCode) {
+        ASSERT_TRUE(errorCode.has_value());
+        ++closeCount;
+        socketDriver.closeImpl(errorCode);
+      }));
+
+  session->closeSession(WT_ERROR_1);
+  EXPECT_FALSE(session);
+  EXPECT_EQ(closeCount, 2);
+}
+
 TEST_F(QuicWtSessionTest, ReadAvailableReadFails) {
   WebTransport::StreamReadHandle* readHandle = nullptr;
   EXPECT_CALL(*handler_, onNewBidiStream(_))

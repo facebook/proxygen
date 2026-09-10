@@ -428,10 +428,12 @@ QuicWtSession::~QuicWtSession() {
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWtSession::closeSession(folly::Optional<uint32_t> error) noexcept {
+  // Keep the socket alive across handler callbacks.
+  auto quicSocket = quicSocket_;
+  quicSocket->setConnectionCallback(nullptr);
+  quicSocket->setDatagramCallback(nullptr);
   QuicWtSessionBase::closeSession(error);
-  quicSocket_->setConnectionCallback(nullptr);
-  quicSocket_->setDatagramCallback(nullptr);
-  quicSocket_->close(QuicError(quic::ApplicationErrorCode(error.value_or(0))));
+  quicSocket->close(QuicError(quic::ApplicationErrorCode(error.value_or(0))));
   return folly::unit;
 }
 
