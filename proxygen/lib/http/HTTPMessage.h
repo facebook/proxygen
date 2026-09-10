@@ -634,10 +634,13 @@ class HTTPMessage {
    * Get the cookie with the specified name.
    *
    * Returns a StringPiece to the cookie value, or an empty StringPiece if
-   * there is no cookie with the specified name.  The returned cookie is
-   * only valid as long as the Cookie Header in HTTPMessage object exists.
-   * Applications should make sure they call unparseCookies() when editing
-   * the Cookie Header, so that the StringPiece references are cleared.
+   * there is no cookie with the specified name.  The returned StringPiece
+   * points into the Cookie header's storage, so it is invalidated by any
+   * subsequent modification of the headers.  Copy the value if it needs to
+   * outlive the next header mutation.
+   *
+   * If the same cookie name appears more than once, the first occurrence in
+   * header order wins.
    */
   const folly::StringPiece getCookie(const std::string& name) const;
 
@@ -833,12 +836,11 @@ class HTTPMessage {
                            bool caseSensitive) const;
 
   /**
-   * Forget about the parsed cookies.
+   * No-op, retained for API compatibility.
    *
-   * Ideally HTTPMessage should automatically forget about the current parsed
-   * cookie state whenever a Cookie header is changed.  However, at the moment
-   * callers have to explicitly call unparseCookies() after modifying the
-   * cookie headers.
+   * Cookies are no longer cached across calls: getCookie() reads the Cookie
+   * header directly every time, so there is no parsed state to invalidate.
+   * New code should not call this.
    */
   void unparseCookies() const;
 
@@ -912,7 +914,16 @@ class HTTPMessage {
   TimePoint startTime_;
 
  private:
-  void parseCookies() const;
+  /**
+   * Invoke callback with each name/value pair found in the Cookie header(s),
+   * in header order.  Stops iterating as soon as the callback returns true.
+   *
+   * The StringPieces passed to the callback point into the headers, so the
+   * callback must not modify them.
+   */
+  void forEachCookie(
+      const std::function<bool(folly::StringPiece, folly::StringPiece)>&
+          callback) const;
 
   template <typename T> // T = string
   ParseURL setURLImpl(T&& url, bool unparse, bool strict) {
@@ -1121,11 +1132,8 @@ class HTTPMessage {
   }
 
   /*
-   * Cookies and query parameters
-   * These are mutable since we parse them lazily in getCookie() and
-   * getQueryParam()
+   * Query parameters, mutable since we parse them lazily in getQueryParam()
    */
-  mutable std::map<folly::StringPiece, folly::StringPiece> cookies_;
   // TODO: use StringPiece for queryParams_ and delete splitNameValue()
   mutable HTTPQueryParamMap queryParams_;
 
@@ -1143,7 +1151,6 @@ class HTTPMessage {
   uint8_t pri_;
 
   std::pair<uint8_t, uint8_t> version_;
-  mutable bool parsedCookies_ : 1;
   mutable bool parsedQueryParams_ : 1;
   bool chunked_ : 1;
   bool upgraded_ : 1;

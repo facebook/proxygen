@@ -24,6 +24,45 @@ TEST(HTTPMessage, TestParseCookiesSimple) {
   EXPECT_EQ(msg.getCookie("mising"), "");
 }
 
+TEST(HTTPMessage, TestParseCookiesDuplicateName) {
+  HTTPMessage msg;
+
+  // The first occurrence wins, across headers as well as within one header.
+  msg.getHeaders().add("Cookie", "id=first; id=second");
+  msg.getHeaders().add("Cookie", "id=third");
+  EXPECT_EQ(msg.getCookie("id"), "first");
+}
+
+TEST(HTTPMessage, TestParseCookiesDuplicateNameEmptyFirstValue) {
+  HTTPMessage msg;
+
+  // An empty first value still shadows later occurrences.
+  msg.getHeaders().add("Cookie", "id=; id=second");
+  EXPECT_EQ(msg.getCookie("id"), "");
+}
+
+TEST(HTTPMessage, TestGetCookieSurvivesHeaderAdd) {
+  HTTPMessage msg;
+
+  // Each getCookie() call re-reads the header, so a header added in between
+  // (which can reallocate the header storage) does not corrupt later lookups.
+  msg.getHeaders().add("Cookie", "id=1256679245; data=0:1234567");
+  EXPECT_EQ(msg.getCookie("id"), "1256679245");
+  for (int i = 0; i < 32; i++) {
+    msg.getHeaders().add(folly::to<std::string>("X-Filler-", i), "value");
+  }
+  EXPECT_EQ(msg.getCookie("data"), "0:1234567");
+}
+
+TEST(HTTPMessage, TestUnparseCookiesIsNoOp) {
+  HTTPMessage msg;
+
+  // Retained for API compatibility; it must not drop any cookie state.
+  msg.getHeaders().add("Cookie", "id=1256679245");
+  msg.unparseCookies();
+  EXPECT_EQ(msg.getCookie("id"), "1256679245");
+}
+
 TEST(HTTPMessage, TestParseCookiesSpaces) {
   HTTPMessage msg;
 

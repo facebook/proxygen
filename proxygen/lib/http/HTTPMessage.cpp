@@ -68,7 +68,6 @@ HTTPMessage::HTTPMessage()
       protoStr_(nullptr),
       pri_(kDefaultHttpPriorityUrgency),
       version_(1, 0),
-      parsedCookies_(false),
       parsedQueryParams_(false),
       chunked_(false),
       upgraded_(false),
@@ -86,7 +85,6 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
       localIP_(message.localIP_),
       versionStr_(message.versionStr_),
       fields_(message.fields_),
-      cookies_(message.cookies_),
       queryParams_(message.queryParams_),
       headers_(message.headers_),
       upgradeWebsocket_(message.upgradeWebsocket_),
@@ -96,7 +94,6 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
       protoStr_(message.protoStr_),
       pri_(message.pri_),
       version_(message.version_),
-      parsedCookies_(message.parsedCookies_),
       parsedQueryParams_(message.parsedQueryParams_),
       chunked_(message.chunked_),
       upgraded_(message.upgraded_),
@@ -126,7 +123,6 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       localIP_(std::move(message.localIP_)),
       versionStr_(std::move(message.versionStr_)),
       fields_(std::move(message.fields_)),
-      cookies_(std::move(message.cookies_)),
       queryParams_(std::move(message.queryParams_)),
       headers_(std::move(message.headers_)),
       strippedPerHopHeaders_(std::move(message.strippedPerHopHeaders_)),
@@ -139,7 +135,6 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       upgradeProtocol_(std::move(message.upgradeProtocol_)),
       pri_(message.pri_),
       version_(message.version_),
-      parsedCookies_(message.parsedCookies_),
       parsedQueryParams_(message.parsedQueryParams_),
       chunked_(message.chunked_),
       upgraded_(message.upgraded_),
@@ -166,7 +161,6 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   if (isRequest()) {
     setURL(request().url_);
   }
-  cookies_ = message.cookies_;
   queryParams_ = message.queryParams_;
   version_ = message.version_;
   headers_ = message.headers_;
@@ -174,7 +168,6 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
   pri_ = message.pri_;
-  parsedCookies_ = message.parsedCookies_;
   parsedQueryParams_ = message.parsedQueryParams_;
   chunked_ = message.chunked_;
   upgraded_ = message.upgraded_;
@@ -217,7 +210,6 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   if (isRequest()) {
     setURL(request().url_);
   }
-  cookies_ = std::move(message.cookies_);
   queryParams_ = std::move(message.queryParams_);
   version_ = message.version_;
   headers_ = std::move(message.headers_);
@@ -226,7 +218,6 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
   pri_ = message.pri_;
-  parsedCookies_ = message.parsedCookies_;
   parsedQueryParams_ = message.parsedQueryParams_;
   chunked_ = message.chunked_;
   upgraded_ = message.upgraded_;
@@ -400,79 +391,68 @@ void HTTPMessage::constructDirectResponse(const pair<uint8_t, uint8_t>& version,
   setIsUpgraded(false);
 }
 
-void HTTPMessage::parseCookies() const {
-  DCHECK(!parsedCookies_);
-  parsedCookies_ = true;
-
+void HTTPMessage::forEachCookie(
+    const std::function<bool(StringPiece, StringPiece)>& callback) const {
+  bool stop = false;
   headers_.forEachValueOfHeader(
       HTTP_HEADER_COOKIE, [&](const string& headerval) {
         splitNameValuePieces(
             headerval,
             ';',
             '=',
-            [this](StringPiece cookieName, StringPiece cookieValue) {
-              cookies_.emplace(cookieName, cookieValue);
+            [&](StringPiece cookieName, StringPiece cookieValue) {
+              if (!stop) {
+                stop = callback(cookieName, cookieValue);
+              }
             });
 
-        return false; // continue processing "cookie" headers
+        return stop;
       });
 }
 
 void HTTPMessage::unparseCookies() const {
-  cookies_.clear();
-  parsedCookies_ = false;
 }
 
 const StringPiece HTTPMessage::getCookie(const string& name) const {
-  // clear previous parsed cookies.  They might store raw pointers to a vector
-  // in headers_, which can resize on add()
-  // Parse the cookies if we haven't done so yet
-  unparseCookies();
-  if (!parsedCookies_) {
-    parseCookies();
-  }
-
-  auto it = cookies_.find(name);
-  if (it == cookies_.end()) {
-    return StringPiece();
-  } else {
-    return it->second;
-  }
+  const StringPiece target(name);
+  StringPiece result;
+  forEachCookie([&](StringPiece cookieName, StringPiece cookieValue) {
+    if (cookieName != target) {
+      return false;
+    }
+    result = cookieValue;
+    return true;
+  });
+  return result;
 }
 
 void HTTPMessage::removeCookie(const string& name) {
-  unparseCookies();
-  if (!parsedCookies_) {
-    parseCookies();
-  }
+  // These StringPieces point into the Cookie header's storage, so they must
+  // not be read after the headers_ mutation below.
+  std::map<StringPiece, StringPiece> cookies;
+  forEachCookie([&cookies](StringPiece cookieName, StringPiece cookieValue) {
+    cookies.emplace(cookieName, cookieValue);
+    return false;
+  });
 
-  auto it = cookies_.find(name);
-  if (it == cookies_.end()) {
+  auto it = cookies.find(StringPiece(name));
+  if (it == cookies.end()) {
+    return;
+  }
+  cookies.erase(it);
+
+  if (cookies.empty()) {
+    headers_.remove(HTTP_HEADER_COOKIE);
     return;
   }
 
-  // Remove cookie
-  cookies_.erase(it);
-
-  // Reconstruct the Cookie header from remaining cookies
-  if (cookies_.empty()) {
-    // No cookies remaining
-    headers_.remove(HTTP_HEADER_COOKIE);
-  } else {
-    // Build new cookie header value
-    std::vector<std::string> cookieStrings;
-    cookieStrings.reserve(cookies_.size());
-    for (const auto& cookie : cookies_) {
-      cookieStrings.emplace_back(cookie.first.str() + "=" +
-                                 cookie.second.str());
-    }
-
-    // Set the new Cookie header
-    headers_.set(HTTP_HEADER_COOKIE, folly::join("; ", cookieStrings));
+  std::vector<std::string> cookieStrings;
+  cookieStrings.reserve(cookies.size());
+  for (const auto& cookie : cookies) {
+    cookieStrings.emplace_back(cookie.first.str() + "=" + cookie.second.str());
   }
 
-  // Clear parsed cookies
-  unparseCookies();
+  headers_.set(HTTP_HEADER_COOKIE, folly::join("; ", cookieStrings));
 }
 
 void HTTPMessage::parseQueryParams() const {
