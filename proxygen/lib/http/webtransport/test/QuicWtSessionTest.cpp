@@ -1133,6 +1133,17 @@ TEST_F(H3WtSessionTest, AcquireIngressStream) {
   }
 }
 
+TEST_F(H3WtSessionTest, RejectIngressStreamsAfterCloseSession) {
+  constexpr uint64_t kClientBidiId = 4;
+  constexpr uint64_t kClientUniId = 2;
+
+  expectedWtHandlerErr_ = 0;
+  session_->onCloseSession({.err = 0, .msg = "peer close"});
+
+  EXPECT_FALSE(session_->acquireIngressStream(kClientBidiId));
+  EXPECT_FALSE(session_->acquireIngressStream(kClientUniId));
+}
+
 TEST_F(H3WtSessionTest, SendDatagram) {
   // connectStreamId=0 => quarterStreamId=0 => varint = 0x00
   auto payload = folly::IOBuf::copyBuffer("dgram");

@@ -374,7 +374,6 @@ void QuicWtSessionBase::maybeResumeIngress(
 
 bool QuicWtSessionBase::acquireIngressStream(uint64_t id) noexcept {
   XCHECK(quicSocket_ && quic::isRemoteStream(quicSocket_->getNodeType(), id));
-  XCHECK(wtHandler_);
   // WtStreamManager deduces type from id (i.e. works whether uni or bidi)
   auto handle = sm_.getOrCreateBidiHandle(id);
   const bool success = handle.readHandle;
