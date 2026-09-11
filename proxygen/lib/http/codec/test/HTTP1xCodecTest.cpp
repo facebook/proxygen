@@ -848,6 +848,20 @@ TEST(HTTP1xCodecTest, TestChainedBody) {
                                     *folly::IOBuf::copyBuffer("abcdefghij")));
 }
 
+TEST(HTTP1xCodecTest, TestMalformedContentLength) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  EXPECT_CALL(callbacks, onError(_, _, _));
+
+  folly::IOBufQueue reqQueue;
+  // header name with a space is considered invalid
+  reqQueue.append(folly::IOBuf::copyBuffer(
+      "POST /test.php HTTP/1.1\r\nHost: www.test.com\r\n"
+      "Content-Length : 10\r\n\r\nabcdefghij"));
+  codec.onIngress(*reqQueue.front());
+}
+
 TEST(HTTP1xCodecTest, TestIgnoreUpstreamUpgrade) {
   HTTP1xCodec codec(TransportDirection::UPSTREAM);
   FakeHTTPCodecCallback callbacks;
