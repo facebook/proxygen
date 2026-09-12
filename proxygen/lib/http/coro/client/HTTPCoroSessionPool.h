@@ -14,6 +14,7 @@
 #include <folly/logging/xlog.h>
 
 #include <folly/IntrusiveList.h>
+#include <utility>
 
 namespace proxygen::coro {
 
@@ -157,6 +158,12 @@ class HTTPCoroSessionPool {
     sessionParams_ = sessionParams;
   }
 
+  void setProxyConnectHeaders(
+      HTTPCoroConnector::ProxyParameters::ConnectHeaderMap
+          proxyConnectHeaders) {
+    proxyConnectHeaders_ = std::move(proxyConnectHeaders);
+  }
+
   void setMaxAge(std::chrono::seconds maxAge) {
     poolParams_.maxAge = maxAge;
   }
@@ -274,6 +281,7 @@ class HTTPCoroSessionPool {
   std::string authority_;
   PoolParams poolParams_;
   std::shared_ptr<HTTPCoroSessionPool> proxyPool_;
+  HTTPCoroConnector::ProxyParameters::ConnectHeaderMap proxyConnectHeaders_;
   HTTPCoroConnector::ConnectionParams tcpConnParams_;
   std::shared_ptr<const HTTPCoroConnector::QuicConnectionParams>
       quicConnParams_;

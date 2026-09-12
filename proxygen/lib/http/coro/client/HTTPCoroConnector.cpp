@@ -42,6 +42,9 @@
 #include <wangle/ssl/SSLStats.h>
 #include <wangle/ssl/SSLUtil.h>
 
+#include <iterator>
+#include <utility>
+
 using folly::coro::co_error;
 using folly::coro::co_nothrow;
 using CoroTransport = folly::coro::Transport;
@@ -708,21 +711,31 @@ folly::coro::Task<CoroSessionHandle> HTTPCoroConnector::happyEyeballsConnect(
 folly::coro::Task<CoroSessionHandle> HTTPCoroConnector::proxyConnect(
     CoroSessionHandle proxySession,
     HTTPCoroSession::RequestReservation reservation,
-    std::string authority,
-    bool connectUnique,
+    ProxyParameters proxyParameters,
     std::chrono::milliseconds timeout,
     const ConnectionParams& connParams,
     const SessionParams& sessionParams) {
 
   // egress bufer option?
-  XLOG(DBG2) << "Sending CONNECT to " << authority;
+  XLOG(DBG2) << "Sending CONNECT to " << proxyParameters.authority;
+  HTTPConnectStream::RequestHeaderMap connectHeaders{
+      std::make_move_iterator(proxyParameters.connectHeaders.begin()),
+      std::make_move_iterator(proxyParameters.connectHeaders.end())};
   std::unique_ptr<HTTPConnectStream> connectStream;
-  if (connectUnique) {
-    connectStream = co_await co_nothrow(HTTPConnectStream::connectUnique(
-        proxySession, std::move(reservation), authority, timeout));
+  if (proxyParameters.connectUnique) {
+    connectStream = co_await co_nothrow(
+        HTTPConnectStream::connectUnique(proxySession,
+                                         std::move(reservation),
+                                         std::move(proxyParameters.authority),
+                                         timeout,
+                                         std::move(connectHeaders)));
   } else {
-    connectStream = co_await co_nothrow(HTTPConnectStream::connect(
-        proxySession, std::move(reservation), authority, timeout));
+    connectStream = co_await co_nothrow(
+        HTTPConnectStream::connect(proxySession,
+                                   std::move(reservation),
+                                   std::move(proxyParameters.authority),
+                                   timeout,
+                                   std::move(connectHeaders)));
   }
   auto peerAddr = connectStream->peerAddr_;
   co_return co_await co_nothrow(connectImpl(proxySession->getEventBase(),

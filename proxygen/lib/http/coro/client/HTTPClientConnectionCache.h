@@ -33,6 +33,7 @@ class HTTPClientConnectionCache : public HTTPSessionFactory {
     HTTPCoroSessionPool::PoolParams poolParams;
     HTTPCoroConnector::ConnectionParams connParams;
     HTTPCoroConnector::SessionParams sessionParams;
+    HTTPCoroConnector::ProxyParameters::ConnectHeaderMap connectHeaders;
   };
 
   explicit HTTPClientConnectionCache(
@@ -50,6 +51,10 @@ class HTTPClientConnectionCache : public HTTPSessionFactory {
                                      proxyParams->sessionParams,
                                      /*allowNameLookup=*/true)
                                : nullptr),
+        proxyConnectHeaders_(
+            proxyParams
+                ? std::move(proxyParams->connectHeaders)
+                : HTTPCoroConnector::ProxyParameters::ConnectHeaderMap{}),
         useConnectForProxy_(proxyParams && proxyParams->useConnect),
         pools_(maxConnectionPools) {
   }
@@ -172,6 +177,7 @@ class HTTPClientConnectionCache : public HTTPSessionFactory {
   folly::Optional<HTTPCoroConnector::SessionParams> sessionParams_;
   CertVerifyLogFn certVerifyLogFn_;
   std::shared_ptr<HTTPCoroSessionPool> proxyPool_;
+  HTTPCoroConnector::ProxyParameters::ConnectHeaderMap proxyConnectHeaders_;
   folly::CancellationSource cancellationSource_;
   bool useConnectForProxy_{false};
   DNSResolver::UniquePtr dnsResolver_;

@@ -410,8 +410,11 @@ folly::coro::Task<void> HTTPCoroSessionPool::addNewConnection() {
         sessionTry = co_await co_awaitTry(HTTPCoroConnector::proxyConnect(
             proxySession->session,
             std::move(proxySession->reservation),
-            authority_,
-            /*connectUnique=*/false,
+            HTTPCoroConnector::ProxyParameters{
+                .authority = authority_,
+                .connectUnique = false,
+                .connectHeaders = proxyConnectHeaders_,
+            },
             poolParams_.connectTimeout,
             tcpConnParams_,
             sessionParams_));

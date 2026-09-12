@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 
+#include "proxygen/lib/http/coro/client/HTTPClientConnectionCache.h"
 #include "proxygen/lib/http/coro/client/HTTPCoroSessionPool.h"
 #include "proxygen/lib/http/coro/client/test/HTTPClientTestsCommon.h"
 #include "proxygen/lib/http/coro/server/samples/fwdproxy/ConnectSource.h"
@@ -82,6 +83,9 @@ class Handler : public TestHandler {
     auto method = headerEvent->headers->getMethod();
     XCHECK(method);
     if (method == HTTPMethod::CONNECT) {
+      lastConnectHeader_ =
+          std::string(headerEvent->headers->getHeaders().getSingleOrEmpty(
+              "X-Test-Connect-Header"));
       XLOG(DBG6) << "Handler::handleRequest HTTPMethod::CONNECT";
       if (headerEvent->eom) {
         XLOG(DBG4) << "eom in header event for CONNECT request";
@@ -109,6 +113,7 @@ class Handler : public TestHandler {
   }
 
   folly::SocketAddress serverAddress_;
+  std::string lastConnectHeader_;
 };
 
 /**
@@ -165,8 +170,9 @@ class HTTPConnectIntegrationTest : public ::testing::Test {
     auto res = co_await co_awaitTry(
         HTTPCoroConnector::proxyConnect(proxySess,
                                         *proxySess->reserveRequest(),
-                                        /*authority=*/authority,
-                                        /*connectUnique=*/false,
+                                        HTTPCoroConnector::ProxyParameters{
+                                            .authority = std::move(authority),
+                                        },
                                         /*timeout=*/kConnectTimeout,
                                         getConnParams(),
                                         sessParams));
@@ -215,6 +221,32 @@ CO_TEST_F_X(HTTPConnectIntegrationTest, ConnectResponseHeadersOnSession) {
 
   serverSess.value()->initiateDrain();
   proxySess->initiateDrain();
+}
+
+CO_TEST_F_X(HTTPConnectIntegrationTest,
+            ConnectRequestHeadersFromConnectionCache) {
+  const auto& servAddr = getServAddr();
+  HTTPClientConnectionCache::ProxyParams proxyParams;
+  proxyParams.server = servAddr.getAddressStr();
+  proxyParams.port = servAddr.getPort();
+  proxyParams.useConnect = true;
+  proxyParams.connParams = getConnParams();
+  proxyParams.connectHeaders = {{"X-Test-Connect-Header", "test-value"}};
+  HTTPClientConnectionCache connectionCache(evb_, std::move(proxyParams));
+  auto targetConnParams = getConnParams();
+
+  auto targetSession = co_await co_awaitTry(
+      connectionCache.getSessionWithReservation("localhost",
+                                                servAddr.getPort(),
+                                                true,
+                                                kConnectTimeout,
+                                                &targetConnParams));
+  XCHECK(!targetSession.hasException())
+      << "targetSession ex=" << targetSession.exception().what();
+  EXPECT_EQ(handler_->lastConnectHeader_, "test-value");
+
+  targetSession->session->initiateDrain();
+  connectionCache.drain();
 }
 
 /**

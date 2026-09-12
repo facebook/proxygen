@@ -213,6 +213,7 @@ proxygen::coro::HTTPCoroSessionPool &HTTPClientConnectionCache::getPool(
                                                    poolParams,
                                                    std::move(connParams),
                                                    std::move(sessParams));
+      pool->setProxyConnectHeaders(proxyConnectHeaders_);
     } else {
       pool = std::make_unique<HTTPCoroSessionPool>(&eventBase_,
                                                    address.str(),

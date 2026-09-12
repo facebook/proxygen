@@ -301,14 +301,16 @@ folly::coro::Task<CoroSessionHandle> HTTPClient::getHTTPSessionViaProxy(
   if (reservation.hasException()) {
     co_yield co_error(std::move(reservation.exception()));
   }
-  auto res = co_await co_nothrow(
-      HTTPCoroConnector::proxyConnect(proxySession,
-                                      std::move(*reservation),
-                                      folly::to<std::string>(host, ":", port),
-                                      connectUnique,
-                                      connectTimeout,
-                                      connParams,
-                                      getSessionParams(readTimeout)));
+  auto res = co_await co_nothrow(HTTPCoroConnector::proxyConnect(
+      proxySession,
+      std::move(*reservation),
+      HTTPCoroConnector::ProxyParameters{
+          .authority = folly::to<std::string>(host, ":", port),
+          .connectUnique = connectUnique,
+      },
+      connectTimeout,
+      connParams,
+      getSessionParams(readTimeout)));
   co_return res;
 }
 

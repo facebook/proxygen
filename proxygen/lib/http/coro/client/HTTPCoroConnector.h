@@ -12,6 +12,7 @@
 #include <fizz/client/FizzClientContext.h>
 #include <fizz/protocol/CertificateVerifier.h>
 #include <folly/SocketAddress.h>
+#include <folly/container/F14Map.h>
 #include <folly/coro/Task.h>
 #include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/AsyncSocket.h>
@@ -189,6 +190,14 @@ class HTTPCoroConnector {
     return params;
   }
 
+  struct ProxyParameters {
+    using ConnectHeaderMap = folly::F14FastMap<std::string, std::string>;
+
+    std::string authority;
+    bool connectUnique{false};
+    ConnectHeaderMap connectHeaders{};
+  };
+
   static folly::coro::Task<CoroSessionHandle> connect(
       folly::EventBase* evb,
       folly::SocketAddress serverAddr,
@@ -211,8 +220,7 @@ class HTTPCoroConnector {
   static folly::coro::Task<CoroSessionHandle> proxyConnect(
       CoroSessionHandle proxySession,
       HTTPCoroSession::RequestReservation reservation,
-      std::string authority,
-      bool connectUnique,
+      ProxyParameters proxyParameters,
       std::chrono::milliseconds timeout,
       const ConnectionParams& connParams = defaultConnectionParams(),
       const SessionParams& sessionParams = defaultSessionParams());
