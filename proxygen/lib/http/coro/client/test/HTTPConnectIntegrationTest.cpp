@@ -83,6 +83,8 @@ class Handler : public TestHandler {
     auto method = headerEvent->headers->getMethod();
     XCHECK(method);
     if (method == HTTPMethod::CONNECT) {
+      ++connectCount_;
+      lastConnectHeaders_ = headerEvent->headers->getHeaders();
       lastConnectHeader_ =
           std::string(headerEvent->headers->getHeaders().getSingleOrEmpty(
               "X-Test-Connect-Header"));
@@ -98,6 +100,7 @@ class Handler : public TestHandler {
       co_yield co_result(std::move(connectRes));
     }
 
+    lastInnerHeaders_ = headerEvent->headers->getHeaders();
     XLOG(DBG6) << "header event query string ="
                << headerEvent->headers->getQueryString();
     uint64_t suspendEgressMs =
@@ -114,6 +117,9 @@ class Handler : public TestHandler {
 
   folly::SocketAddress serverAddress_;
   std::string lastConnectHeader_;
+  HTTPHeaders lastConnectHeaders_;
+  HTTPHeaders lastInnerHeaders_;
+  uint32_t connectCount_{0};
 };
 
 /**
@@ -246,6 +252,52 @@ CO_TEST_F_X(HTTPConnectIntegrationTest,
   EXPECT_EQ(handler_->lastConnectHeader_, "test-value");
 
   targetSession->session->initiateDrain();
+  connectionCache.drain();
+}
+
+CO_TEST_F_X(HTTPConnectIntegrationTest, ConnectHeadersRemainOnReusedTunnel) {
+  const auto& servAddr = getServAddr();
+  HTTPClientConnectionCache::ProxyParams proxyParams;
+  proxyParams.server = servAddr.getAddressStr();
+  proxyParams.port = servAddr.getPort();
+  proxyParams.useConnect = true;
+  proxyParams.connParams = getConnParams();
+  proxyParams.connectHeaders = {{"X-Test-Connect-Header", "tunnel-metadata"},
+                                {"X-Test-Trace", "initial-trace"}};
+  HTTPClientConnectionCache connectionCache(evb_, std::move(proxyParams));
+  auto targetConnParams = getConnParams();
+  auto first =
+      co_await connectionCache.getSessionWithReservation("localhost",
+                                                         servAddr.getPort(),
+                                                         true,
+                                                         kConnectTimeout,
+                                                         &targetConnParams);
+  auto firstResponse = co_await HTTPClient::get(first.session,
+                                                std::move(first.reservation),
+                                                URL{"https://localhost/first"});
+  EXPECT_EQ(firstResponse.headers->getStatusCode(), 200);
+  EXPECT_FALSE(handler_->lastInnerHeaders_.exists("X-Test-Connect-Header"));
+  EXPECT_FALSE(handler_->lastInnerHeaders_.exists("X-Test-Trace"));
+
+  auto second =
+      co_await connectionCache.getSessionWithReservation("localhost",
+                                                         servAddr.getPort(),
+                                                         true,
+                                                         kConnectTimeout,
+                                                         &targetConnParams);
+  EXPECT_EQ(second.session.get(), first.session.get());
+  auto secondResponse =
+      co_await HTTPClient::get(second.session,
+                               std::move(second.reservation),
+                               URL{"https://localhost/second"});
+  EXPECT_EQ(secondResponse.headers->getStatusCode(), 200);
+  EXPECT_EQ(handler_->connectCount_, 1);
+  EXPECT_EQ(handler_->lastConnectHeader_, "tunnel-metadata");
+  EXPECT_EQ(handler_->lastConnectHeaders_.getSingleOrEmpty("X-Test-Trace"),
+            "initial-trace");
+  EXPECT_FALSE(handler_->lastInnerHeaders_.exists("X-Test-Connect-Header"));
+  EXPECT_FALSE(handler_->lastInnerHeaders_.exists("X-Test-Trace"));
+  EXPECT_EQ(connectionCache.getNumPools(), 1);
   connectionCache.drain();
 }
 
