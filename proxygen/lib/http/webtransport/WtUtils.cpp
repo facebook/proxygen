@@ -286,6 +286,11 @@ void WtEventVisitor::operator()(WtStreamManager::CloseSession cs) noexcept {
                                           std::move(cs.msg)});
 }
 
+void WtEventVisitor::operator()(
+    WtStreamManager::EgressPriority) const noexcept {
+  // no-op for transports that do not support egress priorities
+}
+
 // WtCapsuleCallback
 void WtCapsuleCallback::onPadding(PaddingCapsule) noexcept {
 }

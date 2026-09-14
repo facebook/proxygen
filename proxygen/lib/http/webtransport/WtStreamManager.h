@@ -92,18 +92,6 @@ struct WtStreamManager {
   struct EgressCallback {
     virtual ~EgressCallback() = default;
     virtual void eventsAvailable() noexcept = 0;
-    /**
-     * Invoked when the application reprioritizes an egress stream. The
-     * manager's own queue has already been updated; this is only for transports
-     * that also schedule wt streams somewhere else -- quic ranks them against
-     * wt datagram flows in the connection write queue. For the capsule
-     * transports the manager's queue is the schedule, so the default no-op is
-     * correct.
-     */
-    virtual void onStreamPriority(
-        uint64_t /*streamId*/,
-        quic::PriorityQueue::Priority /*priority*/) noexcept {
-    }
   };
   /**
    * IngressCallback::onNewPeerStream is invoked whenever a new peer stream has
@@ -316,11 +304,17 @@ struct WtStreamManager {
   WtBufferedStreamData::DequeueResult dequeue(WtWriteHandle&,
                                               uint64_t atMost) noexcept;
 
+  struct EgressPriority {
+    uint64_t streamId{0};
+    quic::PriorityQueue::Priority priority;
+  };
+
   /**
    * Events are communicated to the backing transport (http/2 or http/3) via
    * Callback::eventsAvailable – the user can subsequently dequeue all events
    * using the below ::moveEvents(). All these events are strictly control
-   * frames by design, as they are not flow controlled.
+   * frames by design (with the exception of EgressPriority), as they are not
+   * flow controlled.
    */
   using Event = std::variant<ResetStream,
                              StopSending,
@@ -329,7 +323,8 @@ struct WtStreamManager {
                              MaxStreamsBidi,
                              MaxStreamsUni,
                              DrainSession,
-                             CloseSession>;
+                             CloseSession,
+                             EgressPriority>;
   std::vector<Event> moveEvents() noexcept {
     return std::move(ctrlEvents_);
   }

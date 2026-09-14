@@ -294,7 +294,7 @@ void Accessor::onStreamWritable(WriteHandle& wh) noexcept {
 }
 
 void Accessor::onStreamPriority(WriteHandle& wh) noexcept {
-  sm_.egressCb_.onStreamPriority(wh.getID(), wh.getPriority());
+  sm_.enqueueEvent(EgressPriority{wh.getID(), wh.getPriority()});
 }
 
 void Accessor::done(WriteHandle& wh) noexcept {

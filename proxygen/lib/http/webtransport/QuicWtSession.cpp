@@ -49,6 +49,14 @@ struct QuicWtEventVisitor {
     quicSocket.stopSending(ev.streamId, ev.err);
   }
 
+  void operator()(WtStreamManager::EgressPriority pri) const {
+    // Apply the stream's priority locally on the quic socket; internally all
+    // flows (streams and dgrams) are scheduled against eachother.
+    auto res = quicSocket.setStreamPriority(pri.streamId, pri.priority);
+    XLOG_IF(DBG4, res.hasError()) << __func__ << "; id=" << pri.streamId
+                                  << "; err=" << toString(res.error());
+  }
+
   // operations need to be serialized on the backing http/3 connect stream (if
   // exists).
   void operator()(WtStreamManager::CloseSession ev) const {
@@ -312,21 +320,6 @@ void QuicWtSessionBase::StreamManagerCallback::eventsAvailable() noexcept {
     XLOG_IF(ERR, res.hasError())
         << "::writeChain err= " << res.error() << "; id=" << streamId;
   }
-}
-
-// Mirror the priority into the QuicSocket write queue, so wt streams and wt
-// datagram flows are scheduled against each other in the connection rather than
-// the stream sitting at default priority.
-//
-// Best effort. The transport can legitimately no longer have the stream (eg. it
-// just reset it), and priority is only a scheduling hint -- anything that
-// actually depends on the stream, like the next write, will fail louder.
-void QuicWtSessionBase::StreamManagerCallback::onStreamPriority(
-    uint64_t streamId, quic::PriorityQueue::Priority priority) noexcept {
-  XCHECK(sess.quicSocket_);
-  auto res = sess.quicSocket_->setStreamPriority(streamId, priority);
-  XLOG_IF(DBG4, res.hasError())
-      << __func__ << "; id=" << streamId << "; err=" << toString(res.error());
 }
 
 void QuicWtSessionBase::StreamManagerCallback::onNewPeerStream(

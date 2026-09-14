@@ -90,6 +90,7 @@ struct WtEventVisitor {
   void operator()(WtStreamManager::MaxStreamsUni ms) const noexcept;
   void operator()(WtStreamManager::DrainSession ds) const noexcept;
   void operator()(WtStreamManager::CloseSession cs) noexcept;
+  void operator()(WtStreamManager::EgressPriority pri) const noexcept;
 };
 
 /**

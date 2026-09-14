@@ -111,9 +111,6 @@ class QuicWtSessionBase
     }
     void readReady(detail::WtStreamManager::WtReadHandle& rh) noexcept override;
     void eventsAvailable() noexcept override;
-    void onStreamPriority(
-        uint64_t streamId,
-        quic::PriorityQueue::Priority priority) noexcept override;
     void onNewPeerStream(uint64_t streamId) noexcept override;
   } smCb_{*this};
 
