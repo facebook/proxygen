@@ -334,10 +334,11 @@ struct WtStreamManager {
   friend struct Accessor;
 
   /**
-   * DEPRECATED: Use the priority queue directly instead.
+   * Firstly, if there is a fin-only stream, it returns the handle
+   * unconditionally. There is no guaranteed ordering for fin-only streams.
    *
-   * Returns the next writable stream if the head of the priority queue is a
-   * stream. Returns nullptr if:
+   * Secondly returns the next writable stream if the head of the priority queue
+   * is a stream. Returns nullptr if:
    * - The queue is empty
    * - The head of the queue is not a stream (e.g., a datagram)
    */
@@ -472,6 +473,12 @@ struct WtStreamManager {
    * These are re-inserted into writableStreams_ when connection FC is granted.
    */
   folly::F14FastSet<WtWriteHandle*> connFcBlockedStreams_;
+
+  /**
+   * Streams that only have an egress fin buffered, which neither requires
+   * connection- nor stream-level flow control to send
+   */
+  folly::F14FastSet<WtWriteHandle*> finOnlyStreams_;
 
   WtConfig wtConfig_;
   uint64_t connBytesRead_{0};

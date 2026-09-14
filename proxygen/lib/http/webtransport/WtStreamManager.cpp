@@ -113,6 +113,9 @@ struct WtStreamManager::Accessor {
   auto& connFcBlockedStreams() {
     return sm_.connFcBlockedStreams_;
   }
+  auto& finOnlyStreams() {
+    return sm_.finOnlyStreams_;
+  }
   WtStreamManager& sm_;
 };
 
@@ -812,15 +815,16 @@ WtStreamManager::WtReadHandle* WtStreamManager::getIngressHandle(
 }
 
 WtStreamManager::WtWriteHandle* WtStreamManager::nextWritable() const noexcept {
+  if (!finOnlyStreams_.empty()) {
+    return *finOnlyStreams_.begin();
+  }
+
   auto streamId = writableStreams_.peek();
   auto* wh =
       writehandle_ptr_cast(streamId ? getEgressHandle(*streamId) : nullptr);
   XLOG(DBG6) << __func__ << "; wh=" << wh
              << "; connSendFc.avail=" << connSendFc_.getAvailable();
-  return (wh && (connSendFc_.getAvailable() > 0 ||
-                 wh->bufferedSendData_.onlyFinPending()))
-             ? wh
-             : nullptr;
+  return (wh && connSendFc_.getAvailable() > 0) ? wh : nullptr;
 }
 
 /**
@@ -1067,6 +1071,9 @@ WriteHandle::writeStreamData(
              << "; connBlocked=" << connBlocked
              << "; streamBlocked=" << streamBlocked;
   if (bufferedSendData_.canSendData()) {
+    if (bufferedSendData_.onlyFinPending()) {
+      smAccessor_.finOnlyStreams().insert(this);
+    }
     smAccessor_.onStreamWritable(*this); // stream is now writable
   }
   return streamBlocked ? FcState::BLOCKED : FcState::UNBLOCKED;
@@ -1144,6 +1151,9 @@ WtBufferedStreamData::DequeueResult WriteHandle::dequeue(
   // Consume if wrote data and still have more
   if (bytesDequeued > 0 && bufferedSendData_.canSendData()) {
     smAccessor_.writableStreams().consume(bytesDequeued);
+    if (bufferedSendData_.onlyFinPending()) {
+      smAccessor_.finOnlyStreams().insert(this);
+    }
   } else {
     smAccessor_.writableStreams().erase(getID());
   }
@@ -1176,6 +1186,7 @@ void WriteHandle::onStopSending(uint32_t errCode) noexcept {
 void WriteHandle::finish(bool done) noexcept {
   if (done) {
     state_ = WriteHandleState::Closed;
+    smAccessor_.finOnlyStreams().erase(this);
     smAccessor_.done(*this);
   }
 }

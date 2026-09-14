@@ -1154,16 +1154,61 @@ TEST(WtStreamManager, OnlyFinPending) {
       1, false)); // Lower priority (urgency 1)
 
   one->writeStreamData(
-      /*data*/ makeBuf(1), /*fin=*/true, /*byteEventCallback=*/nullptr);
+      /*data=*/makeBuf(1), /*fin=*/true, /*byteEventCallback=*/nullptr);
   // next expected writable stream is one
   EXPECT_EQ(streamManager.nextWritable(), one);
   expectNextWritable(*priorityQueue, one->getID());
 
   two->writeStreamData(
-      /*data*/ nullptr, /*fin=*/true, /*byteEventCallback=*/nullptr);
-  // one still has higher priority, so it should still be next
-  EXPECT_EQ(streamManager.nextWritable(), one);
+      /*data=*/nullptr, /*fin=*/true, /*byteEventCallback=*/nullptr);
+  // fin-only streams always get priority via ::nextWritable
+  EXPECT_EQ(streamManager.nextWritable(), two);
   expectNextWritable(*priorityQueue, one->getID());
+}
+
+TEST(WtStreamManager, OnlyFinPendingFcBlocked) {
+  WtConfig config{
+      .peerMaxStreamsUni = 3,
+      .peerMaxConnData = 1,
+      .peerMaxStreamDataUni = 1,
+  };
+  WtSmEgressCb egressCb;
+  WtSmIngressCb ingressCb;
+  auto priorityQueue = std::make_unique<quic::HTTPPriorityQueue>();
+  WtStreamManager streamManager{
+      detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
+
+  auto one = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto two = CHECK_NOTNULL(streamManager.createEgressHandle());
+  auto three = CHECK_NOTNULL(streamManager.createEgressHandle());
+
+  // Set priorities to make ordering predictable (urgency, incremental)
+  one->setPriority(quic::HTTPPriorityQueue::Priority(
+      0, false)); // Higher priority (urgency 0)
+  two->setPriority(quic::HTTPPriorityQueue::Priority(
+      1, false)); // Lower priority (urgency 1)
+  three->setPriority(quic::HTTPPriorityQueue::Priority(
+      2, false)); // Lowest priority (urgency 2)
+
+  one->writeStreamData(
+      /*data=*/makeBuf(1), /*fin=*/false, /*byteEventCallback=*/nullptr);
+  two->writeStreamData(
+      /*data=*/makeBuf(1), /*fin=*/false, /*byteEventCallback=*/nullptr);
+  three->writeStreamData(
+      /*data=*/nullptr, /*fin=*/true, /*byteEventCallback=*/nullptr);
+
+  // dequeue data from "one" => removes it from the queue, session becomes
+  // conn-fc blocked
+  std::ignore = streamManager.dequeue(*one, 1);
+
+  // two remaining streams in priorityQueue (two & three); peek returns two
+  // (next highest pri)
+  EXPECT_EQ(priorityQueue->peekNextScheduledID(),
+            quic::PriorityQueue::Identifier::fromStreamID(two->getID()));
+
+  // fin-only streams yielded via ::nextWritable when conn/stream-fc blocked
+  // (i.e. three)
+  EXPECT_EQ(streamManager.nextWritable(), three);
 }
 
 TEST(WtStreamManager, NextWritableReturnsNullptrWhenQueueEmpty) {
