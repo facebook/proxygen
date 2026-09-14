@@ -86,7 +86,7 @@ class WtBufferedStreamData {
   explicit WtBufferedStreamData(uint64_t initMax = 0) : window_(initMax) {
   }
 
-  const BufferedFlowController& window() {
+  [[nodiscard]] const BufferedFlowController& window() const {
     return window_;
   }
 
