@@ -304,6 +304,17 @@ struct WtStreamManager {
   WtBufferedStreamData::DequeueResult dequeue(WtWriteHandle&,
                                               uint64_t atMost) noexcept;
 
+  struct FlowControlInfo {
+    uint64_t currentOffset{0};
+    uint64_t maxOffset{0};
+  };
+  /**
+   * Returns a FlowControlInfo struct representing the WriteHandle's current
+   * offset and the maximum offset the peer has advertised.
+   */
+  [[nodiscard]] FlowControlInfo getFlowControlInfo(
+      const WtWriteHandle&) const noexcept;
+
   struct EgressPriority {
     uint64_t streamId{0};
     quic::PriorityQueue::Priority priority;

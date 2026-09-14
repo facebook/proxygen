@@ -1577,4 +1577,29 @@ TEST(WtStreamManager, UserHandlesTest) {
   }
 }
 
+TEST(WtStreamManager, FlowControlInfo) {
+  WtConfig config;
+  WtSmEgressCb egressCb;
+  WtSmIngressCb ingressCb;
+  auto priorityQueue = std::make_unique<quic::HTTPPriorityQueue>();
+  WtStreamManager streamManager{
+      detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
+
+  constexpr auto kDefaultFc = 65'535;
+  constexpr auto kBufLen = 100;
+
+  auto uni = CHECK_NOTNULL(streamManager.createEgressHandle());
+  uni->writeStreamData(
+      makeBuf(kBufLen), /*fin=*/false, /*byteEventCallback=*/nullptr);
+  auto fcInfo = streamManager.getFlowControlInfo(*uni);
+  EXPECT_EQ(fcInfo.currentOffset, 0);
+  EXPECT_EQ(fcInfo.maxOffset, kDefaultFc);
+
+  auto dequeue = streamManager.dequeue(*uni, /*atMost=*/kDefaultFc);
+  fcInfo = streamManager.getFlowControlInfo(*uni);
+  EXPECT_EQ(dequeue.data->computeChainDataLength(), kBufLen);
+  EXPECT_EQ(fcInfo.currentOffset, kBufLen);
+  EXPECT_EQ(fcInfo.maxOffset, kDefaultFc);
+}
+
 } // namespace proxygen::coro::test

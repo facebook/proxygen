@@ -76,6 +76,7 @@ struct WriteHandle;
 #define writehandle_ptr_cast(ptr) (static_cast<WriteHandle*>(ptr))
 #define readhandle_ref_cast(ptr) (static_cast<ReadHandle&>(ptr))
 #define writehandle_ref_cast(ptr) (static_cast<WriteHandle&>(ptr))
+#define writehandle_const_ref_cast(ptr) (static_cast<const WriteHandle&>(ptr))
 
 }; // namespace
 
@@ -691,6 +692,12 @@ WtBufferedStreamData::DequeueResult WtStreamManager::dequeue(
   XLOG(DBG8) << __func__ << "; atMost=" << atMost << "; len=" << len
              << "; fin=" << res.fin;
   return res;
+}
+
+auto WtStreamManager::getFlowControlInfo(const WtWriteHandle& wh) const noexcept
+    -> FlowControlInfo {
+  const auto& w = writehandle_const_ref_cast(wh).bufferedSendData_.window();
+  return {.currentOffset = w.getCurrentOffset(), .maxOffset = w.getMaxOffset()};
 }
 
 void WtStreamManager::onStreamWritable(WtWriteHandle& wh) noexcept {
