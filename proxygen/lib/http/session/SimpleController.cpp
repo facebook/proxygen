@@ -24,20 +24,28 @@ HTTPTransactionHandler* SimpleController::getRequestHandler(
   return acceptor_->newHandler(txn, msg);
 }
 
+std::optional<uint16_t> SimpleController::getParseErrorHttpStatusCode(
+    const HTTPException& error) {
+  if (error.hasCodecStatusCode()) {
+    return std::nullopt;
+  }
+  return error.hasHttpStatusCode()
+             ? static_cast<uint16_t>(error.getHttpStatusCode())
+             : kDefaultParseErrorStatusCode;
+}
+
 HTTPTransactionHandler* SimpleController::getParseErrorHandler(
     HTTPTransaction* /*txn*/,
     const HTTPException& error,
     const folly::SocketAddress& localAddress) {
 
-  if (error.hasCodecStatusCode()) {
+  auto statusCode = getParseErrorHttpStatusCode(error);
+  if (!statusCode) {
     return new CodecErrorResponseHandler(error.getCodecStatusCode());
   }
 
   auto errorPage = acceptor_ ? acceptor_->getErrorPage(localAddress) : nullptr;
-  return createErrorHandler(
-      error.hasHttpStatusCode() ? error.getHttpStatusCode() : 400,
-      "Bad Request",
-      errorPage);
+  return createErrorHandler(*statusCode, "Bad Request", errorPage);
 }
 
 HTTPTransactionHandler* SimpleController::getTransactionTimeoutHandler(

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <optional>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <string>
 
@@ -23,6 +24,10 @@ class HTTPSessionAcceptor;
  */
 class SimpleController : public HTTPSessionController {
  public:
+  // What a parse error is answered with when the exception names no status
+  // code of its own.
+  static constexpr uint16_t kDefaultParseErrorStatusCode{400};
+
   explicit SimpleController(HTTPSessionAcceptor* acceptor);
 
   /**
@@ -42,6 +47,18 @@ class SimpleController : public HTTPSessionController {
       HTTPTransaction* txn,
       const HTTPException& error,
       const folly::SocketAddress& localAddress) override;
+
+  /**
+   * The status code getParseErrorHandler answers `error` with, or none when it
+   * resets the stream instead and so sends no status code at all.
+   *
+   * Whether a rejected request is answered with a response or a reset is not
+   * something the exception states directly -- it follows from which of the
+   * error codes it carries -- so anything that needs to report what the client
+   * received should ask here rather than infer it.
+   */
+  static std::optional<uint16_t> getParseErrorHttpStatusCode(
+      const HTTPException& error);
 
   /**
    * Will be invoked when HTTPSession times out parsing a new request.

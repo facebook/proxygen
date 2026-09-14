@@ -9,11 +9,13 @@
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 
 #include <cstdlib>
+#include <optional>
 
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/test/MockAsyncServerSocket.h>
 #include <folly/io/async/test/MockAsyncSocket.h>
 #include <folly/logging/xlog.h>
+#include <proxygen/lib/http/session/SimpleController.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/utils/TestUtils.h>
 
@@ -185,4 +187,39 @@ TEST_F(HTTPSessionAcceptorTestNPN, AcceptorConfigCapture) {
   wangle::TransportInfo tinfo;
   acceptor_->connectionReady(
       std::move(sock), clientAddress, "", SecureTransportType::NONE, tinfo);
+}
+
+// getParseErrorHandler answers a rejected request with either a response or a
+// stream reset, and only the former carries a status code. Callers that report
+// what the client received read that off getParseErrorHttpStatusCode, so the
+// two have to agree about which case is which.
+TEST(SimpleControllerParseErrorStatusTest, CodecStatusCodeHasNoStatus) {
+  HTTPException error(HTTPException::Direction::INGRESS_AND_EGRESS, "reset");
+  error.setCodecStatusCode(ErrorCode::PROTOCOL_ERROR);
+  EXPECT_FALSE(
+      SimpleController::getParseErrorHttpStatusCode(error).has_value());
+}
+
+TEST(SimpleControllerParseErrorStatusTest, CodecStatusCodeWinsOverHttpStatus) {
+  // HTTP1xCodec sets a 400 on every downstream parse error, so an exception can
+  // carry both; the reset is what the client actually gets.
+  HTTPException error(HTTPException::Direction::INGRESS_AND_EGRESS, "reset");
+  error.setCodecStatusCode(ErrorCode::PROTOCOL_ERROR);
+  error.setHttpStatusCode(400);
+  EXPECT_FALSE(
+      SimpleController::getParseErrorHttpStatusCode(error).has_value());
+}
+
+TEST(SimpleControllerParseErrorStatusTest, HttpStatusCodeIsReported) {
+  HTTPException error(HTTPException::Direction::INGRESS, "bad request");
+  error.setHttpStatusCode(431);
+  EXPECT_EQ(SimpleController::getParseErrorHttpStatusCode(error),
+            std::optional<uint16_t>{431});
+}
+
+TEST(SimpleControllerParseErrorStatusTest, NeitherCodeFallsBackToDefault) {
+  HTTPException error(HTTPException::Direction::INGRESS, "bad request");
+  EXPECT_EQ(
+      SimpleController::getParseErrorHttpStatusCode(error),
+      std::optional<uint16_t>{SimpleController::kDefaultParseErrorStatusCode});
 }
