@@ -285,14 +285,25 @@ void QuicWtSessionBase::StreamManagerCallback::readReady(
   sess.maybeResumeIngress(rh);
 }
 
+// no callbacks from ::eventsAvailable is expected to destruct the session
 void QuicWtSessionBase::StreamManagerCallback::eventsAvailable() noexcept {
+  if (eventsAvailable_++ > 0) { // active ::eventsAvailable already in progress
+    return;
+  }
+  do { // drain all events; in practice not expected to loop more than 1-2 times
+    eventsAvailableImpl();
+  } while (--eventsAvailable_ > 0);
+}
+
+void QuicWtSessionBase::StreamManagerCallback::eventsAvailableImpl() noexcept {
   XCHECK(sess.quicSocket_);
   // process control events first
   QuicWtEventVisitor visitor{*sess.quicSocket_, sess.observer_};
   auto events = sess.sm_.moveEvents();
   for (auto& event : events) {
-    std::visit(visitor, event);
+    std::visit(visitor, std::move(event));
   }
+
   // then process writable streams
   while (!sess.priorityQueue_->empty()) {
     auto id = sess.priorityQueue_->getNextScheduledID(std::nullopt);
