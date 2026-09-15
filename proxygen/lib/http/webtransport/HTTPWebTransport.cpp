@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/webtransport/HTTPWebTransport.h>
 
 #include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersEncoder.h>
 
@@ -17,9 +18,9 @@ namespace proxygen {
 using WTProtocolError = HTTPWebTransport::WTProtocolError;
 
 /*static*/ bool HTTPWebTransport::isConnectMessage(const HTTPMessage& msg) {
-  constexpr std::string_view kWebTransport{"webtransport"};
   return msg.isRequest() && msg.getMethod() == proxygen::HTTPMethod::CONNECT &&
-         msg.getUpgradeProtocol() && *msg.getUpgradeProtocol() == kWebTransport;
+         msg.getUpgradeProtocol() &&
+         *msg.getUpgradeProtocol() == headers::kWebTransport;
 }
 
 /*static*/ void HTTPWebTransport::setWTAvailableProtocols(
