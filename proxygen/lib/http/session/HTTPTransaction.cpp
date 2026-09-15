@@ -1026,9 +1026,10 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
   if (transportCallback_) {
     transportCallback_->headerBytesGenerated(size);
   }
+  const bool hasBytesObservers = hasBytesEventObservers();
   const auto timeNow =
-      hasBytesEventObservers() ? SteadyClock::now() : SteadyClock::time_point{};
-  if (hasBytesEventObservers()) {
+      hasBytesObservers ? SteadyClock::now() : SteadyClock::time_point{};
+  if (hasBytesObservers) {
     const auto e =
         TxnBytesEvent::Builder()
             .setTimestamp(timeNow)
@@ -1048,7 +1049,7 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
     if (transportCallback_) {
       transportCallback_->bodyBytesGenerated(0);
     }
-    if (hasBytesEventObservers()) {
+    if (hasBytesObservers) {
       const auto e = TxnBytesEvent::Builder()
                          .setTimestamp(timeNow)
                          .setType(TxnBytesEvent::Type::BODY_BYTES_GENERATED)
