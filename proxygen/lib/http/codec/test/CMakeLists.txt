@@ -66,3 +66,13 @@ proxygen_add_test(TARGET BinaryCodecTests
     proxygen
     testmain
 )
+
+add_executable(codec_util_benchmark CodecUtilBenchmark.cpp)
+target_compile_options(codec_util_benchmark PRIVATE
+    ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
+)
+target_link_libraries(codec_util_benchmark PUBLIC
+    proxygen
+    Folly::folly
+    Folly::follybenchmark
+)

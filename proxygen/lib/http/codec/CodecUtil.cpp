@@ -182,4 +182,28 @@ std::unique_ptr<folly::IOBuf> CodecUtil::zeroedBuffer(uint16_t size) {
   return folly::IOBuf::wrapBuffer(k64KiBVec.data(), size);
 }
 
+std::string_view CodecUtil::describeHeaderValueError(HeaderValueError error) {
+  switch (error) {
+    case HeaderValueError::None:
+      return "none";
+    case HeaderValueError::CtlChar:
+      return "ctl-char";
+    case HeaderValueError::DelChar:
+      return "del-char";
+    case HeaderValueError::HighAscii:
+      return "high-ascii";
+    case HeaderValueError::BareCR:
+      return "bare-cr";
+    case HeaderValueError::CRLFNotLWS:
+      return "crlf-not-lws";
+    case HeaderValueError::DanglingEscape:
+      return "dangling-escape";
+    case HeaderValueError::DanglingCRLF:
+      return "dangling-crlf";
+    default:
+      break;
+  }
+  return "unknown";
+}
+
 } // namespace proxygen

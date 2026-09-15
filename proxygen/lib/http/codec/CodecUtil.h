@@ -17,6 +17,7 @@
 #include <proxygen/lib/utils/UtilInl.h>
 #include <stdint.h>
 #include <string>
+#include <string_view>
 
 namespace proxygen {
 
@@ -104,7 +105,25 @@ class CodecUtil {
    */
   enum CtlEscapeMode { COMPLIANT, STRICT_COMPAT, STRICT };
 
-  static bool validateHeaderValue(folly::ByteRange value, CtlEscapeMode mode) {
+  /**
+   * Which rule in validateHeaderValue rejected a value. Stamped into parse
+   * error messages so the rejecting rule is identifiable from logs alone.
+   */
+  enum class HeaderValueError : uint8_t {
+    None,
+    CtlChar,
+    DelChar,
+    HighAscii,
+    BareCR,
+    CRLFNotLWS,
+    DanglingEscape,
+    DanglingCRLF,
+  };
+
+  static std::string_view describeHeaderValueError(HeaderValueError error);
+
+  static HeaderValueError validateHeaderValueDetail(folly::ByteRange value,
+                                                    CtlEscapeMode mode) {
     bool escape = false;
     bool quote = false;
     enum {
@@ -142,7 +161,13 @@ class CodecUtil {
               if ((*p < 0x20 && *p != '\t') || (*p == 0x7f) ||
                   (*p > 0x7f && mode == STRICT)) {
                 // unexpected ctl per rfc2616, HT OK
-                return false;
+                if (*p == 0x7f) {
+                  return HeaderValueError::DelChar;
+                }
+                if (*p > 0x7f) {
+                  return HeaderValueError::HighAscii;
+                }
+                return HeaderValueError::CtlChar;
               }
               break;
           }
@@ -150,14 +175,14 @@ class CodecUtil {
         case lws_expect_nl:
           if (*p != '\n') {
             // unescaped \r must be LWS
-            return false;
+            return HeaderValueError::BareCR;
           }
           state = lws_expect_ws1;
           break;
         case lws_expect_ws1:
           if (*p != ' ' && *p != '\t') {
             // unescaped \r\n must be LWS
-            return false;
+            return HeaderValueError::CRLFNotLWS;
           }
           state = lws_expect_ws2;
           break;
@@ -179,7 +204,17 @@ class CodecUtil {
     // when converting to HTTP
     // Unterminated LWS (dangling \r or \r\n) is bad because it could
     // prematurely terminate the headers when converting to HTTP
-    return !escape && (state == lws_none || state == lws_expect_ws2);
+    const bool valid =
+        !escape && (state == lws_none || state == lws_expect_ws2);
+    if (!valid) {
+      return escape ? HeaderValueError::DanglingEscape
+                    : HeaderValueError::DanglingCRLF;
+    }
+    return HeaderValueError::None;
+  }
+
+  static bool validateHeaderValue(folly::ByteRange value, CtlEscapeMode mode) {
+    return validateHeaderValueDetail(value, mode) == HeaderValueError::None;
   }
 
   static bool hasGzipAndDeflate(const std::string& value,

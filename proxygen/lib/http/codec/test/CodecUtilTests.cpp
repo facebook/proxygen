@@ -159,6 +159,33 @@ TEST(CodecUtil, validateHeaderValue) {
                                              CodecUtil::COMPLIANT));
 }
 
+TEST(CodecUtil, validateHeaderValueDetail) {
+  using Error = CodecUtil::HeaderValueError;
+  const std::vector<std::pair<const char *, Error>> strictCases{
+      {"abc", Error::None},
+      {"abc\x01", Error::CtlChar},
+      {"abc\x7f", Error::DelChar},
+      {"abc\xff", Error::HighAscii},
+      {"abc\r \t def", Error::BareCR},
+      {"abc\r\ndef", Error::CRLFNotLWS},
+      {"foo\r", Error::DanglingCRLF},
+      {"foo\r\n", Error::DanglingCRLF},
+  };
+  for (size_t i = 0; i < strictCases.size(); i++) {
+    const auto &[value, expected] = strictCases[i];
+    EXPECT_EQ(
+        CodecUtil::validateHeaderValueDetail(input(value), CodecUtil::STRICT),
+        expected)
+        << "case " << i;
+  }
+
+  // Escapes are only honored in COMPLIANT mode, so a value ending mid-escape
+  // is only reachable there.
+  EXPECT_EQ(
+      CodecUtil::validateHeaderValueDetail(input("\"\\"), CodecUtil::COMPLIANT),
+      Error::DanglingEscape);
+}
+
 TEST(CodecUtil, hasGzipAndDeflate) {
   bool gzip = false;
   bool deflate = false;
