@@ -581,3 +581,82 @@ TYPED_TEST(CompressionFilterTest, NoResponseBody) {
     filter->requestComplete();
   });
 }
+
+// A chunked, compressed response must not carry the handler's Content-Length.
+TYPED_TEST(CompressionFilterTest,
+           ChunkedWithContentLengthKeepsUncompressedLength) {
+  using Codec = typename TestFixture::CodecType;
+
+  const std::string chunk1(4096, 'a');
+  const std::string chunk2(4096, 'b');
+  const uint64_t uncompressedLength = chunk1.size() + chunk2.size();
+
+  ResponseHandler* downstream{nullptr};
+  EXPECT_CALL(*this->requestHandler_, setResponseHandler(_))
+      .WillOnce(DoAll(SaveArg<0>(&downstream), Return()));
+  EXPECT_CALL(*this->requestHandler_, onEOM()).Times(1);
+
+  std::string sentContentLength;
+  std::string sentContentEncoding;
+  bool sentIsChunked = false;
+  EXPECT_CALL(*this->responseHandler_, sendHeaders(_))
+      .WillOnce(DoAll(Invoke([&](HTTPMessage& m) {
+                        auto& h = m.getHeaders();
+                        sentContentLength =
+                            h.getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
+                        sentContentEncoding =
+                            h.getSingleOrEmpty(HTTP_HEADER_CONTENT_ENCODING);
+                        sentIsChunked = m.getIsChunked();
+                      }),
+                      Return()));
+
+  uint64_t bytesOnWire = 0;
+  EXPECT_CALL(*this->responseHandler_, sendBody(_))
+      .WillRepeatedly(DoAll(Invoke([&](std::shared_ptr<folly::IOBuf> body) {
+                              bytesOnWire += body->computeChainDataLength();
+                            }),
+                            Return()));
+  EXPECT_CALL(*this->responseHandler_, sendChunkHeader(_)).Times(AnyNumber());
+  EXPECT_CALL(*this->responseHandler_, sendChunkTerminator())
+      .Times(AnyNumber());
+  EXPECT_CALL(*this->responseHandler_, sendEOM()).Times(1);
+
+  HTTPMessage msg;
+  msg.setURL(std::string("http://localhost/foo.compressme"));
+  msg.getHeaders().set(HTTP_HEADER_ACCEPT_ENCODING,
+                       Codec::getExpectedEncoding());
+
+  CompressionFilterFactory::Options opts;
+  opts.minimumCompressionSize = 1;
+  opts.compressibleContentTypes = std::make_shared<std::set<std::string>>(
+      std::set<std::string>{"text/html"});
+  opts.enableZstd = true;
+  auto filterFactory = std::make_unique<CompressionFilterFactory>(opts);
+
+  auto filter = filterFactory->onRequest(this->requestHandler_, &msg);
+  filter->setResponseHandler(this->responseHandler_.get());
+  filter->onEOM();
+
+  ResponseBuilder(downstream)
+      .status(200, "OK")
+      .header(HTTP_HEADER_CONTENT_TYPE, std::string("text/html"))
+      .header(HTTP_HEADER_CONTENT_LENGTH,
+              folly::to<std::string>(uncompressedLength))
+      .body(folly::IOBuf::copyBuffer(chunk1))
+      .send();
+  ResponseBuilder(downstream).body(folly::IOBuf::copyBuffer(chunk2)).send();
+  ResponseBuilder(downstream).sendWithEOM();
+  filter->requestComplete();
+
+  LOG(INFO) << "chunked=" << sentIsChunked << " content-encoding='"
+            << sentContentEncoding << "' content-length='" << sentContentLength
+            << "' uncompressed=" << uncompressedLength
+            << " bytes_on_wire=" << bytesOnWire;
+
+  EXPECT_TRUE(sentIsChunked);
+  EXPECT_EQ(sentContentEncoding, Codec::getExpectedEncoding());
+  EXPECT_LT(bytesOnWire, uncompressedLength);
+  EXPECT_TRUE(sentContentLength.empty())
+      << "stale Content-Length " << sentContentLength << " forwarded "
+      << "with " << bytesOnWire << " bytes on the wire";
+}

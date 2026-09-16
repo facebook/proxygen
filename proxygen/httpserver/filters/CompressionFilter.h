@@ -43,6 +43,9 @@ class CompressionFilter : public Filter {
     if (compress_) {
       auto& headers = msg.getHeaders();
       headers.set(HTTP_HEADER_CONTENT_ENCODING, params_.headerEncoding);
+      if (chunked_) {
+        headers.remove(HTTP_HEADER_CONTENT_LENGTH);
+      }
     }
 
     // Initialize compressor
