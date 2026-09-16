@@ -336,7 +336,10 @@ void HTTP1xCodec::onParserError(const char* what) {
   // generate a string of parsed headers so that we can pass it to callback
   if (msg_) {
     backfillPartialRequest();
-    error.setPartialMsg(std::move(msg_));
+    const bool isNone = !(msg_->isRequest() || msg_->isResponse());
+    if (!isNone) {
+      error.setPartialMsg(std::move(msg_));
+    }
   }
   if (isDownstream(transportDirection_) && egressTxnID_ < ingressTxnID_) {
     error.setHttpStatusCode(400);

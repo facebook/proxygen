@@ -727,9 +727,7 @@ TEST(HTTP1xCodecTest, TestPartialMsgNotBackfilledWhenRequestLineUnparsed) {
   EXPECT_EQ(callbacks.streamErrors, 1);
   ASSERT_NE(callbacks.lastParseError, nullptr);
   auto* partialMsg = callbacks.lastParseError->getPartialMsg();
-  ASSERT_NE(partialMsg, nullptr);
-  EXPECT_TRUE(partialMsg->getMethodString().empty());
-  EXPECT_TRUE(partialMsg->getURL().empty());
+  ASSERT_EQ(partialMsg, nullptr);
 }
 
 // Upstream responses have no method or URL to recover; the backfill must not
@@ -754,12 +752,7 @@ TEST(HTTP1xCodecTest, TestPartialMsgNotBackfilledUpstream) {
   EXPECT_EQ(callbacks.streamErrors, 1);
   ASSERT_NE(callbacks.lastParseError, nullptr);
   auto* partialMsg = callbacks.lastParseError->getPartialMsg();
-  ASSERT_NE(partialMsg, nullptr);
-  EXPECT_TRUE(partialMsg->getMethodString().empty());
-  EXPECT_TRUE(partialMsg->getURL().empty());
-  // The parsed headers still come through; both duplicates are present, which
-  // is why getSingleOrEmpty() would not serve here.
-  EXPECT_TRUE(partialMsg->getHeaders().exists(HTTP_HEADER_CONTENT_LENGTH));
+  ASSERT_EQ(partialMsg, nullptr);
 }
 
 TEST(HTTP1xCodecTest, TestMalformedChunkDelimiter) {
