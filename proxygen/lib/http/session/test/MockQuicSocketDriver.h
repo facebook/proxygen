@@ -190,7 +190,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               {connection.flowControlWindow,
                connection.nextWriteOffset + connection.flowControlWindow,
                0,
-               0});
+               0,
+               maxConnWritable()});
         }));
 
     EXPECT_CALL(*sock_, getStreamFlowControl(testing::_))
@@ -212,7 +213,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                   {stream.flowControlWindow,
                    stream.nextWriteOffset + stream.flowControlWindow,
                    0,
-                   0});
+                   0,
+                   maxStreamWritable(id)});
             }));
     EXPECT_CALL(*sock_, getMaxWritableOnStream(testing::_))
         .WillRepeatedly(testing::Invoke(
