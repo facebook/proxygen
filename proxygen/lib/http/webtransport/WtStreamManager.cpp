@@ -730,6 +730,7 @@ void WtStreamManager::shutdown(CloseSession cs) noexcept {
   shutdown_ = true;
   XLOG(DBG4) << __func__ << "; ec=" << cs.err << "; err=" << cs.msg;
   auto ex = makeWtException(cs.err, cs.msg);
+  connFcBlockedStreams_.clear();
   auto streams = std::move(streams_);
   for (auto& [_, handle] : streams) {
     handle->rh.cancel(ex);
@@ -1178,8 +1179,6 @@ void WriteHandle::cancel(folly::exception_wrapper ex) noexcept {
     p.setException(ex_);
   }
   smAccessor_.writableStreams().erase(getID());
-  // Also remove from conn FC blocked set if present
-  smAccessor_.connFcBlockedStreams().erase(this);
   cs_.requestCancellation();
   // **beware finish must be last** (`this` can be deleted immediately after)
   finish(/*done=*/true);
@@ -1194,6 +1193,7 @@ void WriteHandle::finish(bool done) noexcept {
   if (done) {
     state_ = WriteHandleState::Closed;
     smAccessor_.finOnlyStreams().erase(this);
+    smAccessor_.connFcBlockedStreams().erase(this);
     smAccessor_.done(*this);
   }
 }

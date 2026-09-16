@@ -44,6 +44,13 @@ struct WtSmIngressCb : WtStreamManager::IngressCallback {
   std::vector<uint64_t> peerIds;
 };
 
+struct NoopDeliveryCallback : WebTransport::ByteEventCallback {
+  void onByteEvent(uint64_t, uint64_t) noexcept override {
+  }
+  void onByteEventCanceled(uint64_t, uint64_t) noexcept override {
+  }
+};
+
 using WtConfig = WtStreamManager::WtConfig;
 using MaxStreamsBidi = WtStreamManager::MaxStreamsBidi;
 using MaxStreamsUni = WtStreamManager::MaxStreamsUni;
@@ -1600,6 +1607,43 @@ TEST(WtStreamManager, FlowControlInfo) {
   EXPECT_EQ(dequeue.data->computeChainDataLength(), kBufLen);
   EXPECT_EQ(fcInfo.currentOffset, kBufLen);
   EXPECT_EQ(fcInfo.maxOffset, kDefaultFc);
+}
+
+TEST(WtStreamManager, H02FinishedHandleRemainsConnFcBlocked) {
+  WtConfig config{.peerMaxStreamsUni = 1};
+  WtSmEgressCb egressCb;
+  WtSmIngressCb ingressCb;
+  auto priorityQueue = std::make_unique<quic::HTTPPriorityQueue>();
+  WtStreamManager streamManager{
+      detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
+  NoopDeliveryCallback deliveryCallback;
+
+  auto* writeHandle = CHECK_NOTNULL(streamManager.createEgressHandle());
+  constexpr auto kConnBytesAvailable = WtConfig::kDefaultFc;
+  constexpr auto kNoCap = std::numeric_limits<uint64_t>::max();
+
+  EXPECT_TRUE(writeHandle
+                  ->writeStreamData(makeBuf(kConnBytesAvailable),
+                                    /*fin=*/false,
+                                    &deliveryCallback)
+                  .hasValue());
+  EXPECT_TRUE(
+      writeHandle->writeStreamData(nullptr, /*fin=*/true, &deliveryCallback)
+          .hasValue());
+
+  auto data = streamManager.dequeue(*writeHandle, kNoCap);
+  ASSERT_NE(data.data, nullptr);
+  EXPECT_EQ(data.data->computeChainDataLength(), kConnBytesAvailable);
+  EXPECT_FALSE(data.fin);
+
+  ASSERT_EQ(streamManager.nextWritable(), writeHandle);
+  auto fin = streamManager.dequeue(*writeHandle, kNoCap);
+  EXPECT_TRUE(fin.fin);
+  EXPECT_FALSE(streamManager.hasStreams());
+
+  // Before the fix, the FIN deleted writeHandle without removing its raw
+  // address from connFcBlockedStreams_. MAX_DATA then dereferenced it.
+  EXPECT_TRUE(streamManager.onMaxData(MaxConnData{WtConfig::kDefaultFc + 1}));
 }
 
 } // namespace proxygen::coro::test
