@@ -1101,3 +1101,110 @@ TEST_F(ConnectionFilterTest, Test) {
   auto headers = response->getHeaders();
   EXPECT_EQ("testuser1", headers.getSingleOrEmpty("X-Client-CN"));
 }
+
+// Compression through a real server: acceptor, filter chain and codec.
+namespace {
+
+const std::string kCompressible("text/html");
+
+struct Response {
+  uint16_t status{0};
+  std::string encoding;
+  std::string length;
+};
+
+// Serves `body` bytes, split across two sends when `chunked`, declaring
+// Content-Length itself when `declared` is non-zero. ScopedHandler calls
+// sendWithEOM() for us once the lambda returns.
+Response fetch(size_t body, bool chunked, size_t declared = 0) {
+  auto handler = [=](const HTTPMessage&,
+                     std::unique_ptr<folly::IOBuf>,
+                     ResponseBuilder& r) {
+    r.status(200, "OK").header(HTTP_HEADER_CONTENT_TYPE, kCompressible);
+    if (declared) {
+      r.header(HTTP_HEADER_CONTENT_LENGTH, folly::to<std::string>(declared));
+    }
+    if (chunked) {
+      r.body(std::string(body / 2, 'x')).send();
+      r.body(std::string(body - body / 2, 'x'));
+    } else if (body) {
+      r.body(std::string(body, 'x'));
+    }
+  };
+
+  HTTPServerOptions options;
+  options.threads = 4;
+  options.enableContentCompression = true;
+  options.contentCompressionTypes.insert(kCompressible);
+  options.handlerFactories.push_back(
+      std::make_unique<ScopedHandlerFactory<decltype(handler)>>(handler));
+
+  auto server = ScopedHTTPServer::start(
+      HTTPServer::IPConfig{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP},
+      std::move(options));
+
+  folly::EventBase evb;
+  URL url(folly::to<std::string>("http://localhost:", server->getPort()));
+  HTTPHeaders headers;
+  headers.add(HTTP_HEADER_ACCEPT_ENCODING, "gzip");
+  CurlClient curl(&evb, HTTPMethod::GET, url, nullptr, headers, "");
+  curl.setLogging(false);
+  HTTPConnector connector(
+      &curl, WheelTimerInstance(std::chrono::milliseconds(5000), &evb));
+  connector.connect(
+      &evb, server->getAddresses()[0].address, std::chrono::milliseconds(5000));
+  evb.loop();
+
+  Response out;
+  if (auto response = curl.getResponse()) {
+    out.status = response->getStatusCode();
+    out.encoding =
+        response->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_ENCODING);
+    out.length =
+        response->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
+  }
+  return out;
+}
+
+constexpr size_t kBody = 861170;
+
+} // namespace
+
+TEST(CompressionContentLength, SingleSend) {
+  auto r = fetch(kBody, /*chunked=*/false);
+  EXPECT_EQ(200, r.status);
+  EXPECT_EQ("gzip", r.encoding);
+}
+
+TEST(CompressionContentLength, Chunked) {
+  auto r = fetch(kBody, /*chunked=*/true);
+  EXPECT_EQ(200, r.status);
+  EXPECT_EQ("gzip", r.encoding);
+  EXPECT_TRUE(r.length.empty());
+}
+
+// A handler-set Content-Length must not leave the message multi-valued.
+TEST(CompressionContentLength, SingleSendHandlerSetsLength) {
+  auto r = fetch(kBody, /*chunked=*/false, /*declared=*/kBody);
+  EXPECT_EQ(200, r.status);
+  EXPECT_EQ("gzip", r.encoding)
+      << "duplicate Content-Length blocked compression";
+  ASSERT_FALSE(r.length.empty());
+  EXPECT_LT(folly::to<uint64_t>(r.length), kBody);
+}
+
+// The chunked branch must drop the handler's uncompressed length.
+TEST(CompressionContentLength, ChunkedHandlerSetsLength) {
+  auto r = fetch(kBody, /*chunked=*/true, /*declared=*/kBody);
+  EXPECT_EQ(200, r.status);
+  EXPECT_EQ("gzip", r.encoding);
+  EXPECT_TRUE(r.length.empty());
+}
+
+// Unchanged by this diff: the computed length already won here.
+TEST(CompressionContentLength, DeclaredLengthNoBody) {
+  auto r = fetch(/*body=*/0, /*chunked=*/false, /*declared=*/12345);
+  EXPECT_EQ(200, r.status);
+  EXPECT_EQ("0", r.length);
+}

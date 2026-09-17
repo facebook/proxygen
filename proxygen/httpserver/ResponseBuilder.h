@@ -158,7 +158,7 @@ class ResponseBuilder {
           headers_->setIsChunked(true);
         } else {
           const auto len = body_ ? body_->computeChainDataLength() : 0;
-          headers_->getHeaders().add(HTTP_HEADER_CONTENT_LENGTH,
+          headers_->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
                                      folly::to<std::string>(len));
         }
       }
