@@ -186,6 +186,47 @@ TEST(CodecUtil, validateHeaderValueDetail) {
       Error::DanglingEscape);
 }
 
+// Regression guard for the plain-ASCII fast path in validateHeaderValue. The
+// fast path accepts a value outright only when every byte is "plain" (HTAB or
+// printable US-ASCII excluding '"' and '\\'); any other byte falls through to
+// the state machine. These cases pin down the transition bytes on both sides
+// of that fast/slow split in all three modes, so the fast path can never drift
+// from the state machine it short-circuits. Expected values are derived from
+// the RFC rules the state machine implements, not copied from the fast path.
+TEST(CodecUtil, validateHeaderValueFastPathBoundaries) {
+  auto check = [](const std::string &value,
+                  bool compliant,
+                  bool strictCompat,
+                  bool strict) {
+    auto range = folly::ByteRange{
+        reinterpret_cast<const uint8_t *>(value.data()), value.size()};
+    EXPECT_EQ(CodecUtil::validateHeaderValue(range, CodecUtil::COMPLIANT),
+              compliant);
+    EXPECT_EQ(CodecUtil::validateHeaderValue(range, CodecUtil::STRICT_COMPAT),
+              strictCompat);
+    EXPECT_EQ(CodecUtil::validateHeaderValue(range, CodecUtil::STRICT), strict);
+  };
+
+  //                                COMPLIANT STRICT_COMPAT STRICT
+  // 0x1F (CTL) rejects; 0x20 (SP) is the first plain byte.
+  check(std::string("a\x1f"), false, false, false);
+  check(std::string("a\x20"), true, true, true);
+  // 0x7E (~) is the last plain byte; 0x7F (DEL) rejects; 0x80 (obs-text) is
+  // accepted except under STRICT.
+  check(std::string("a\x7e"), true, true, true);
+  check(std::string("a\x7f"), false, false, false);
+  check(std::string("a\x80"), true, true, false);
+  // 0x09 (HTAB) is plain; 0x22 (") and 0x5C (\) are the state-machine trigger
+  // bytes (unterminated quote/backslash are accepted).
+  check(std::string("a\x09"), true, true, true);
+  check(std::string("a\""), true, true, true);
+  check(std::string("a\\"), true, true, true);
+  // A quoted-and-escaped CTL is accepted only in COMPLIANT mode.
+  check(std::string("\"\\\x01\""), true, false, false);
+  // An LWS fold (CR LF SP) is accepted in every mode.
+  check(std::string("abc\r\n def"), true, true, true);
+}
+
 TEST(CodecUtil, hasGzipAndDeflate) {
   bool gzip = false;
   bool deflate = false;

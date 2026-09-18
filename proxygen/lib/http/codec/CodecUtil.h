@@ -124,6 +124,21 @@ class CodecUtil {
 
   static HeaderValueError validateHeaderValueDetail(folly::ByteRange value,
                                                     CtlEscapeMode mode) {
+    // Fast path: values made up entirely of "plain" bytes -- printable
+    // US-ASCII excluding '"' and '\\', plus HTAB -- cannot alter the state
+    // machine below and are valid in every mode. The (c - 0x20) <= 0x5e idiom
+    // folds the 0x20..0x7e range check into a single unsigned compare, keeping
+    // the scan branch-light so the compiler can auto-vectorize it.
+    bool plain = true;
+    for (uint8_t c : value) {
+      plain &=
+          (static_cast<uint8_t>(c - 0x20) <= 0x5e && c != '"' && c != '\\') ||
+          c == '\t';
+    }
+    if (plain) {
+      return HeaderValueError::None;
+    }
+
     bool escape = false;
     bool quote = false;
     enum {
