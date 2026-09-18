@@ -224,6 +224,30 @@ TEST_F(HTTPStreamSourceTest, Body) {
   EXPECT_EQ(bodyEvents_[4].eom, true);
 }
 
+TEST_F(HTTPStreamSourceTest, PushPromiseBeforeResponseHeaders) {
+  auto promiseSource = HTTPFixedSource::makeFixedResponse(
+      200, folly::IOBuf::copyBuffer("push body"));
+  auto promise = std::make_unique<HTTPMessage>();
+  promise->setURL("/push");
+  stream_.pushPromise(std::move(promise), promiseSource);
+
+  auto response = std::make_unique<HTTPMessage>();
+  response->setStatusCode(200);
+  stream_.headers(std::move(response));
+  stream_.eom();
+
+  co_withExecutor(&evb_, drainSource()).start();
+  run();
+
+  EXPECT_FALSE(error_.hasValue());
+  ASSERT_EQ(headerEvents_.size(), 1);
+  EXPECT_EQ(headerEvents_[0].headers->getStatusCode(), 200);
+  ASSERT_EQ(bodyEvents_.size(), 1);
+  EXPECT_EQ(bodyEvents_[0].eventType, HTTPBodyEvent::PUSH_PROMISE);
+  EXPECT_EQ(bodyEvents_[0].event.push.promise->getPathAsStringPiece(), "/push");
+  EXPECT_TRUE(bodyEvents_[0].eom);
+}
+
 TEST_F(HTTPStreamSourceTest, ContentLength0) {
   auto req = makePostRequest(0);
   stream_.headers(std::move(req), false);

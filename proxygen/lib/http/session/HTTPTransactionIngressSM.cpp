@@ -35,7 +35,11 @@ HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
           static_cast<uint64_t>(Event::NumEvents),
           {{{State::Start, Event::onFinalHeaders}, State::FinalHeadersReceived},
 
+           {{State::Start, Event::onPushPromise}, State::Start},
+
            {{State::Start, Event::onNonFinalHeaders},
+            State::NonFinalHeadersReceived},
+           {{State::NonFinalHeadersReceived, Event::onPushPromise},
             State::NonFinalHeadersReceived},
            {{State::NonFinalHeadersReceived, Event::onNonFinalHeaders},
             State::NonFinalHeadersReceived},
@@ -46,6 +50,8 @@ HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
 
            {{State::FinalHeadersReceived, Event::onBody},
             State::RegularBodyReceived},
+           {{State::FinalHeadersReceived, Event::onPushPromise},
+            State::FinalHeadersReceived},
            {{State::FinalHeadersReceived, Event::onDatagram},
             State::FinalHeadersReceived},
            {{State::FinalHeadersReceived, Event::onChunkHeader},
@@ -58,6 +64,8 @@ HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
            {{State::FinalHeadersReceived, Event::onEOM}, State::EOMQueued},
 
            {{State::RegularBodyReceived, Event::onBody},
+            State::RegularBodyReceived},
+           {{State::RegularBodyReceived, Event::onPushPromise},
             State::RegularBodyReceived},
            {{State::RegularBodyReceived, Event::onDatagram},
             State::RegularBodyReceived},
@@ -162,6 +170,9 @@ std::ostream& operator<<(std::ostream& os,
       break;
     case HTTPTransactionIngressSMData::Event::onEOM:
       os << "onEOM";
+      break;
+    case HTTPTransactionIngressSMData::Event::onPushPromise:
+      os << "onPushPromise";
       break;
     case HTTPTransactionIngressSMData::Event::eomFlushed:
       os << "eomFlushed";

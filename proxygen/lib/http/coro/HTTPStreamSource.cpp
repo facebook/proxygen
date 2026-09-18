@@ -117,16 +117,17 @@ void HTTPStreamSource::datagram(std::unique_ptr<folly::IOBuf> datagram) {
 void HTTPStreamSource::pushPromise(std::unique_ptr<HTTPMessage> promise,
                                    HTTPSource* pushSource,
                                    bool eom) {
-  // Treat this like a body event for state machine purposes.  Legal
-  // anytime after headers and before eom
   XCHECK(pushSource);
-  if (!validateStateTransition(HTTPTransactionIngressSM::Event::onBody, eom)) {
+  if (!validateStateTransition(HTTPTransactionIngressSM::Event::onPushPromise,
+                               eom)) {
     pushSource->stopReading();
     return;
   }
   if (!sinkMode_) {
     bodyQueue_.emplace_back(std::move(promise), pushSource, eom);
-    event_.signal();
+    if (readState_ == ReadState::BodyEvents) {
+      event_.signal();
+    }
   } else {
     pushSource->stopReading();
   }

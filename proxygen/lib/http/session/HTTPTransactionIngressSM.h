@@ -44,6 +44,7 @@ class HTTPTransactionIngressSMData {
     onTrailers,
     onUpgrade,
     onEOM,
+    onPushPromise,
     // Internal state transitions
     eomFlushed,
 

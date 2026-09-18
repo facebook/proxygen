@@ -227,6 +227,18 @@ TEST_F(IngressStateMachineFixture, NormalIngressTransitions) {
   follow(HTTPTransactionIngressSM::Event::onEOM);
 }
 
+TEST_F(IngressStateMachineFixture, PushPromiseTransitions) {
+  follow(HTTPTransactionIngressSM::Event::onPushPromise);
+  follow(HTTPTransactionIngressSM::Event::onNonFinalHeaders);
+  follow(HTTPTransactionIngressSM::Event::onPushPromise);
+  follow(HTTPTransactionIngressSM::Event::onFinalHeaders);
+  follow(HTTPTransactionIngressSM::Event::onPushPromise);
+  follow(HTTPTransactionIngressSM::Event::onBody);
+  follow(HTTPTransactionIngressSM::Event::onPushPromise);
+  follow(HTTPTransactionIngressSM::Event::onEOM);
+  fail(HTTPTransactionIngressSM::Event::onPushPromise);
+}
+
 TEST_F(IngressStateMachineFixture, WeirdIngressTransitions) {
   follow(HTTPTransactionIngressSM::Event::onNonFinalHeaders);
   follow(HTTPTransactionIngressSM::Event::onNonFinalHeaders);
