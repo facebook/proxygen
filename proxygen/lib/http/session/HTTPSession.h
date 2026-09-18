@@ -231,11 +231,11 @@ class HTTPSession
   void setHeaderIndexingStrategy(const HeaderIndexingStrategy* strat) override;
 
   void setHeaderCodecStats(HeaderCodec::Stats* stats) override {
-    codec_->setHeaderCodecStats(stats);
+    codec_.setHeaderCodecStats(stats);
   }
 
   void enableDoubleGoawayDrain() override {
-    codec_->enableDoubleGoawayDrain();
+    codec_.enableDoubleGoawayDrain();
   }
 
   /**

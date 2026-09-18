@@ -218,10 +218,262 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
   [[nodiscard]] uint32_t getDefaultWindowSize() const override;
 };
 
-using HTTPCodecFilterChain = FilterChain<HTTPCodec,
-                                         HTTPCodec::Callback,
-                                         PassThroughHTTPCodecFilter,
-                                         &HTTPCodec::setCallback,
-                                         true>;
+class HTTPCodecFilterChain {
+  using Chain = FilterChain<HTTPCodec,
+                            HTTPCodec::Callback,
+                            PassThroughHTTPCodecFilter,
+                            &HTTPCodec::setCallback,
+                            true>;
+
+ public:
+  using StreamID = HTTPCodec::StreamID;
+
+  explicit HTTPCodecFilterChain(std::unique_ptr<HTTPCodec> codec)
+      : chain_(std::move(codec)) {
+  }
+
+  HTTPCodecFilterChain(const HTTPCodecFilterChain&) = delete;
+  HTTPCodecFilterChain& operator=(const HTTPCodecFilterChain&) = delete;
+  HTTPCodecFilterChain(HTTPCodecFilterChain&&) = delete;
+  HTTPCodecFilterChain& operator=(HTTPCodecFilterChain&&) = delete;
+  ~HTTPCodecFilterChain() = default;
+
+  [[nodiscard]] CodecProtocol getProtocol() const {
+    return chain_->getProtocol();
+  }
+
+  [[nodiscard]] TransportDirection getTransportDirection() const {
+    return chain_->getTransportDirection();
+  }
+
+  [[nodiscard]] bool supportsParallelRequests() const {
+    return chain_->supportsParallelRequests();
+  }
+
+  [[nodiscard]] bool supportsSessionFlowControl() const {
+    return chain_->supportsSessionFlowControl();
+  }
+
+  [[nodiscard]] bool supportsStreamFlowControl() const {
+    return chain_->supportsStreamFlowControl();
+  }
+
+  void setParserPaused(bool paused) {
+    chain_->setParserPaused(paused);
+  }
+
+  [[nodiscard]] const std::string& getUserAgent() const {
+    return chain_->getUserAgent();
+  }
+
+  StreamID createStream() {
+    return chain_->createStream();
+  }
+
+  [[nodiscard]] bool isBusy() const {
+    return chain_->isBusy();
+  }
+
+  size_t onIngress(const folly::IOBuf& buf) {
+    return chain_->onIngress(buf);
+  }
+
+  void onIngressEOF() {
+    chain_->onIngressEOF();
+  }
+
+  [[nodiscard]] bool isReusable() const {
+    return chain_->isReusable();
+  }
+
+  [[nodiscard]] bool isWaitingToDrain() const {
+    return chain_->isWaitingToDrain();
+  }
+
+  [[nodiscard]] bool closeOnEgressComplete() const {
+    return chain_->closeOnEgressComplete();
+  }
+
+  [[nodiscard]] bool supportsPushTransactions() const {
+    return chain_->supportsPushTransactions();
+  }
+
+  size_t generateConnectionPreface(folly::IOBufQueue& writeBuf) {
+    return chain_->generateConnectionPreface(writeBuf);
+  }
+
+  void generateHeader(
+      folly::IOBufQueue& writeBuf,
+      StreamID stream,
+      const HTTPMessage& msg,
+      bool eom = false,
+      HTTPHeaderSize* size = nullptr,
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none) {
+    chain_->generateHeader(writeBuf, stream, msg, eom, size, extraHeaders);
+  }
+
+  void generatePushPromise(folly::IOBufQueue& writeBuf,
+                           StreamID stream,
+                           const HTTPMessage& msg,
+                           StreamID assocStream,
+                           bool eom = false,
+                           HTTPHeaderSize* size = nullptr) {
+    chain_->generatePushPromise(writeBuf, stream, msg, assocStream, eom, size);
+  }
+
+  size_t generateBody(folly::IOBufQueue& writeBuf,
+                      StreamID stream,
+                      std::unique_ptr<folly::IOBuf> chain,
+                      folly::Optional<uint8_t> padding,
+                      bool eom) {
+    return chain_->generateBody(
+        writeBuf, stream, std::move(chain), padding, eom);
+  }
+
+  size_t generateChunkHeader(folly::IOBufQueue& writeBuf,
+                             StreamID stream,
+                             size_t length) {
+    return chain_->generateChunkHeader(writeBuf, stream, length);
+  }
+
+  size_t generateChunkTerminator(folly::IOBufQueue& writeBuf, StreamID stream) {
+    return chain_->generateChunkTerminator(writeBuf, stream);
+  }
+
+  size_t generateTrailers(folly::IOBufQueue& writeBuf,
+                          StreamID stream,
+                          const HTTPHeaders& trailers) {
+    return chain_->generateTrailers(writeBuf, stream, trailers);
+  }
+
+  size_t generatePadding(folly::IOBufQueue& writeBuf,
+                         StreamID stream,
+                         uint16_t bytes) {
+    return chain_->generatePadding(writeBuf, stream, bytes);
+  }
+
+  size_t generateEOM(folly::IOBufQueue& writeBuf, StreamID stream) {
+    return chain_->generateEOM(writeBuf, stream);
+  }
+
+  size_t generateRstStream(folly::IOBufQueue& writeBuf,
+                           StreamID stream,
+                           ErrorCode code) {
+    return chain_->generateRstStream(writeBuf, stream, code);
+  }
+
+  size_t generateGoaway(folly::IOBufQueue& writeBuf,
+                        StreamID lastStream = HTTPCodec::MaxStreamID,
+                        ErrorCode code = ErrorCode::NO_ERROR,
+                        std::unique_ptr<folly::IOBuf> debugData = nullptr) {
+    return chain_->generateGoaway(
+        writeBuf, lastStream, code, std::move(debugData));
+  }
+
+  size_t generateImmediateGoaway(
+      folly::IOBufQueue& writeBuf,
+      ErrorCode code = ErrorCode::NO_ERROR,
+      std::unique_ptr<folly::IOBuf> debugData = nullptr) {
+    return chain_->generateImmediateGoaway(
+        writeBuf, code, std::move(debugData));
+  }
+
+  size_t generatePingRequest(folly::IOBufQueue& writeBuf,
+                             folly::Optional<uint64_t> data = folly::none) {
+    return chain_->generatePingRequest(writeBuf, data);
+  }
+
+  size_t generatePingReply(folly::IOBufQueue& writeBuf, uint64_t data) {
+    return chain_->generatePingReply(writeBuf, data);
+  }
+
+  size_t generateSettings(folly::IOBufQueue& writeBuf) {
+    return chain_->generateSettings(writeBuf);
+  }
+
+  size_t generateSettingsAck(folly::IOBufQueue& writeBuf) {
+    return chain_->generateSettingsAck(writeBuf);
+  }
+
+  size_t generateWindowUpdate(folly::IOBufQueue& writeBuf,
+                              StreamID stream,
+                              uint32_t delta) {
+    return chain_->generateWindowUpdate(writeBuf, stream, delta);
+  }
+
+  size_t generatePriority(folly::IOBufQueue& writeBuf,
+                          StreamID stream,
+                          HTTPPriority priority) {
+    return chain_->generatePriority(writeBuf, stream, priority);
+  }
+
+  size_t generatePushPriority(folly::IOBufQueue& writeBuf,
+                              StreamID pushId,
+                              HTTPPriority priority) {
+    return chain_->generatePushPriority(writeBuf, pushId, priority);
+  }
+
+  [[nodiscard]] HTTPSettings* getEgressSettings() {
+    return chain_->getEgressSettings();
+  }
+
+  [[nodiscard]] const HTTPSettings* getEgressSettings() const {
+    return chain_->getEgressSettings();
+  }
+
+  [[nodiscard]] const HTTPSettings* getIngressSettings() const {
+    return chain_->getIngressSettings();
+  }
+
+  [[nodiscard]] uint32_t getDefaultWindowSize() const {
+    return chain_->getDefaultWindowSize();
+  }
+
+  void setHeaderCodecStats(HeaderCodec::Stats* stats) {
+    chain_->setHeaderCodecStats(stats);
+  }
+
+  void enableDoubleGoawayDrain() {
+    chain_->enableDoubleGoawayDrain();
+  }
+
+  void setCallback(HTTPCodec::Callback* callback) {
+    chain_.setCallback(callback);
+  }
+
+  template <typename Filter, typename... Args>
+  void add(Args&&... args) {
+    chain_.add<Filter>(std::forward<Args>(args)...);
+  }
+
+  template <typename... Filters>
+  void addFilters(Filters&&... filters) {
+    chain_.addFilters(std::forward<Filters>(filters)...);
+  }
+
+  template <typename Fn>
+  void foreach (Fn&& fn) {
+    chain_.foreach (std::forward<Fn>(fn));
+  }
+
+  std::unique_ptr<HTTPCodec> setDestination(std::unique_ptr<HTTPCodec> dest) {
+    return chain_.setDestination(std::move(dest));
+  }
+
+  HTTPCodec* call() {
+    return chain_.call();
+  }
+
+  [[nodiscard]] const HTTPCodec& getChainEnd() const {
+    return chain_.getChainEnd();
+  }
+
+  HTTPCodec* getChainEndPtr() {
+    return chain_.getChainEndPtr();
+  }
+
+ private:
+  Chain chain_;
+};
 
 } // namespace proxygen

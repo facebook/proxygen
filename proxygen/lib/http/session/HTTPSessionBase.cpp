@@ -248,7 +248,7 @@ void HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
 HTTPTransaction::Handler* HTTPSessionBase::getParseErrorHandler(
     HTTPTransaction* txn, const HTTPException& error) {
   // we encounter an error before we finish reading the ingress headers.
-  if (codec_->getTransportDirection() == TransportDirection::UPSTREAM) {
+  if (codec_.getTransportDirection() == TransportDirection::UPSTREAM) {
     // do not return the parse error handler for upstreams, since all we
     // can do in that direction is abort.
     return nullptr;
@@ -310,7 +310,7 @@ using WtReqResult = std::unique_ptr<HTTPMessage>;
 folly::SemiFuture<std::unique_ptr<HTTPMessage>>
 HTTPSessionBase::sendWebTransportRequest(
     const HTTPMessage& req, WebTransportHandler::Ptr wtHandler) noexcept {
-  CHECK(isUpstream(codec_->getTransportDirection()));
+  CHECK(isUpstream(codec_.getTransportDirection()));
   bool supportsWt = supportsWebTransport();
   bool validWtReq = HTTPWebTransport::isConnectMessage(req);
   if (!(supportsWt && validWtReq)) {

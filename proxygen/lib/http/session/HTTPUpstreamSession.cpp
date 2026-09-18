@@ -32,7 +32,7 @@ HTTPUpstreamSession::HTTPUpstreamSession(
   if (auto* s = sock_->getUnderlyingTransport<folly::AsyncSocket>()) {
     s->setBufferCallback(this);
   }
-  CHECK_EQ(codec_->getTransportDirection(), TransportDirection::UPSTREAM);
+  CHECK_EQ(codec_.getTransportDirection(), TransportDirection::UPSTREAM);
 }
 
 // uses folly::HHWheelTimer instance which is used on client side & thrift
@@ -64,17 +64,17 @@ bool HTTPUpstreamSession::isReusable() const {
           << ", liveTransactions_=" << liveTransactions_
           << ", isClosing()=" << isClosing()
           << ", sock_->connecting()=" << sock_->connecting()
-          << ", codec_->isReusable()=" << codec_->isReusable()
-          << ", codec_->isBusy()=" << codec_->isBusy()
+          << ", codec_.isReusable()=" << codec_.isReusable()
+          << ", codec_.isBusy()=" << codec_.isBusy()
           << ", numActiveWrites_=" << numActiveWrites_
           << ", writeTimeout_.isScheduled()=" << writeTimeout_.isScheduled()
           << ", ingressError_=" << ingressError_
           << ", hasMoreWrites()=" << hasMoreWrites()
-          << ", codec_->supportsParallelRequests()="
-          << codec_->supportsParallelRequests();
-  return !isClosing() && !sock_->connecting() && codec_->isReusable() &&
-         !codec_->isBusy() && !ingressError_ &&
-         (codec_->supportsParallelRequests() ||
+          << ", codec_.supportsParallelRequests()="
+          << codec_.supportsParallelRequests();
+  return !isClosing() && !sock_->connecting() && codec_.isReusable() &&
+         !codec_.isBusy() && !ingressError_ &&
+         (codec_.supportsParallelRequests() ||
           (
               // These conditions only apply to serial codec sessions
               !hasMoreWrites() && liveTransactions_ == 0 &&
@@ -119,7 +119,7 @@ HTTPUpstreamSession::newTransactionWithError(
   }
 
   ProxygenError error = kErrorNone;
-  auto txn = createTransaction(codec_->createStream(),
+  auto txn = createTransaction(codec_.createStream(),
                                HTTPCodec::NoStream,
                                http2::DefaultPriority,
                                &error);
@@ -178,7 +178,7 @@ void HTTPUpstreamSession::attachThreadLocals(
     maybeAttachSSLContext(sslContext);
   }
   codec_.foreach (fn);
-  codec_->setHeaderCodecStats(headerCodecStats);
+  codec_.setHeaderCodecStats(headerCodecStats);
   resumeReadsImpl();
   rescheduleLoopCallbacks();
 }
@@ -212,7 +212,7 @@ void HTTPUpstreamSession::detachThreadLocals(bool detachSSLContext) {
   setSessionStats(nullptr);
   // The codec filters *shouldn't* be accessible while the socket is detached,
   // I hope
-  codec_->setHeaderCodecStats(nullptr);
+  codec_.setHeaderCodecStats(nullptr);
   auto cm = getConnectionManager();
   if (cm) {
     cm->removeConnection(this);

@@ -43,7 +43,7 @@ HTTPTransaction::Handler* HTTPDownstreamSession::getTransactionTimeoutHandler(
 
 void HTTPDownstreamSession::onHeadersSent(const HTTPMessage& headers,
                                           bool codecWasReusable) {
-  if (!codec_->isReusable()) {
+  if (!codec_.isReusable()) {
     // If the codec turned unreusable, some thing wrong must have happened.
     // Basically, the proxy decides the connection is not reusable.
     // e.g, an error message is being sent with Connection: close

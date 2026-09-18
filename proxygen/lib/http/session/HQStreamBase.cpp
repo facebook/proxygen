@@ -48,7 +48,7 @@ HQSession& HQStreamBase::getSession() const noexcept {
  * So if setActiveCodec is called 3 times recursively with {c1, c2, c1}, the
  * state will look like this:
  *
- *  codecFilterChain->chainEnd: codec1
+ *  codecFilterChain.getChainEnd(): codec1
  *
  *  [ &codecStack[1].second, nullptr      txn1    ]
  *  [ &txn2->realCodec_,     codec2,      txn2    ]

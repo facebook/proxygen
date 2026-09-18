@@ -85,7 +85,7 @@ HTTPSession::HTTPSession(const WheelTimerInstance& wheelTimer,
       writeTimeout_(this),
       sock_(std::move(sock)),
       wheelTimer_(wheelTimer),
-      txnEgressQueue_(isHTTP2CodecProtocol(codec_->getProtocol())
+      txnEgressQueue_(isHTTP2CodecProtocol(codec_.getProtocol())
                           ? WheelTimerInstance(wheelTimer)
                           : WheelTimerInstance(),
                       HTTPCodec::StreamID(0)),
@@ -107,7 +107,7 @@ HTTPSession::HTTPSession(const WheelTimerInstance& wheelTimer,
       sessionObserverContainer_(&sessionObserverAccessor_) {
   setByteEventTracker(std::make_shared<ByteEventTracker>(this));
   initialReceiveWindow_ = receiveStreamWindowSize_ = receiveSessionWindowSize_ =
-      codec_->getDefaultWindowSize();
+      codec_.getDefaultWindowSize();
 
   codec_.add<HTTPChecks>();
 
@@ -134,24 +134,24 @@ HTTPSession::HTTPSession(const WheelTimerInstance& wheelTimer,
 }
 
 void HTTPSession::setupCodec() {
-  if (!codec_->supportsParallelRequests()) {
+  if (!codec_.supportsParallelRequests()) {
     // until we support upstream pipelining
     maxConcurrentIncomingStreams_ = 1;
     maxConcurrentOutgoingStreamsRemote_ = isDownstream() ? 0 : 1;
   }
 
-  HTTPSettings* settings = codec_->getEgressSettings();
+  HTTPSettings* settings = codec_.getEgressSettings();
   if (settings) {
     settings->setSetting(SettingsId::MAX_CONCURRENT_STREAMS,
                          maxConcurrentIncomingStreams_);
   }
-  codec_->generateConnectionPreface(writeBuf_);
+  codec_.generateConnectionPreface(writeBuf_);
 
-  if (codec_->supportsSessionFlowControl() && !connFlowControl_) {
+  if (codec_.supportsSessionFlowControl() && !connFlowControl_) {
     connFlowControl_ = new FlowControlFilter(*this, writeBuf_, codec_.call());
     codec_.addFilters(std::unique_ptr<FlowControlFilter>(connFlowControl_));
   }
-  if (codec_->supportsParallelRequests() && isDownstream()) {
+  if (codec_.supportsParallelRequests() && isDownstream()) {
     auto rateLimitFilter = std::make_unique<RateLimitFilter>(
         &getEventBase()->timer(), sessionStats_);
     rateLimitFilter->addRateLimiter(RateLimiter::Type::HEADERS);
@@ -204,10 +204,10 @@ std::chrono::milliseconds HTTPSession::getDrainTimeout() const {
 void HTTPSession::startNow() {
   CHECK(!started_);
   started_ = true;
-  detail::setEgressWtHttpSettings(codec_->getTransportDirection(),
-                                  codec_->getEgressSettings());
+  detail::setEgressWtHttpSettings(codec_.getTransportDirection(),
+                                  codec_.getEgressSettings());
 
-  codec_->generateSettings(writeBuf_);
+  codec_.generateSettings(writeBuf_);
   if (connFlowControl_) {
     connFlowControl_->setReceiveWindowSize(writeBuf_,
                                            receiveSessionWindowSize_);
@@ -216,8 +216,8 @@ void HTTPSession::startNow() {
   // shutdown before we sent a SETTINGS frame, so we defer sending a GOAWAY
   // util we've started and sent SETTINGS.
   if (draining_) {
-    codec_->generateGoaway(writeBuf_);
-    if (codec_->isWaitingToDrain()) {
+    codec_.generateGoaway(writeBuf_);
+    if (codec_.isWaitingToDrain()) {
       wheelTimer_.scheduleTimeout(&drainTimeout_, getDrainTimeout());
     } else if (isDownstream()) {
       // transactions must be empty and reads cannot be shutdown
@@ -260,7 +260,7 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
   receiveStreamWindowSize_ = receiveStreamWindowSize;
   receiveSessionWindowSize_ = receiveSessionWindowSize;
   HTTPSessionBase::setReadBufferLimit(receiveSessionWindowSize);
-  HTTPSettings* settings = codec_->getEgressSettings();
+  HTTPSettings* settings = codec_.getEgressSettings();
   if (settings) {
     settings->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
                          initialReceiveWindow_);
@@ -269,7 +269,7 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
 
 void HTTPSession::setEgressSettings(const SettingsList& inSettings) {
   VLOG_IF(4, started_) << "Must flush egress settings to peer";
-  HTTPSettings* settings = codec_->getEgressSettings();
+  HTTPSettings* settings = codec_.getEgressSettings();
   if (settings) {
     for (const auto& setting : inSettings) {
       settings->setSetting(setting.id, setting.value);
@@ -282,9 +282,9 @@ void HTTPSession::setEgressSettings(const SettingsList& inSettings) {
 
 void HTTPSession::setMaxConcurrentIncomingStreams(uint32_t num) {
   CHECK(!started_);
-  if (codec_->supportsParallelRequests()) {
+  if (codec_.supportsParallelRequests()) {
     maxConcurrentIncomingStreams_ = num;
-    HTTPSettings* settings = codec_->getEgressSettings();
+    HTTPSettings* settings = codec_.getEgressSettings();
     if (settings) {
       settings->setSetting(SettingsId::MAX_CONCURRENT_STREAMS,
                            maxConcurrentIncomingStreams_);
@@ -302,7 +302,7 @@ void HTTPSession::readTimeoutExpired() noexcept {
 
   DestructorGuard g(this);
   setCloseReason(ConnectionCloseReason::TIMEOUT);
-  if (!codec_->isReusable() && transactions_.empty()) {
+  if (!codec_.isReusable() && transactions_.empty()) {
     LOG_IF(DFATAL, readsShutdown()) << "Why did we have a read timer running?";
     // Shutdown reads (uninstall read callback, etc).  Session will close
     VLOG(4) << "Shutdown from readTimeoutExpired sess=" << *this;
@@ -335,9 +335,9 @@ void HTTPSession::flowControlTimeoutExpired() noexcept {
 }
 
 void HTTPSession::describe(std::ostream& os) const {
-  os << "proto=" << getCodecProtocolString(codec_->getProtocol());
+  os << "proto=" << getCodecProtocolString(codec_.getProtocol());
   if (isDownstream()) {
-    os << ", UA=" << codec_->getUserAgent()
+    os << ", UA=" << codec_.getUserAgent()
        << ", downstream=" << getPeerAddress() << ", " << getLocalAddress()
        << "=local";
   } else {
@@ -347,7 +347,7 @@ void HTTPSession::describe(std::ostream& os) const {
 }
 
 bool HTTPSession::isBusy() const {
-  return !transactions_.empty() || codec_->isBusy();
+  return !transactions_.empty() || codec_.isBusy();
 }
 
 void HTTPSession::notifyPendingEgress() noexcept {
@@ -363,7 +363,7 @@ void HTTPSession::closeWhenIdle() {
   // If drain() already called, this is a noop
   drain();
   // Generate the second GOAWAY now. No-op if second GOAWAY already sent.
-  if (codec_->generateGoaway(writeBuf_)) {
+  if (codec_.generateGoaway(writeBuf_)) {
     scheduleWrite();
   }
   if (!isBusy() && !hasMoreWrites()) {
@@ -419,11 +419,11 @@ void HTTPSession::dumpConnectionState(uint8_t /*loglevel*/) {
 }
 
 bool HTTPSession::isUpstream() const {
-  return proxygen::isUpstream(codec_->getTransportDirection());
+  return proxygen::isUpstream(codec_.getTransportDirection());
 }
 
 bool HTTPSession::isDownstream() const {
-  return proxygen::isDownstream(codec_->getTransportDirection());
+  return proxygen::isDownstream(codec_.getTransportDirection());
 }
 
 void HTTPSession::getReadBuffer(void** buf, size_t* bufSize) {
@@ -503,8 +503,8 @@ void HTTPSession::processReadData() {
     }
 
     // We're about to parse, make sure the parser is not paused
-    codec_->setParserPaused(false);
-    size_t bytesParsed = codec_->onIngress(*readBuf_.front());
+    codec_.setParserPaused(false);
+    size_t bytesParsed = codec_.onIngress(*readBuf_.front());
     if (bytesParsed == 0) {
       // If the codec didn't make any progress with current input, we
       // better get more.
@@ -559,7 +559,7 @@ HTTPTransaction* HTTPSession::newPushedTransaction(
     HTTPCodec::StreamID assocStreamId,
     HTTPTransaction::PushHandler* handler,
     ProxygenError* error) noexcept {
-  if (!codec_->supportsPushTransactions()) {
+  if (!codec_.supportsPushTransactions()) {
     SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorPushNotSupported);
     return nullptr;
   }
@@ -579,7 +579,7 @@ HTTPTransaction* HTTPSession::newPushedTransaction(
   }
 
   HTTPTransaction* txn = createTransaction(
-      codec_->createStream(), assocStreamId, http2::DefaultPriority, error);
+      codec_.createStream(), assocStreamId, http2::DefaultPriority, error);
   if (!txn) {
     return nullptr;
   }
@@ -589,12 +589,12 @@ HTTPTransaction* HTTPSession::newPushedTransaction(
 }
 
 size_t HTTPSession::getCodecSendWindowSize() const {
-  const HTTPSettings* settings = codec_->getIngressSettings();
+  const HTTPSettings* settings = codec_.getIngressSettings();
   if (settings) {
     return settings->getSetting(SettingsId::INITIAL_WINDOW_SIZE,
-                                codec_->getDefaultWindowSize());
+                                codec_.getDefaultWindowSize());
   }
-  return codec_->getDefaultWindowSize();
+  return codec_.getDefaultWindowSize();
 }
 
 void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
@@ -623,7 +623,7 @@ void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
     return; // This could happen if the socket is bad.
   }
 
-  if (!codec_->supportsParallelRequests() && getPipelineStreamCount() > 1) {
+  if (!codec_.supportsParallelRequests() && getPipelineStreamCount() > 1) {
     // The previous transaction hasn't completed yet. Pause reads until
     // it completes; this requires pausing both transactions.
 
@@ -659,7 +659,7 @@ void HTTPSession::onPushMessageBegin(HTTPCodec::StreamID streamID,
                                      HTTPCodec::StreamID,
                                      HTTPMessage*) {
   // http/2 push in proxygen/lib is not supported
-  codec_->generateRstStream(writeBuf_, streamID, ErrorCode::REFUSED_STREAM);
+  codec_.generateRstStream(writeBuf_, streamID, ErrorCode::REFUSED_STREAM);
   scheduleWrite();
 }
 
@@ -670,7 +670,7 @@ void HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
   VLOG(4) << "processing ingress headers complete for " << *this
           << ", streamID=" << streamID;
 
-  if (!codec_->isReusable()) {
+  if (!codec_.isReusable()) {
     setCloseReason(ConnectionCloseReason::REQ_NOTREUSABLE);
   }
 
@@ -842,7 +842,7 @@ void HTTPSession::onMessageComplete(HTTPCodec::StreamID streamID,
   //
   // There may be additional checks that need to be performed that are
   // specific to requests or responses, so we call the subclass too.
-  if (!codec_->isReusable() && !codec_->supportsParallelRequests()) {
+  if (!codec_.isReusable() && !codec_.supportsParallelRequests()) {
     VLOG(4) << *this << " cannot reuse ingress";
     shutdownTransport(true, false);
   }
@@ -860,7 +860,7 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
   if (ingressError_) {
     return;
   }
-  if (!codec_->supportsParallelRequests()) {
+  if (!codec_.supportsParallelRequests()) {
     // this error should only prevent us from reading/handling more errors
     // on serial streams
     ingressError_ = true;
@@ -904,7 +904,7 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
   }
 
   txn->onError(error);
-  if (!codec_->isReusable() && transactions_.empty()) {
+  if (!codec_.isReusable() && transactions_.empty()) {
     VLOG(4) << *this << "shutdown from onError";
     setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);
     shutdownTransport(true, true);
@@ -1001,11 +1001,11 @@ void HTTPSession::onPingRequest(uint64_t data) {
     // Stick the ping at the end, we don't know that writeBuf_ begins on a
     // frame boundary anymore
     bytesScheduledBeforePing = sessionByteOffset();
-    pingSize = codec_->generatePingReply(writeBuf_, data);
+    pingSize = codec_.generatePingReply(writeBuf_, data);
   } else {
     // Insert the ping reply to the head of writeBuf_
     folly::IOBufQueue pingBuf(folly::IOBufQueue::cacheChainLength());
-    pingSize = codec_->generatePingReply(pingBuf, data);
+    pingSize = codec_.generatePingReply(pingBuf, data);
     pingBuf.append(writeBuf_.move());
     writeBuf_.append(pingBuf.move());
     bytesScheduledBeforePing = bytesScheduled_;
@@ -1063,7 +1063,7 @@ void HTTPSession::onSettings(const SettingsList& settings) {
       onSetMaxInitiatedStreams(setting.value);
     }
   }
-  if (codec_->generateSettingsAck(writeBuf_) > 0) {
+  if (codec_.generateSettingsAck(writeBuf_) > 0) {
     scheduleWrite();
   }
   if (infoCallback_) {
@@ -1080,7 +1080,7 @@ void HTTPSession::onSettingsAck() {
 
 void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
                              const HTTPPriority&) {
-  if (getNumIncomingStreams() >= codec_->getEgressSettings()->getSetting(
+  if (getNumIncomingStreams() >= codec_.getEgressSettings()->getSetting(
                                      SettingsId::MAX_CONCURRENT_STREAMS,
                                      std::numeric_limits<int32_t>::max())) {
     invalidStream(streamID, ErrorCode::PROTOCOL_ERROR);
@@ -1109,7 +1109,7 @@ void HTTPSession::onSetMaxInitiatedStreams(uint32_t maxTxns) {
 }
 
 size_t HTTPSession::sendSettings() {
-  size_t size = codec_->generateSettings(writeBuf_);
+  size_t size = codec_.generateSettings(writeBuf_);
   scheduleWrite();
   return size;
 }
@@ -1133,7 +1133,7 @@ void HTTPSession::resumeIngress(HTTPTransaction* txn) noexcept {
   // This function can be called from detach(), in which case liveTransactions_
   // may go to 1 briefly, even though we are still anit-pipelining.
   if (liveTransactions_ == 1 &&
-      (codec_->supportsParallelRequests() || getPipelineStreamCount() <= 1)) {
+      (codec_.supportsParallelRequests() || getPipelineStreamCount() <= 1)) {
     resumeReads();
   }
 }
@@ -1144,7 +1144,7 @@ void HTTPSession::transactionTimeout(HTTPTransaction* txn) noexcept {
   // headers, we give it a DirectResponseHandler that generates an
   // error page.
   VLOG(3) << "Transaction timeout for streamID=" << txn->getID();
-  if (!codec_->supportsParallelRequests()) {
+  if (!codec_.supportsParallelRequests()) {
     // this error should only prevent us from reading/handling more errors
     // on serial streams
     ingressError_ = true;
@@ -1156,7 +1156,7 @@ void HTTPSession::transactionTimeout(HTTPTransaction* txn) noexcept {
     if (infoCallback_) {
       infoCallback_->onIngressError(*this, kErrorTimeout);
     }
-    if (codec_->supportsParallelRequests()) {
+    if (codec_.supportsParallelRequests()) {
       // This can only happen with HTTP/2 where the HEADERS frame is incomplete
       // and we time out waiting for the CONTINUATION.  Abort the request.
       //
@@ -1183,7 +1183,7 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
                               bool includeEOM) noexcept {
   CHECK(started_);
   unique_ptr<IOBuf> goawayBuf;
-  if (draining_ && isUpstream() && codec_->isReusable() &&
+  if (draining_ && isUpstream() && codec_.isReusable() &&
       allTransactionsStarted()) {
     // For HTTP/1.1, add Connection: close
     // For H2, save the goaway for AFTER the request
@@ -1193,15 +1193,15 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
     writeBuf_.append(std::move(writeBuf));
   }
 
-  const bool wasReusable = codec_->isReusable();
+  const bool wasReusable = codec_.isReusable();
   const uint64_t oldOffset = sessionByteOffset();
   auto assocStream = txn->getAssocTxnId();
   if (headers.isRequest() && assocStream) {
     // Only PUSH_PROMISE (not push response) has an associated stream
-    codec_->generatePushPromise(
+    codec_.generatePushPromise(
         writeBuf_, txn->getID(), headers, *assocStream, includeEOM, size);
   } else {
-    codec_->generateHeader(writeBuf_, txn->getID(), headers, includeEOM, size);
+    codec_.generateHeader(writeBuf_, txn->getID(), headers, includeEOM, size);
   }
   const uint64_t newOffset = sessionByteOffset();
 
@@ -1269,11 +1269,11 @@ size_t HTTPSession::sendBody(HTTPTransaction* txn,
                              bool trackLastByteFlushed) noexcept {
   uint64_t offset = sessionByteOffset();
   size_t bodyLen = body ? body->computeChainDataLength() : 0;
-  size_t encodedSize = codec_->generateBody(writeBuf_,
-                                            txn->getID(),
-                                            std::move(body),
-                                            HTTPCodec::NoPadding,
-                                            includeEOM);
+  size_t encodedSize = codec_.generateBody(writeBuf_,
+                                           txn->getID(),
+                                           std::move(body),
+                                           HTTPCodec::NoPadding,
+                                           includeEOM);
   CHECK(inLoopCallback_);
   bodyBytesPerWriteBuf_ += bodyLen;
   if (httpSessionActivityTracker_) {
@@ -1304,13 +1304,13 @@ uint64_t HTTPSession::takeBodyBytesForWrite(uint64_t writeLen) {
 size_t HTTPSession::sendChunkHeader(HTTPTransaction* txn,
                                     size_t length) noexcept {
   size_t encodedSize =
-      codec_->generateChunkHeader(writeBuf_, txn->getID(), length);
+      codec_.generateChunkHeader(writeBuf_, txn->getID(), length);
   scheduleWrite();
   return encodedSize;
 }
 
 size_t HTTPSession::sendChunkTerminator(HTTPTransaction* txn) noexcept {
-  size_t encodedSize = codec_->generateChunkTerminator(writeBuf_, txn->getID());
+  size_t encodedSize = codec_.generateChunkTerminator(writeBuf_, txn->getID());
   scheduleWrite();
   return encodedSize;
 }
@@ -1337,7 +1337,7 @@ void HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
     resetAfterDrainingWrites_ = true;
     setCloseReason(ConnectionCloseReason::TRANSACTION_ABORT);
     shutdownTransport(true, true);
-  } else if (!codec_->isReusable() || readsShutdown()) {
+  } else if (!codec_.isReusable() || readsShutdown()) {
     if (transactions_.size() == 1) {
       // the reason is already set (either not reusable or readshutdown).
 
@@ -1385,7 +1385,7 @@ void HTTPSession::ShutdownTransportCallback::runSessionLoopCallback() noexcept {
   //      data coming, but maybe not.
   bool shutdownReads = session_->ingressError_ ||
                        (session_->isDownstream() &&
-                        !session_->codec_->supportsParallelRequests() &&
+                        !session_->codec_.supportsParallelRequests() &&
                         !session_->ingressUpgraded_);
   if (session_->isDownstream() && !session_->readsShutdown() &&
       !shutdownReads) {
@@ -1399,7 +1399,7 @@ void HTTPSession::ShutdownTransportCallback::runSessionLoopCallback() noexcept {
 }
 
 size_t HTTPSession::sendPadding(HTTPTransaction* txn, uint16_t bytes) noexcept {
-  auto encodedSize = codec_->generatePadding(writeBuf_, txn->getID(), bytes);
+  auto encodedSize = codec_.generatePadding(writeBuf_, txn->getID(), bytes);
   VLOG(4) << *this << " sending " << bytes
           << " bytes of padding, encodedSize=" << encodedSize
           << " for streamID=" << txn->getID();
@@ -1417,9 +1417,9 @@ size_t HTTPSession::sendEOM(HTTPTransaction* txn,
 
   size_t encodedSize = 0;
   if (trailers) {
-    encodedSize = codec_->generateTrailers(writeBuf_, txn->getID(), *trailers);
+    encodedSize = codec_.generateTrailers(writeBuf_, txn->getID(), *trailers);
   } else {
-    encodedSize = codec_->generateEOM(writeBuf_, txn->getID());
+    encodedSize = codec_.generateEOM(writeBuf_, txn->getID());
   }
 
   commonEom(txn, encodedSize, false);
@@ -1437,9 +1437,9 @@ size_t HTTPSession::sendAbort(HTTPTransaction* txn,
   // then enqueue the abort directly into the Session buffer,
   // hence with max priority.
   size_t rstStreamSize =
-      codec_->generateRstStream(writeBuf_, txn->getID(), statusCode);
+      codec_.generateRstStream(writeBuf_, txn->getID(), statusCode);
 
-  if (!codec_->isReusable()) {
+  if (!codec_.isReusable()) {
     setCloseReason(ConnectionCloseReason::TRANSACTION_ABORT);
   }
 
@@ -1485,7 +1485,7 @@ void HTTPSession::decrementTransactionCount(HTTPTransaction* txn,
 // and there is still a pipelinable stream, then it was pipelining
 bool HTTPSession::maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
                                                         uint32_t txnSeqn) {
-  if (!codec_->supportsParallelRequests() && !transactions_.empty()) {
+  if (!codec_.supportsParallelRequests() && !transactions_.empty()) {
     auto pipelineStreamCount = getPipelineStreamCount();
     if (pipelineStreamCount < oldStreamCount && pipelineStreamCount == 1) {
       // For H1, StreamID = txnSeqn + 1
@@ -1568,7 +1568,7 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
   }
 
   if (liveTransactions_ == 0 && transactions_.empty() && !isScheduled() &&
-      codec_->isReusable()) {
+      codec_.isReusable()) {
     // Start the idle timer again
     resetTimeout();
     // if transactions empty and codec is not re-usable, fin timeout scheduled
@@ -1593,7 +1593,7 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
 
 size_t HTTPSession::sendWindowUpdate(HTTPTransaction* txn,
                                      uint32_t bytes) noexcept {
-  size_t sent = codec_->generateWindowUpdate(writeBuf_, txn->getID(), bytes);
+  size_t sent = codec_.generateWindowUpdate(writeBuf_, txn->getID(), bytes);
   if (sent) {
     scheduleWrite();
   }
@@ -1687,7 +1687,7 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
 
 void HTTPSession::setHeaderIndexingStrategy(
     const HeaderIndexingStrategy* strat) {
-  if (isHTTP2CodecProtocol(codec_->getProtocol())) {
+  if (isHTTP2CodecProtocol(codec_.getProtocol())) {
     auto* h2Codec = dynamic_cast<HTTP2Codec*>(codec_.getChainEndPtr());
     if (h2Codec) {
       h2Codec->setHeaderIndexingStrategy(strat);
@@ -1973,11 +1973,11 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
 
   if (shutdownWrites && !writesShutdown()) {
     // Need to shutdown, bypass double GOAWAY
-    if (codec_->generateImmediateGoaway(writeBuf_)) {
+    if (codec_.generateImmediateGoaway(writeBuf_)) {
       scheduleWrite();
     }
     if (!hasMoreWrites() &&
-        (transactions_.empty() || codec_->closeOnEgressComplete())) {
+        (transactions_.empty() || codec_.closeOnEgressComplete())) {
       writes_ = SocketState::SHUTDOWN;
       if (byteEventTracker_) {
         byteEventTracker_->drainByteEvents();
@@ -1988,7 +1988,7 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
         shutdownReads = true;
       } else {
         VLOG(4) << *this << " writes drained, closing";
-        if (isUpstream() || !codec_->supportsParallelRequests()) {
+        if (isUpstream() || !codec_.supportsParallelRequests()) {
           sock_->shutdownWriteNow();
         }
       }
@@ -2009,13 +2009,13 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
       }
     } else if (error == kErrorEOF) {
       // Report to the codec that the ingress stream has ended
-      codec_->onIngressEOF();
+      codec_.onIngressEOF();
       if (infoCallback_) {
         infoCallback_->onIngressEOF();
       }
     }
     // Once reads are shutdown the parser should stop processing
-    codec_->setParserPaused(true);
+    codec_.setParserPaused(true);
   }
 
   if (notifyIngressShutdown || notifyEgressShutdown) {
@@ -2154,10 +2154,10 @@ void HTTPSession::drainImpl() {
   // since we haven't sent the initial SETTINGS frame. Defer sending that
   // GOAWAY until the initial SETTINGS is sent.
   if (started_) {
-    if (codec_->generateGoaway(writeBuf_) > 0) {
+    if (codec_.generateGoaway(writeBuf_) > 0) {
       scheduleWrite();
     }
-    if (codec_->isWaitingToDrain()) {
+    if (codec_.isWaitingToDrain()) {
       // Schedule another goaway
       wheelTimer_.scheduleTimeout(&drainTimeout_, getDrainTimeout());
     } else if (transactions_.empty() && isDownstream() && !readsShutdown()) {
@@ -2174,8 +2174,8 @@ void HTTPSession::drainImpl() {
 
 bool HTTPSession::shouldShutdown() const {
   return draining_ && allTransactionsStarted() &&
-         (!codec_->supportsParallelRequests() || isUpstream() ||
-          !codec_->isReusable());
+         (!codec_.supportsParallelRequests() || isUpstream() ||
+          !codec_.isReusable());
 }
 
 size_t HTTPSession::sendPing(std::chrono::milliseconds /*timeout*/,
@@ -2184,7 +2184,7 @@ size_t HTTPSession::sendPing(std::chrono::milliseconds /*timeout*/,
 }
 
 size_t HTTPSession::sendPing(uint64_t data) {
-  const size_t bytes = codec_->generatePingRequest(writeBuf_, data);
+  const size_t bytes = codec_.generatePingRequest(writeBuf_, data);
   if (bytes) {
     scheduleWrite();
   }
@@ -2195,7 +2195,7 @@ void HTTPSession::enablePingProbes(std::chrono::seconds interval,
                                    std::chrono::seconds timeout,
                                    bool extendIntervalOnIngress,
                                    bool immediate) {
-  if (isHTTP2CodecProtocol(codec_->getProtocol())) {
+  if (isHTTP2CodecProtocol(codec_.getProtocol())) {
     pingProber_ = std::make_unique<PingProber>(
         *this, interval, timeout, extendIntervalOnIngress, immediate);
   }
@@ -2313,7 +2313,7 @@ HTTPTransaction* HTTPSession::createTransaction(
   auto matchPair = transactions_.emplace(
       std::piecewise_construct,
       std::forward_as_tuple(streamID),
-      std::forward_as_tuple(codec_->getTransportDirection(),
+      std::forward_as_tuple(codec_.getTransportDirection(),
                             streamID,
                             getNumTxnServed(),
                             *this,
@@ -2321,7 +2321,7 @@ HTTPTransaction* HTTPSession::createTransaction(
                             wheelTimer_.getWheelTimer(),
                             wheelTimer_.getDefaultTimeout(),
                             sessionStats_,
-                            codec_->supportsStreamFlowControl(),
+                            codec_.supportsStreamFlowControl(),
                             initialReceiveWindow_,
                             getCodecSendWindowSize(),
                             priority,
@@ -2402,8 +2402,8 @@ void HTTPSession::writeSuccess() noexcept {
                                   byteEventTracker_, bytesWritten_)) {
   } // pass
 
-  if ((!codec_->isReusable() || readsShutdown()) && (transactions_.empty())) {
-    if (!codec_->isReusable()) {
+  if ((!codec_.isReusable() || readsShutdown()) && (transactions_.empty())) {
+    if (!codec_.isReusable()) {
       // Shouldn't happen unless there is a bug. This can only happen when
       // someone calls shutdownTransport, but did not specify a reason before.
       setCloseReason(ConnectionCloseReason::UNKNOWN);
@@ -2479,7 +2479,7 @@ void HTTPSession::onSessionParseError(const HTTPException& error) {
   if (error.hasCodecStatusCode()) {
     std::unique_ptr<folly::IOBuf> errorMsg =
         folly::IOBuf::copyBuffer(error.what());
-    if (codec_->generateImmediateGoaway(
+    if (codec_.generateImmediateGoaway(
             writeBuf_, error.getCodecStatusCode(), std::move(errorMsg))) {
       scheduleWrite();
     }
@@ -2501,10 +2501,10 @@ void HTTPSession::onNewTransactionParseError(HTTPCodec::StreamID streamID,
                                              const HTTPException& error) {
   VLOG(4) << *this << " parse error with new transaction";
   if (error.hasCodecStatusCode()) {
-    codec_->generateRstStream(writeBuf_, streamID, error.getCodecStatusCode());
+    codec_.generateRstStream(writeBuf_, streamID, error.getCodecStatusCode());
     scheduleWrite();
   }
-  if (!codec_->isReusable()) {
+  if (!codec_.isReusable()) {
     // HTTP 1x codec does not support per stream abort so this will
     // render the codec not reusable
     setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);
@@ -2514,9 +2514,9 @@ void HTTPSession::onNewTransactionParseError(HTTPCodec::StreamID streamID,
 void HTTPSession::pauseReads() {
   // Make sure the parser is paused.  Note that if reads are shutdown
   // before they are paused, we never make it past the if.
-  codec_->setParserPaused(true);
+  codec_.setParserPaused(true);
   if (!readsUnpaused() ||
-      (codec_->supportsParallelRequests() && !ingressLimitExceeded())) {
+      (codec_.supportsParallelRequests() && !ingressLimitExceeded())) {
     return;
   }
   pauseReadsImpl();
@@ -2534,7 +2534,7 @@ void HTTPSession::pauseReadsImpl() {
 
 void HTTPSession::resumeReads() {
   if (!readsPaused() ||
-      (codec_->supportsParallelRequests() && ingressLimitExceeded())) {
+      (codec_.supportsParallelRequests() && ingressLimitExceeded())) {
     return;
   }
   resumeReadsImpl();
@@ -2544,7 +2544,7 @@ void HTTPSession::resumeReadsImpl() {
   VLOG(4) << *this << ": resuming reads";
   resetTimeout();
   reads_ = SocketState::UNPAUSED;
-  codec_->setParserPaused(false);
+  codec_.setParserPaused(false);
   if (!isLoopCallbackScheduled()) {
     scheduleInLoop(sock_->getEventBase());
   }
@@ -2621,7 +2621,7 @@ void HTTPSession::onConnectionSendWindowClosed() {
 }
 
 void HTTPSession::invalidStream(HTTPCodec::StreamID stream, ErrorCode code) {
-  if (!codec_->supportsParallelRequests()) {
+  if (!codec_.supportsParallelRequests()) {
     LOG(ERROR) << "Invalid stream on non-parallel codec.";
     return;
   }
@@ -2756,8 +2756,8 @@ bool HTTPSession::tryWtSession(HTTPTransaction& txn,
   // make wt session
   detail::WtDir dir =
       isUpstream() ? detail::WtDir::Client : detail::WtDir::Server;
-  auto wtConfig = detail::getWtConfig(codec_->getIngressSettings(),
-                                      codec_->getEgressSettings());
+  auto wtConfig = detail::getWtConfig(codec_.getIngressSettings(),
+                                      codec_.getEgressSettings());
   auto wtSession = detail::H2WtSession::make(
       getEventBase(), dir, wtConfig, wtCtx.moveWtHandler());
   // ::init notifies WtHandler of WtSession

@@ -1227,7 +1227,7 @@ class HQSession
       // Pause the parser, which will prevent more than one message from being
       // processed
       auto g = folly::makeGuard(setActiveCodec(__func__));
-      codecFilterChain->setParserPaused(true);
+      codecFilterChain.setParserPaused(true);
       eomGate_.set(EOMType::CODEC);
     }
 
@@ -1239,7 +1239,7 @@ class HQSession
         return;
       }
       auto g = folly::makeGuard(setActiveCodec(__func__));
-      codecFilterChain->onIngressEOF();
+      codecFilterChain.onIngressEOF();
       eomGate_.set(EOMType::TRANSPORT);
     }
 
