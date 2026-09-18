@@ -328,11 +328,21 @@ void HTTP1xCodec::backfillPartialRequest() {
 void HTTP1xCodec::onParserError(const char* what) {
   inRecvLastChunk_ = false;
   http_errno parser_errno = HTTP_PARSER_ERRNO(&parser_);
-  HTTPException error(
-      HTTPException::Direction::INGRESS,
+  std::string errorMsg =
       what ? what
            : folly::to<std::string>("Error parsing message: ",
-                                    http_errno_description(parser_errno)));
+                                    http_errno_description(parser_errno));
+
+  if (!parserErrorContext_.empty()) {
+    errorMsg =
+        folly::to<std::string>(errorMsg, " [Context]=", parserErrorContext_);
+    if (!parserErrorAdditionalInfo_.empty()) {
+      errorMsg =
+          folly::to<std::string>(errorMsg, " ", parserErrorAdditionalInfo_);
+    }
+  }
+  HTTPException error(HTTPException::Direction::INGRESS, errorMsg);
+
   // generate a string of parsed headers so that we can pass it to callback
   if (msg_) {
     backfillPartialRequest();
@@ -893,6 +903,8 @@ size_t HTTP1xCodec::generateGoaway(IOBufQueue&,
 
 int HTTP1xCodec::onMessageBegin() {
   headersComplete_ = false;
+  parserErrorContext_ = {};
+  parserErrorAdditionalInfo_ = {};
   headerSize_.uncompressed = 0;
   headerSize_.compressed = 0;
   headerParseState_ = HeaderParseState::kParsingHeaderStart;
@@ -932,16 +944,24 @@ bool HTTP1xCodec::pushHeaderNameAndValue(HTTPHeaders& hdrs) {
                                       ? currentHeaderNameStringPiece_
                                       : currentHeaderName_);
     bool compatValidate = false;
-    if (!CodecUtil::validateHeaderValue(
-            folly::StringPiece(currentHeaderValue_),
-            compatValidate ? CodecUtil::CtlEscapeMode::STRICT_COMPAT
-                           : CodecUtil::CtlEscapeMode::STRICT)) {
+    const auto valueError = CodecUtil::validateHeaderValueDetail(
+        folly::StringPiece(currentHeaderValue_),
+        compatValidate ? CodecUtil::CtlEscapeMode::STRICT_COMPAT
+                       : CodecUtil::CtlEscapeMode::STRICT);
+    if (valueError != CodecUtil::HeaderValueError::None) {
       validationError_ = kErrorHeaderContentValidation;
       LOG(ERROR) << "Invalid header name=" << headerName;
       DVLOG(4) << " value=" << currentHeaderValue_;
       // Hexlify the value for debuggability in case it contains non-printable
       // characters like \n, \t, etc.
       DVLOG(4) << " value in hex=" << folly::hexlify(currentHeaderValue_);
+
+      parserErrorAdditionalInfo_ = folly::to<std::string>(
+          "name=",
+          headerName,
+          " reason=",
+          CodecUtil::describeHeaderValueError(valueError));
+
       return false;
     }
   }
@@ -967,7 +987,10 @@ int HTTP1xCodec::onHeaderField(const char* buf, size_t len) {
     valid = pushHeaderNameAndValue(*trailers_);
   }
   if (!valid) {
-    return -1;
+    return setErrorContext(headerParseState_ ==
+                                   HeaderParseState::kParsingTrailerValue
+                               ? "invalid-trailer"
+                               : "invalid-header");
   }
 
   if (isParsingHeaderOrTrailerName()) {
@@ -1021,16 +1044,16 @@ int HTTP1xCodec::onHeaderValue(const char* buf, size_t len) {
 int HTTP1xCodec::onHeadersComplete(size_t len) {
   if (headerParseState_ == HeaderParseState::kParsingHeaderValue) {
     if (!pushHeaderNameAndValue(msg_->getHeaders())) {
-      return -1;
+      return setErrorContext("invalid-header");
     }
   }
 
   HTTPHeaders& hdrs = msg_->getHeaders();
   if (!validateContentLen(hdrs)) {
-    return -1;
+    return setErrorContext("invalid-content-length");
   }
   if (!validateTransferEncoding(hdrs)) {
-    return -1;
+    return setErrorContext("invalid-transfer-encoding");
   }
 
   // Update the HTTPMessage with the values parsed from the header
@@ -1053,7 +1076,7 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
     url_.clear();
     if (strictValidation_ && !parseUrl.valid()) {
       LOG(ERROR) << "Invalid URL: " << msg_->getURL();
-      return -1;
+      return setErrorContext("invalid-url");
     }
 
     if (parseUrl.hasHost()) {
@@ -1095,7 +1118,7 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
         LOG(ERROR) << "Invalid 101 response, client/server upgrade mismatch "
                       "client="
                    << upgradeHeader_ << " server=" << serverUpgrade;
-        return -1;
+        return setErrorContext("client-server-upgrade-mismatch");
       }
       ingressUpgrade_ = egressUpgrade_ = true;
     } else if (parser_.upgrade || parser_.flags & F_UPGRADE) {
@@ -1129,7 +1152,7 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
       if (accept != websockAcceptKey_) {
         LOG(ERROR) << "Mismatch in expected ws accept key: " << "upstream: "
                    << accept << " expected: " << websockAcceptKey_;
-        return -1;
+        return setErrorContext("websocket-accept-key-mismatch");
       }
     } else {
       // request.
@@ -1143,7 +1166,7 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
       if (!websockAcceptKey_.empty()) {
         LOG(ERROR) << "ws accept key already set: '" << websockAcceptKey_
                    << "'";
-        return -1;
+        return setErrorContext("websocket-accept-key-already-set");
       }
       auto key = hdrs.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY);
       websockAcceptKey_ = generateWebsocketAccept(key);
@@ -1241,7 +1264,7 @@ int HTTP1xCodec::onMessageComplete() {
       trailers_ = std::make_unique<HTTPHeaders>();
     }
     if (!pushHeaderNameAndValue(*trailers_)) {
-      return -1;
+      return setErrorContext("invalid-trailer");
     }
   }
 
@@ -1425,6 +1448,11 @@ HTTP1xCodec HTTP1xCodec::makeResponseCodec(bool mayChunkEgress) {
   HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
   codec.mayChunkEgress_ = mayChunkEgress;
   return codec;
+}
+
+int HTTP1xCodec::setErrorContext(std::string context) {
+  parserErrorContext_ = std::move(context);
+  return -1;
 }
 
 } // namespace proxygen

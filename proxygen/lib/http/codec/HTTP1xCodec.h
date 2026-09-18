@@ -200,6 +200,12 @@ class HTTP1xCodec : public HTTPCodec {
                                 size_t& len,
                                 bool upstream);
 
+  /**
+   * Record why ingress parsing was rejected, so onParserError can add a context
+   * to the http_parser error. Always returns -1, the http_parser "stop" value.
+   */
+  int setErrorContext(std::string context);
+
   // Parser callbacks
   int onMessageBegin();
   int onURL(const char* buf, size_t len);
@@ -232,6 +238,8 @@ class HTTP1xCodec : public HTTPCodec {
   KeepaliveRequested keepaliveRequested_; // only used in DOWNSTREAM mode
   std::pair<CodecProtocol, std::string> upgradeResult_; // DOWNSTREAM only
   folly::Optional<ProxygenError> validationError_;
+  std::string parserErrorContext_;
+  std::string parserErrorAdditionalInfo_;
   bool force1_1_ : 1; // Use HTTP/1.1 even if msg is 1.0
   bool strictValidation_ : 1;
   bool parserActive_ : 1;

@@ -332,6 +332,9 @@ TEST(HTTP1xCodecTest, TestHighAsciiUA) {
           [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
             EXPECT_EQ(error->getHttpStatusCode(), 400);
             EXPECT_EQ(error->getProxygenError(), kErrorHeaderContentValidation);
+            EXPECT_THAT(error->what(),
+                        HasSubstr("[Context]=invalid-header "
+                                  "name=User-Agent reason=high-ascii"));
           }));
   codec.onIngress(*buffer);
 }
@@ -349,6 +352,9 @@ TEST(HTTP1xCodecTest, TestBadURL) {
           [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
             EXPECT_EQ(error->getHttpStatusCode(), 400);
             EXPECT_EQ(error->getProxygenError(), kErrorParseHeader);
+            // http_parser rejects the path before onHeadersComplete runs, so
+            // the codec never records a context for it.
+            EXPECT_THAT(error->what(), Not(HasSubstr("[Context]=")));
           }));
   codec.onIngress(*buffer);
 }
@@ -583,6 +589,8 @@ TEST(HTTP1xCodecTest, TestMultipleDistinctContentLengthHeaders) {
   EXPECT_EQ(callbacks.messageBegin, 1);
   EXPECT_EQ(callbacks.headersComplete, 0);
   EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
+  EXPECT_THAT(callbacks.lastParseError->what(),
+              HasSubstr("[Context]=invalid-content-length"));
 }
 
 TEST(HTTP1xCodecTest, TestCorrectTransferEncodingHeader) {
@@ -620,6 +628,9 @@ TEST(HTTP1xCodecTest, TestFoldedTransferEncodingHeader) {
   EXPECT_EQ(callbacks.messageBegin, 1);
   EXPECT_EQ(callbacks.headersComplete, 0);
   EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
+  // http_parser rejects the folded value before onHeadersComplete runs, so
+  // the codec never records a context for it.
+  EXPECT_THAT(callbacks.lastParseError->what(), Not(HasSubstr("[Context]=")));
 }
 
 TEST(HTTP1xCodecTest, TestBadTransferEncodingHeader) {
@@ -641,6 +652,8 @@ TEST(HTTP1xCodecTest, TestBadTransferEncodingHeader) {
   EXPECT_EQ(callbacks.messageBegin, 1);
   EXPECT_EQ(callbacks.headersComplete, 0);
   EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
+  EXPECT_THAT(callbacks.lastParseError->what(),
+              HasSubstr("[Context]=invalid-transfer-encoding"));
 
   // A request rejected by one of onHeadersComplete()'s validation gates never
   // reaches the code that stamps the version, method and URL onto the message,
@@ -753,6 +766,34 @@ TEST(HTTP1xCodecTest, TestPartialMsgNotBackfilledUpstream) {
   ASSERT_NE(callbacks.lastParseError, nullptr);
   auto* partialMsg = callbacks.lastParseError->getPartialMsg();
   ASSERT_EQ(partialMsg, nullptr);
+}
+
+TEST(HTTP1xCodecTest, TestParseErrorOriginIdentifiesRejectingBranch) {
+  auto parseError = [](const std::string& request) {
+    HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+    FakeHTTPCodecCallback callbacks;
+    codec.setCallback(&callbacks);
+    auto reqBuf = folly::IOBuf::copyBuffer(request);
+    codec.onIngress(*reqBuf);
+    EXPECT_EQ(callbacks.streamErrors, 1);
+    return callbacks.lastParseError
+               ? std::string(callbacks.lastParseError->what())
+               : std::string();
+  };
+
+  auto contentLenError = parseError(
+      "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
+      "Content-Length: 5\r\nContent-Length: 6\r\n\r\n");
+  auto transferEncError = parseError(
+      "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
+      "Transfer-Encoding: chunked, zorg\r\n"
+      "Transfer-Encoding: chunked, zorg\r\n\r\n");
+
+  // http_parser reports both as the same generic callback failure; the context
+  // is the only thing that separates them.
+  EXPECT_THAT(contentLenError, HasSubstr("[Context]=invalid-content-length"));
+  EXPECT_THAT(transferEncError,
+              HasSubstr("[Context]=invalid-transfer-encoding"));
 }
 
 TEST(HTTP1xCodecTest, TestMalformedChunkDelimiter) {
@@ -1806,6 +1847,10 @@ TEST(HTTP1xCodecTest, HeaderCtls) {
       .WillOnce(Invoke(
           [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
             EXPECT_EQ(error->getHttpStatusCode(), 400);
+            // Trailing bad header is flushed by onHeadersComplete.
+            EXPECT_THAT(
+                error->what(),
+                HasSubstr("[Context]=invalid-header name=Foo reason=bare-cr"));
           }));
   codec.onIngress(*buffer);
 }
@@ -1826,6 +1871,11 @@ TEST(HTTP1xCodecTest, HeaderCtlsMiddle) {
       .WillOnce(Invoke(
           [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
             EXPECT_EQ(error->getHttpStatusCode(), 400);
+            // A following header flushes the bad one from onHeaderField, so
+            // the same invalid input is attributed to a different branch.
+            EXPECT_THAT(
+                error->what(),
+                HasSubstr("[Context]=invalid-header name=Foo reason=bare-cr"));
           }));
   codec.onIngress(*buffer);
 }
@@ -1849,6 +1899,9 @@ TEST(HTTP1xCodecTest, TrailerCtls) {
       .WillOnce(Invoke(
           [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
             EXPECT_EQ(error->getHttpStatusCode(), 400);
+            EXPECT_THAT(
+                error->what(),
+                HasSubstr("[Context]=invalid-trailer name=Foo reason=bare-cr"));
           }));
   codec.onIngress(*buffer);
 }
