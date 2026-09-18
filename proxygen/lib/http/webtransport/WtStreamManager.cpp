@@ -1178,7 +1178,6 @@ void WriteHandle::cancel(folly::exception_wrapper ex) noexcept {
   if (auto p = resetPromise(); p.valid()) {
     p.setException(ex_);
   }
-  smAccessor_.writableStreams().erase(getID());
   cs_.requestCancellation();
   // **beware finish must be last** (`this` can be deleted immediately after)
   finish(/*done=*/true);
@@ -1194,6 +1193,7 @@ void WriteHandle::finish(bool done) noexcept {
     state_ = WriteHandleState::Closed;
     smAccessor_.finOnlyStreams().erase(this);
     smAccessor_.connFcBlockedStreams().erase(this);
+    smAccessor_.writableStreams().erase(id_);
     smAccessor_.done(*this);
   }
 }
