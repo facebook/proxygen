@@ -58,8 +58,9 @@ class HQStreamCodec
     return streamId_;
   }
 
-  CodecProtocol getProtocol() const override {
-    return CodecProtocol::HQ;
+  HTTPCodecTraits getTraits() const override {
+    return HTTPCodecTraits{.protocol = CodecProtocol::HQ,
+                           .direction = transportDirection_};
   }
 
   const std::string& getUserAgent() const override {

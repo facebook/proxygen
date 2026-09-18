@@ -164,8 +164,10 @@ class HQMultiCodec : public HQControlCodec {
     return res;
   }
 
-  bool supportsParallelRequests() const override {
-    return true;
+  HTTPCodecTraits getTraits() const override {
+    return HTTPCodecTraits{.protocol = CodecProtocol::HQ,
+                           .direction = transportDirection_,
+                           .supportsParallelRequests = true};
   }
 
   size_t generateConnectionPreface(folly::IOBufQueue& /*writeBuf*/) override {

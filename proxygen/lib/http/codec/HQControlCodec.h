@@ -67,8 +67,9 @@ class HQControlCodec
   // HTTPCodec API
   bool isWaitingToDrain() const override;
 
-  CodecProtocol getProtocol() const override {
-    return CodecProtocol::HQ;
+  HTTPCodecTraits getTraits() const override {
+    return HTTPCodecTraits{.protocol = CodecProtocol::HQ,
+                           .direction = transportDirection_};
   }
 
   size_t onIngress(const folly::IOBuf& /*buf*/) override {

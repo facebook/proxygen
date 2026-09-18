@@ -34,36 +34,27 @@ class MockSessionHolderCallback : public SessionHolder::Callback {
   MOCK_METHOD(void, addDrainingSession, (HTTPSessionBase*), ());
 };
 
-std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeCodecCommon() {
+std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeCodecCommon(
+    HTTPCodecTraits traits) {
   static int txnIdx = 1;
-  auto codec = std::make_unique<testing::NiceMock<MockHTTPCodec>>();
-  EXPECT_CALL(*codec, getTransportDirection())
-      .WillRepeatedly(testing::Return(TransportDirection::UPSTREAM));
+  auto codec = std::make_unique<testing::NiceMock<MockHTTPCodec>>(traits);
   EXPECT_CALL(*codec, createStream())
       .WillRepeatedly(testing::InvokeWithoutArgs([&]() { return txnIdx++; }));
   EXPECT_CALL(*codec, isReusable()).WillRepeatedly(testing::Return(true));
-  EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(testing::Return(CodecProtocol::HTTP_2));
   return codec;
 }
 
 std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeSerialCodec() {
-  auto codec = makeCodecCommon();
-  EXPECT_CALL(*codec, supportsParallelRequests())
-      .WillRepeatedly(testing::Return(false));
-  EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(testing::Return(CodecProtocol::HTTP_1_1));
-  return codec;
+  return makeCodecCommon({.protocol = CodecProtocol::HTTP_1_1,
+                          .direction = TransportDirection::UPSTREAM});
 }
 
 std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeParallelCodec() {
-  auto codec = makeCodecCommon();
-  EXPECT_CALL(*codec, supportsParallelRequests())
-      .WillRepeatedly(testing::Return(true));
+  auto codec = makeCodecCommon({.protocol = CodecProtocol::HTTP_2,
+                                .direction = TransportDirection::UPSTREAM,
+                                .supportsParallelRequests = true});
   EXPECT_CALL(*codec, generateRstStream(testing::_, testing::_, testing::_))
       .WillRepeatedly(testing::Return(1));
-  EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(testing::Return(CodecProtocol::HTTP_2));
   return codec;
 }
 

@@ -64,17 +64,15 @@ class HTTPBinaryCodec : public HTTPCodec {
   HTTPBinaryCodec(HTTPBinaryCodec&&) = default;
 
   // HTTPCodec API
-  CodecProtocol getProtocol() const override {
-    return CodecProtocol::HTTP_BINARY;
+  HTTPCodecTraits getTraits() const override {
+    return HTTPCodecTraits{.protocol = CodecProtocol::HTTP_BINARY,
+                           .direction = transportDirection_};
   }
 
   const std::string& getUserAgent() const override {
     return userAgent_;
   }
 
-  TransportDirection getTransportDirection() const override {
-    return transportDirection_;
-  }
   StreamID createStream() override {
     return 0;
   }
@@ -110,9 +108,6 @@ class HTTPBinaryCodec : public HTTPCodec {
   // True if the session requires an EOF (or RST) to terminate the message
   bool closeOnEgressComplete() const override {
     return !isEgressBusy() && !isReusable();
-  }
-  bool supportsParallelRequests() const override {
-    return false;
   }
   bool supportsPushTransactions() const override {
     return false;

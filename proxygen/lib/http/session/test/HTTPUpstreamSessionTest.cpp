@@ -766,14 +766,11 @@ class HTTP2UpstreamSessionWithVirtualNodesTest
     : public HTTPUpstreamTest<MockHTTPCodecPair> {
  public:
   void SetUp() override {
-    auto codec = std::make_unique<NiceMock<MockHTTPCodec>>();
+    auto codec = std::make_unique<NiceMock<MockHTTPCodec>>(
+        HTTPCodecTraits{.protocol = CodecProtocol::HTTP_2,
+                        .direction = TransportDirection::UPSTREAM,
+                        .supportsParallelRequests = true});
     codecPtr_ = codec.get();
-    EXPECT_CALL(*codec, supportsParallelRequests())
-        .WillRepeatedly(Return(true));
-    EXPECT_CALL(*codec, getTransportDirection())
-        .WillRepeatedly(Return(TransportDirection::UPSTREAM));
-    EXPECT_CALL(*codec, getProtocol())
-        .WillRepeatedly(Return(CodecProtocol::HTTP_2));
     EXPECT_CALL(*codec, setCallback(_)).WillRepeatedly(SaveArg<0>(&codecCb_));
     EXPECT_CALL(*codec, createStream()).WillRepeatedly(Invoke([&] {
       auto ret = nextOutgoingTxn_;
@@ -1524,20 +1521,18 @@ TEST_F(NoFlushUpstreamSessionTest, DeleteTxnOnUnpause) {
 
 class MockHTTPUpstreamTest : public HTTPUpstreamTest<MockHTTPCodecPair> {
  public:
+  HTTPCodecTraits codecTraits_{.protocol = CodecProtocol::HTTP_2,
+                               .direction = TransportDirection::UPSTREAM,
+                               .supportsParallelRequests = true};
+
   void SetUp() override {
-    auto codec = std::make_unique<NiceMock<MockHTTPCodec>>();
+    auto codec = std::make_unique<NiceMock<MockHTTPCodec>>(codecTraits_);
     codecPtr_ = codec.get();
-    EXPECT_CALL(*codec, supportsParallelRequests())
-        .WillRepeatedly(Return(true));
-    EXPECT_CALL(*codec, getTransportDirection())
-        .WillRepeatedly(Return(TransportDirection::UPSTREAM));
     EXPECT_CALL(*codec, setCallback(_)).WillRepeatedly(SaveArg<0>(&codecCb_));
     EXPECT_CALL(*codec, isReusable()).WillRepeatedly(ReturnPointee(&reusable_));
     EXPECT_CALL(*codec, isWaitingToDrain())
         .WillRepeatedly(ReturnPointee(&reusable_));
     EXPECT_CALL(*codec, getDefaultWindowSize()).WillRepeatedly(Return(65536));
-    EXPECT_CALL(*codec, getProtocol())
-        .WillRepeatedly(Return(CodecProtocol::HTTP_2));
     EXPECT_CALL(*codec, generateGoaway(_, _, _, _))
         .WillRepeatedly(Invoke([&](folly::IOBufQueue& writeBuf,
                                    HTTPCodec::StreamID lastStream,
@@ -1778,10 +1773,14 @@ TEST_F(MockHTTPUpstreamTest, GoawayPreHeaders) {
   // Session will delete itself after drain completes
 }
 
-TEST_F(MockHTTPUpstreamTest, NoWindowUpdateOnDrain) {
-  EXPECT_CALL(*codecPtr_, supportsStreamFlowControl())
-      .WillRepeatedly(Return(true));
+class MockHTTPUpstreamFlowControlTest : public MockHTTPUpstreamTest {
+ public:
+  MockHTTPUpstreamFlowControlTest() {
+    codecTraits_.supportsStreamFlowControl = true;
+  }
+};
 
+TEST_F(MockHTTPUpstreamFlowControlTest, NoWindowUpdateOnDrain) {
   auto handler = openTransaction();
 
   handler->sendRequest();
@@ -2154,10 +2153,14 @@ TEST_F(MockHTTPUpstreamTest, HeadersThenBodyThenHeaders) {
   eventBase_.loop();
 }
 
-TEST_F(MockHTTP2UpstreamTest, DelayUpstreamWindowUpdate) {
-  EXPECT_CALL(*codecPtr_, supportsStreamFlowControl())
-      .WillRepeatedly(Return(true));
+class MockHTTP2UpstreamFlowControlTest : public MockHTTP2UpstreamTest {
+ public:
+  MockHTTP2UpstreamFlowControlTest() {
+    codecTraits_.supportsStreamFlowControl = true;
+  }
+};
 
+TEST_F(MockHTTP2UpstreamFlowControlTest, DelayUpstreamWindowUpdate) {
   auto handler = openTransaction();
   handler->txn_->setReceiveWindow(1000000); // One miiiillion
 

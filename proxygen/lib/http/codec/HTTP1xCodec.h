@@ -37,17 +37,15 @@ class HTTP1xCodec : public HTTPCodec {
   static HTTP1xCodec makeResponseCodec(bool mayChunkEgress);
 
   // HTTPCodec API
-  CodecProtocol getProtocol() const override {
-    return CodecProtocol::HTTP_1_1;
+  HTTPCodecTraits getTraits() const override {
+    return HTTPCodecTraits{.protocol = CodecProtocol::HTTP_1_1,
+                           .direction = transportDirection_};
   }
 
   const std::string& getUserAgent() const override {
     return userAgent_;
   }
 
-  TransportDirection getTransportDirection() const override {
-    return transportDirection_;
-  }
   StreamID createStream() override;
   void setCallback(Callback* callback) override {
     callback_ = callback;
@@ -79,9 +77,6 @@ class HTTP1xCodec : public HTTPCodec {
   // True if the session requires an EOF (or RST) to terminate the message
   bool closeOnEgressComplete() const override {
     return !isEgressBusy() && !isReusable();
-  }
-  bool supportsParallelRequests() const override {
-    return false;
   }
   bool supportsPushTransactions() const override {
     return false;
