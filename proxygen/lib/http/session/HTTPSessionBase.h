@@ -248,7 +248,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   [[nodiscard]] virtual CodecProtocol getCodecProtocol() const {
-    return codec_->getProtocol();
+    return codec_.getProtocol();
   }
 
   /**
@@ -581,8 +581,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   void enableServerEarlyResponse() noexcept {
-    CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
-    enableServerEarlyResponse_ = codec_->supportsParallelRequests();
+    CHECK_EQ(codec_.getTransportDirection(), TransportDirection::DOWNSTREAM);
+    enableServerEarlyResponse_ = codec_.supportsParallelRequests();
   }
   [[nodiscard]] bool getServerEarlyResponseEnabled() const {
     return enableServerEarlyResponse_;
