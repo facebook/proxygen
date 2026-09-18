@@ -561,6 +561,7 @@ folly::coro::Task<folly::Unit> CoroSSLTransport::writeImpl(
     folly::WriteFlags /*writeFlags*/,
     WriteInfo* writeInfo,
     bool writev) {
+  const auto writeSize = buf.size();
   if (!writev) {
     XCHECK_EQ(writers_, 0UL) << "One write at a time please";
   }
@@ -583,8 +584,12 @@ folly::coro::Task<folly::Unit> CoroSSLTransport::writeImpl(
               AsyncSocketException::END_OF_FILE, "EOF during write"));
         }
       } else {
-        XCHECK_EQ(static_cast<size_t>(rc), buf.size());
-        break;
+        const auto bytesWritten = static_cast<size_t>(rc);
+        XCHECK_LE(bytesWritten, buf.size());
+        buf.advance(bytesWritten);
+        if (buf.empty()) {
+          break;
+        }
       }
     }
   }
@@ -592,7 +597,7 @@ folly::coro::Task<folly::Unit> CoroSSLTransport::writeImpl(
     shutdownWrite();
   }
   if (writeInfo) {
-    writeInfo->bytesWritten = buf.size();
+    writeInfo->bytesWritten = writeSize;
   }
   co_return folly::Unit();
 }

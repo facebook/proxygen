@@ -330,6 +330,27 @@ TEST_F(CoroSSLTransportTest, SimpleReadWrite) {
   });
 }
 
+TEST_F(CoroSSLTransportTest, WriteWithPartialWriteMode) {
+  SSL_CTX_set_mode(sslCtx->getSSLCtx(), SSL_MODE_ENABLE_PARTIAL_WRITE);
+  run([&]() -> Task<> {
+    constexpr auto kBufSize = 65536;
+    auto cs = co_await connect();
+
+    std::array<uint8_t, kBufSize> rcvBuf;
+    std::array<uint8_t, kBufSize> sndBuf;
+    std::memset(sndBuf.data(), 'a', sndBuf.size());
+
+    folly::coro::TransportIf::WriteInfo info;
+    co_await cs->write(ByteRange(sndBuf.data(), sndBuf.data() + sndBuf.size()),
+                       100ms,
+                       folly::WriteFlags::NONE,
+                       &info);
+    EXPECT_EQ(info.bytesWritten, sndBuf.size());
+    co_await readAll(*cs, rcvBuf, 0ms);
+    EXPECT_EQ(0, memcmp(sndBuf.data(), rcvBuf.data(), rcvBuf.size()));
+  });
+}
+
 TEST_F(CoroSSLTransportTest, SimpleIOBufReadWrite) {
   run([&]() -> Task<> {
     // Exactly fills a buffer mid-loop and triggers deferredReadEOF handling
