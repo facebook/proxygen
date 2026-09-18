@@ -1423,19 +1423,12 @@ TEST_F(WtStreamManagerTest, FlowControlInfo) {
   EXPECT_EQ(fcInfo.maxOffset, kDefaultFc);
 }
 
-TEST(WtStreamManager, H02FinishedHandleRemainsConnFcBlocked) {
-  WtConfig config{.peerMaxStreamsUni = 1};
-  WtSmEgressCb egressCb;
-  WtSmIngressCb ingressCb;
-  auto priorityQueue = std::make_unique<quic::HTTPPriorityQueue>();
-  WtStreamManager streamManager{
-      detail::WtDir::Client, config, egressCb, ingressCb, *priorityQueue};
-  NoopDeliveryCallback deliveryCallback;
-
-  auto* writeHandle = CHECK_NOTNULL(streamManager.createEgressHandle());
+TEST_F(WtStreamManagerTest, H02FinishedHandleRemainsConnFcBlocked) {
   constexpr auto kConnBytesAvailable = WtConfig::kDefaultFc;
   constexpr auto kNoCap = std::numeric_limits<uint64_t>::max();
 
+  NoopDeliveryCallback deliveryCallback;
+  auto* writeHandle = CHECK_NOTNULL(streamManager->createEgressHandle());
   EXPECT_TRUE(writeHandle
                   ->writeStreamData(makeBuf(kConnBytesAvailable),
                                     /*fin=*/false,
@@ -1445,19 +1438,19 @@ TEST(WtStreamManager, H02FinishedHandleRemainsConnFcBlocked) {
       writeHandle->writeStreamData(nullptr, /*fin=*/true, &deliveryCallback)
           .hasValue());
 
-  auto data = streamManager.dequeue(*writeHandle, kNoCap);
+  auto data = streamManager->dequeue(*writeHandle, kNoCap);
   ASSERT_NE(data.data, nullptr);
   EXPECT_EQ(data.data->computeChainDataLength(), kConnBytesAvailable);
   EXPECT_FALSE(data.fin);
 
-  ASSERT_EQ(streamManager.nextWritable(), writeHandle);
-  auto fin = streamManager.dequeue(*writeHandle, kNoCap);
+  ASSERT_EQ(streamManager->nextWritable(), writeHandle);
+  auto fin = streamManager->dequeue(*writeHandle, kNoCap);
   EXPECT_TRUE(fin.fin);
-  EXPECT_FALSE(streamManager.hasStreams());
+  EXPECT_FALSE(streamManager->hasStreams());
 
   // Before the fix, the FIN deleted writeHandle without removing its raw
   // address from connFcBlockedStreams_. MAX_DATA then dereferenced it.
-  EXPECT_TRUE(streamManager.onMaxData(MaxConnData{WtConfig::kDefaultFc + 1}));
+  EXPECT_TRUE(streamManager->onMaxData(MaxConnData{WtConfig::kDefaultFc + 1}));
 }
 
 } // namespace proxygen::coro::test
