@@ -216,6 +216,8 @@ class HTTPUpstreamSessionTest : public HTTPCoroSessionTest {
   /* Simple push test */
   folly::coro::Task<HTTPCodec::StreamID> testPush(
       bool expectIncomingStream = true, bool pushEOM = true, bool eof = true) {
+    enablePushForTest();
+
     // send a request for GET /
     auto responseSource = co_await co_awaitTry(
         session_->sendRequest(HTTPFixedSource::makeFixedRequest("/")));
@@ -248,11 +250,31 @@ class HTTPUpstreamSessionTest : public HTTPCoroSessionTest {
     co_return pushID;
   }
 
+  void enablePushForTest() {
+    if (!isHQ()) {
+      codec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
+    }
+  }
+
   void expectH1ConnectionReset() {
     if (IS_H1()) {
       EXPECT_TRUE(transportState_.closedWithReset);
       expectedError_ = TransportErrorCode::NETWORK_ERROR;
     }
+  }
+
+  folly::coro::Task<void> expectAdvertisedPushSetting(
+      SettingsValue expectedValue) {
+    co_await rescheduleN(2);
+    parseOutputUniplex();
+
+    const auto *enablePush =
+        peerCodec_->getIngressSettings()->getSetting(SettingsId::ENABLE_PUSH);
+    EXPECT_NE(enablePush, nullptr);
+    if (enablePush) {
+      EXPECT_EQ(enablePush->value, expectedValue);
+    }
+    transport_->addReadEvent(nullptr, true);
   }
 
   HTTPCodec *serverCodec_{nullptr};
@@ -270,6 +292,24 @@ using HQUpstreamSessionTest = HTTPUpstreamSessionTest;
 using H2QUpstreamSessionTest = HTTPUpstreamSessionTest;
 // Use this test class for h1/h2 only tests
 using H12UpstreamSessionTest = HTTPUpstreamSessionTest;
+
+class H2UpstreamPushEnabledSessionTest : public HTTPUpstreamSessionTest {
+ public:
+  H2UpstreamPushEnabledSessionTest() {
+    initSelfCodec_ = [](HTTPCodec &codec) {
+      codec.getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
+    };
+  }
+};
+
+CO_TEST_P_X(H2UpstreamSessionTest, PreservesDefaultServerPushSetting) {
+  co_await expectAdvertisedPushSetting(0);
+}
+
+CO_TEST_P_X(H2UpstreamPushEnabledSessionTest,
+            PreservesConfiguredServerPushSetting) {
+  co_await expectAdvertisedPushSetting(1);
+}
 
 CO_TEST_P_X(HTTPUpstreamSessionTest, Simple) {
   auto responseSource = co_await co_awaitTry(
@@ -708,6 +748,7 @@ CO_TEST_P_X(H2UpstreamSessionTest, PushParentReset) {
   //
   // Note, we need the PUSH_PROMISE to have a continuation, so give the server
   // codec a ridiculously small MAX_FRAME_SIZE.
+  enablePushForTest();
   auto *settings = (HTTPSettings *)serverCodec_->getIngressSettings();
   settings->setSetting(SettingsId::MAX_FRAME_SIZE, 5);
 
@@ -1904,6 +1945,12 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     HTTPUpstreamSessionTest,
     H2UpstreamSessionTest,
+    Values(TestParams({.codecProtocol = CodecProtocol::HTTP_2})),
+    paramsToTestName);
+
+INSTANTIATE_TEST_SUITE_P(
+    HTTPUpstreamSessionTest,
+    H2UpstreamPushEnabledSessionTest,
     Values(TestParams({.codecProtocol = CodecProtocol::HTTP_2})),
     paramsToTestName);
 

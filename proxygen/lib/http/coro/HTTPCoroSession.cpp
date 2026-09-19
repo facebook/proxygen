@@ -766,9 +766,6 @@ folly::coro::Task<void> HTTPUniplexTransportSession::runImpl() {
 
 void HTTPCoroSession::sendPreface() {
   codec_->generateConnectionPreface(writeBuf_);
-  if (isUpstream()) {
-    setSetting(SettingsId::ENABLE_PUSH, 1);
-  }
   applyEgressSettings();
   codec_->generateSettings(writeBuf_);
   writeEvent_.signal();
