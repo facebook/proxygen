@@ -134,7 +134,7 @@ HTTPSession::HTTPSession(const WheelTimerInstance& wheelTimer,
 }
 
 void HTTPSession::setupCodec() {
-  if (!codec_->supportsParallelRequests()) {
+  if (!codec_.supportsParallelRequests()) {
     // until we support upstream pipelining
     maxConcurrentIncomingStreams_ = 1;
     maxConcurrentOutgoingStreamsRemote_ = isDownstream() ? 0 : 1;
@@ -502,8 +502,11 @@ void HTTPSession::processReadData() {
       readBuf_.pop_front();
     }
 
-    // We're about to parse, make sure the parser is not paused
-    codec_->setParserPaused(false);
+    // Ensure the parser isn't paused before parsing. Parallel codecs never
+    // pause it, so skip the call for them.
+    if (!codec_.supportsParallelRequests()) {
+      codec_->setParserPaused(false);
+    }
     size_t bytesParsed = codec_->onIngress(*readBuf_.front());
     if (bytesParsed == 0) {
       // If the codec didn't make any progress with current input, we

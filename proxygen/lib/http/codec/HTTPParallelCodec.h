@@ -30,22 +30,9 @@ class HTTPParallelCodec : public HTTPCodec {
  public:
   explicit HTTPParallelCodec(TransportDirection direction);
 
-  [[nodiscard]] TransportDirection getTransportDirection() const override {
-    return transportDirection_;
-  }
-
   StreamID createStream() override;
   [[nodiscard]] bool isBusy() const override {
     return false;
-  }
-  [[nodiscard]] bool supportsStreamFlowControl() const override {
-    return true;
-  }
-  [[nodiscard]] bool supportsSessionFlowControl() const override {
-    return true;
-  }
-  [[nodiscard]] bool supportsParallelRequests() const override {
-    return true;
   }
   [[nodiscard]] bool closeOnEgressComplete() const override {
     return false;

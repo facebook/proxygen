@@ -97,15 +97,9 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
   // HTTPCodec methods
   [[nodiscard]] CompressionInfo getCompressionInfo() const override;
 
-  [[nodiscard]] CodecProtocol getProtocol() const override;
+  [[nodiscard]] HTTPCodecTraits getTraits() const override;
 
   [[nodiscard]] const std::string& getUserAgent() const override;
-
-  [[nodiscard]] TransportDirection getTransportDirection() const override;
-
-  [[nodiscard]] bool supportsStreamFlowControl() const override;
-
-  [[nodiscard]] bool supportsSessionFlowControl() const override;
 
   StreamID createStream() override;
 
@@ -126,8 +120,6 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
   [[nodiscard]] bool isWaitingToDrain() const override;
 
   [[nodiscard]] bool closeOnEgressComplete() const override;
-
-  [[nodiscard]] bool supportsParallelRequests() const override;
 
   [[nodiscard]] bool supportsPushTransactions() const override;
 
@@ -218,10 +210,97 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
   [[nodiscard]] uint32_t getDefaultWindowSize() const override;
 };
 
-using HTTPCodecFilterChain = FilterChain<HTTPCodec,
-                                         HTTPCodec::Callback,
-                                         PassThroughHTTPCodecFilter,
-                                         &HTTPCodec::setCallback,
-                                         true>;
+class HTTPCodecFilterChain {
+  using Chain = FilterChain<HTTPCodec,
+                            HTTPCodec::Callback,
+                            PassThroughHTTPCodecFilter,
+                            &HTTPCodec::setCallback,
+                            true>;
+
+ public:
+  explicit HTTPCodecFilterChain(std::unique_ptr<HTTPCodec> codec)
+      : chain_(std::move(codec)), traits_(chain_.getChainEnd().getTraits()) {
+  }
+
+  HTTPCodecFilterChain(const HTTPCodecFilterChain&) = delete;
+  HTTPCodecFilterChain& operator=(const HTTPCodecFilterChain&) = delete;
+  HTTPCodecFilterChain(HTTPCodecFilterChain&&) = delete;
+  HTTPCodecFilterChain& operator=(HTTPCodecFilterChain&&) = delete;
+  ~HTTPCodecFilterChain() = default;
+
+  [[nodiscard]] CodecProtocol getProtocol() const {
+    return traits().protocol;
+  }
+
+  [[nodiscard]] TransportDirection getTransportDirection() const {
+    return traits().direction;
+  }
+
+  [[nodiscard]] bool supportsParallelRequests() const {
+    return traits().supportsParallelRequests;
+  }
+
+  [[nodiscard]] bool supportsSessionFlowControl() const {
+    return traits().supportsSessionFlowControl;
+  }
+
+  [[nodiscard]] bool supportsStreamFlowControl() const {
+    return traits().supportsStreamFlowControl;
+  }
+
+  HTTPCodec* operator->() {
+    return chain_.operator->();
+  }
+  const HTTPCodec* operator->() const {
+    return chain_.operator->();
+  }
+
+  HTTPCodec* call() {
+    return chain_.call();
+  }
+
+  [[nodiscard]] const HTTPCodec& getChainEnd() const {
+    return chain_.getChainEnd();
+  }
+
+  HTTPCodec* getChainEndPtr() {
+    return chain_.getChainEndPtr();
+  }
+
+  void setCallback(HTTPCodec::Callback* callback) {
+    chain_.setCallback(callback);
+  }
+
+  template <typename Filter, typename... Args>
+  void add(Args&&... args) {
+    chain_.add<Filter>(std::forward<Args>(args)...);
+  }
+
+  template <typename... Filters>
+  void addFilters(Filters&&... filters) {
+    chain_.addFilters(std::forward<Filters>(filters)...);
+  }
+
+  template <typename Fn>
+  void foreach (Fn&& fn) {
+    chain_.foreach (std::forward<Fn>(fn));
+  }
+
+  std::unique_ptr<HTTPCodec> setDestination(std::unique_ptr<HTTPCodec> dest) {
+    auto old = chain_.setDestination(std::move(dest));
+    traits_ = chain_.getChainEnd().getTraits();
+    return old;
+  }
+
+ private:
+  [[nodiscard]] const HTTPCodecTraits& traits() const {
+    DCHECK(chain_.getChainEnd().getTraits() == traits_)
+        << "codec traits changed after the chain cached them";
+    return traits_;
+  }
+
+  Chain chain_;
+  HTTPCodecTraits traits_;
+};
 
 } // namespace proxygen
