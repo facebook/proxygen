@@ -76,11 +76,20 @@ size_t HQFramedCodec::onFramedIngress(const IOBuf& buf) {
       }
       curHeader_.type = FrameType(type->first);
       parsed += type->second;
+      parseErrorContext_ = {};
+      parseErrorAdditionalInfo_ = {};
       auto res = checkFrameAllowed(curHeader_.type);
       if (res) {
         VLOG(4) << "Frame not allowed: 0x" << std::setfill('0')
                 << std::setw(sizeof(uint64_t) * 2) << std::hex
                 << (uint64_t)curHeader_.type << " on streamID=" << streamId_;
+        // Only generic if the derived codec did not name a specific reason.
+        if (parseErrorContext_.empty()) {
+          setParseErrorContext(
+              "frame-not-allowed",
+              folly::to<std::string>("type=",
+                                     getFrameTypeString(curHeader_.type)));
+        }
         connError_ = res;
         break;
       }
@@ -157,6 +166,9 @@ bool HQFramedCodec::onFramedIngressEOF() {
     return false;
   } else if (frameState_ != FrameState::FRAME_HEADER_TYPE) {
     VLOG(3) << "Stream ended in the middle of a frame type=" << curHeader_.type;
+    setParseErrorContext(
+        "eof-in-middle-of-frame",
+        folly::to<std::string>("type=", getFrameTypeString(curHeader_.type)));
     connError_ = HTTP3::ErrorCode::HTTP_FRAME_ERROR;
     checkConnectionError(connError_, nullptr);
     return false;
@@ -168,14 +180,23 @@ bool HQFramedCodec::onFramedIngressEOF() {
 bool HQFramedCodec::checkConnectionError(ParseResult err,
                                          const folly::IOBuf* buf) {
   if (err != folly::none) {
-    LOG(ERROR) << "Connection error with ingress=";
+    std::string errorMessage("Connection error");
+    if (!parseErrorContext_.empty()) {
+      errorMessage = folly::to<std::string>(
+          errorMessage, " [Context]=", parseErrorContext_);
+      if (!parseErrorAdditionalInfo_.empty()) {
+        errorMessage = folly::to<std::string>(
+            errorMessage, " ", parseErrorAdditionalInfo_);
+      }
+    }
+    LOG(ERROR) << errorMessage << " with ingress=";
     if (buf) {
       VLOG(3) << IOBufPrinter::printHexFolly(buf, true);
     }
     setParserPaused(true);
     if (callback_) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-                       "Connection error");
+                       errorMessage);
       ex.setHttp3ErrorCode(err.value());
       callback_->onError(kSessionStreamId, ex, false);
     }

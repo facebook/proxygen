@@ -42,6 +42,9 @@ HQStreamCodec::~HQStreamCodec() = default;
 
 ParseResult HQStreamCodec::checkFrameAllowed(FrameType type) {
   if (isConnect_ && type != hq::FrameType::DATA) {
+    setParseErrorContext(
+        "non-data-frame-on-connect",
+        folly::to<std::string>("type=", getFrameTypeString(type)));
     return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
   }
   switch (type) {
@@ -54,9 +57,13 @@ ParseResult HQStreamCodec::checkFrameAllowed(FrameType type) {
     case hq::FrameType::FB_PRIORITY_UPDATE:
     case hq::FrameType::FB_PUSH_PRIORITY_UPDATE:
     case hq::FrameType::WEBTRANSPORT_BIDI:
+      setParseErrorContext(
+          "control-frame-on-request-stream",
+          folly::to<std::string>("type=", getFrameTypeString(type)));
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     case hq::FrameType::PUSH_PROMISE:
       if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+        setParseErrorContext("received-push-promise-on-downstream-codec");
         return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
       }
       break;

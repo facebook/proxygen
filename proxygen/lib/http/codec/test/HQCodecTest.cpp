@@ -1143,6 +1143,8 @@ TEST_P(HQCodecTestFrameBeforeSettings, FrameAllowedOnControlCodec) {
     } else {
       EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
                 HTTP3::ErrorCode::HTTP_MISSING_SETTINGS);
+      EXPECT_THAT(callbacks_.lastParseError->what(),
+                  HasSubstr("[Context]=settings-not-first-frame"));
     }
   }
 }

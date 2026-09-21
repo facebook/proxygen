@@ -86,6 +86,8 @@ enum class FrameType : uint64_t {
 
 };
 
+const char* getFrameTypeString(FrameType type);
+
 std::ostream& operator<<(std::ostream& os, FrameType type);
 
 struct FrameHeader {

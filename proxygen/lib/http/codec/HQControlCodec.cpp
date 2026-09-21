@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 
 #include <proxygen/lib/http/HTTP3ErrorCode.h>
@@ -36,6 +37,9 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
     case hq::FrameType::HEADERS:
     case hq::FrameType::PUSH_PROMISE:
     case hq::FrameType::WEBTRANSPORT_BIDI:
+      setParseErrorContext(
+          "data-frame-on-control-stream",
+          folly::to<std::string>("type=", getFrameTypeString(type)));
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     default:
       break;
@@ -44,16 +48,21 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
   if (getStreamType() == hq::UnidirectionalStreamType::CONTROL) {
     // SETTINGS MUST be the first frame on an HQ Control Stream
     if (!receivedSettings_ && type != hq::FrameType::SETTINGS) {
+      setParseErrorContext(
+          "settings-not-first-frame",
+          folly::to<std::string>("type=", getFrameTypeString(type)));
       return HTTP3::ErrorCode::HTTP_MISSING_SETTINGS;
     }
     // multiple SETTINGS frames are not allowed
     if (receivedSettings_ && type == hq::FrameType::SETTINGS) {
+      setParseErrorContext("duplicate-settings");
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }
     // A client MUST treat the receipt of a MAX_PUSH_ID frame as a connection
     // error of type HTTP_FRAME_UNEXPECTED
     if (transportDirection_ == TransportDirection::UPSTREAM &&
         type == hq::FrameType::MAX_PUSH_ID) {
+      setParseErrorContext("max-push-id-on-upstream-control-stream");
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }
 
@@ -63,6 +72,9 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
          type == hq::FrameType::PUSH_PRIORITY_UPDATE ||
          type == hq::FrameType::FB_PUSH_PRIORITY_UPDATE ||
          type == hq::FrameType::FB_PRIORITY_UPDATE)) {
+      setParseErrorContext(
+          "priority-update-on-upstream-control-stream",
+          folly::to<std::string>("type=", getFrameTypeString(type)));
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }
   }
@@ -107,6 +119,12 @@ ParseResult HQControlCodec::parseSettings(Cursor& cursor,
       case hq::SettingId::WT_ENABLED:
         // only 0/1 are legal
         if (setting.second > 1) {
+          setParseErrorContext(
+              "boolean-setting-out-of-range",
+              folly::to<std::string>("id=",
+                                     static_cast<uint64_t>(setting.first),
+                                     " value=",
+                                     setting.second));
           return HTTP3::ErrorCode::HTTP_SETTINGS_ERROR;
         }
         break;

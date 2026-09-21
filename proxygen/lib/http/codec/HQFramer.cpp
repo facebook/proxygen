@@ -387,7 +387,7 @@ WriteResult writeStreamPreface(folly::IOBufQueue& writeBuf,
   return *streamPrefaceSize;
 }
 
-static const char* getFrameTypeString(FrameType type) {
+const char* getFrameTypeString(FrameType type) {
   switch (type) {
     case FrameType::DATA:
       return "DATA";

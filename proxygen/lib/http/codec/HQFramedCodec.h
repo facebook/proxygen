@@ -264,6 +264,20 @@ class HQFramedCodec : public HTTPCodec {
   }
 
  protected:
+  /**
+   * Record why framing was rejected. HQ frame errors reach
+   * checkConnectionError as a bare HTTP3::ErrorCode, so without this every
+   * failure in the frame layer reports the same "Connection error" text.
+   */
+  void setParseErrorContext(std::string context,
+                            std::string additionalInfo = {}) {
+    parseErrorContext_ = std::move(context);
+    parseErrorAdditionalInfo_ = std::move(additionalInfo);
+    VLOG(4) << "parse error context=" << parseErrorContext_
+            << (parseErrorAdditionalInfo_.empty() ? "" : " ")
+            << parseErrorAdditionalInfo_;
+  }
+
   virtual ParseResult checkFrameAllowed(FrameType type) = 0;
 
   virtual ParseResult parseData(folly::io::Cursor& /*cursor*/,
@@ -352,6 +366,8 @@ class HQFramedCodec : public HTTPCodec {
   };
   FrameState frameState_ : 3;
   ParseResult connError_{folly::none};
+  std::string parseErrorContext_;
+  std::string parseErrorAdditionalInfo_;
   uint64_t totalBytesParsed_{0};
   folly::Function<void()> resumeHook_;
 };
