@@ -502,7 +502,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       return ErrorCode::NO_ERROR;
     }
     if (!(curHeader_.flags & http2::END_STREAM)) {
-      // If it there are DATA frames coming, consider it chunked
+      // If there are DATA frames coming, consider it chunked
       msg->setIsChunked(true);
     }
     if (trailers) {
@@ -1601,7 +1601,7 @@ bool HTTP2Codec::parsingHeaders() const {
 
 bool HTTP2Codec::parsingTrailers() const {
   // HEADERS frame is used for request/response headers and trailers.
-  // Per spec, specific role of HEADERS frame is determined by it's postion
+  // Per spec, specific role of HEADERS frame is determined by its position
   // within the stream. We don't keep full stream state in this codec,
   // thus using heuristics to distinguish between headers/trailers.
   // For DOWNSTREAM case, request headers HEADERS frame would be creating
