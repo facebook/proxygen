@@ -92,10 +92,10 @@ namespace proxygen {
  *
  * A key design goal of HTTPTransaction is to serve as a protocol-
  * independent abstraction that insulates Handlers from the semantics
- * different of HTTP-like protocols.
+ * of different HTTP-like protocols.
  */
 
-/** Info about Transaction running on this session */
+/** Info about a transaction running in this session. */
 class TransactionInfo {
  public:
   TransactionInfo() = default;
@@ -121,16 +121,16 @@ class TransactionInfo {
   /** Time to last byte */
   std::chrono::milliseconds timeToLastByte{0};
 
-  /** Number of bytes send in headers */
+  /** Number of bytes sent in headers */
   uint64_t egressHeaderBytes{0};
-  /** Number of bytes receive headers */
+  /** Number of bytes received in headers */
   uint64_t ingressHeaderBytes{0};
-  /** Number of bytes send in body */
+  /** Number of bytes sent in the body */
   uint64_t egressBodyBytes{0};
-  /** Number of bytes receive in body */
+  /** Number of bytes received in the body */
   uint64_t ingressBodyBytes{0};
 
-  /** Is the transaction was completed without error */
+  /** Whether the transaction was completed without error */
   bool isCompleted{false};
 };
 
@@ -148,14 +148,14 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * Called once after a transaction successfully completes. It
    * will be called even if a read or write error happened earlier.
    * This is a terminal callback, which means that the HTTPTransaction
-   * object that gives this call will be invalid after this function
+   * object that makes this call will be invalid after this function
    * completes.
    */
   virtual void detachTransaction() noexcept = 0;
 
   /**
    * Called at most once per transaction. This is usually the first
-   * ingress callback. It is possible to get a read error before this
+   * ingress callback. It is possible to get a read error before this,
    * however. If you had previously called pauseIngress(), this callback
    * will be delayed until you call resumeIngress().
    */
@@ -198,7 +198,7 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * Can be called any number of times per transaction. If you had
    * previously called pauseIngress(), this callback will be delayed until
    * you call resumeIngress(). Trailers can be received once right before
-   * the EOM of a chunked HTTP/1.1 reponse or multiple times per
+   * the EOM of a chunked HTTP/1.1 response or multiple times per
    * transaction from HTTP/2 HEADERS frames.
    */
   virtual void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept = 0;
@@ -220,15 +220,15 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * pauseIngress(), this callback will be delayed until you call
    * resumeIngress(). After this callback is invoked, further data
    * will be forwarded using the onBody() callback. Once the data transfer
-   * is completed (EOF recevied in case of CONNECT), onEOM() callback will
-   * be invoked.
+   * is completed (EOF is received in the case of CONNECT), onEOM() callback
+   * will be invoked.
    */
   virtual void onUpgrade(UpgradeProtocol protocol) noexcept = 0;
 
   /**
    * Can be called at any time before detachTransaction(). This callback
    * implies that an error has occurred. To determine if ingress or egress
-   * is affected, check the direciont on the HTTPException. If the
+   * is affected, check the HTTPException's direction. If the
    * direction is INGRESS, it MAY still be possible to send egress.
    */
   virtual void onError(const HTTPException& error) noexcept = 0;
@@ -237,7 +237,7 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * Can be called at any time before detachTransaction(). This callback is
    * invoked in cases that violate an internal invariant that is fatal to the
    * transaction but can be recoverable for the session or library.  One such
-   * example is mis-use of the egress APIs (sendBody() before sendHeaders()).
+   * example is misuse of the egress APIs (sendBody() before sendHeaders()).
    */
   virtual void onInvariantViolation(const HTTPException& error) noexcept {
     LOG(FATAL) << error.what();
@@ -259,7 +259,8 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * with its transaction.
    *
    * TODO: Reconsider default implementation here. If the handler
-   * does not implement, better set max initiated to 0 in a settings frame?
+   * does not implement it, would it be better to set max initiated to 0 in a
+   * settings frame?
    */
   virtual void onPushedTransaction(HTTPTransaction* /* txn */) noexcept {
   }
@@ -278,8 +279,8 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * Can be called multiple times per transaction after onHeadersComplete and
    * before detachTransaction()
    *
-   * It does not obey pauseIngress/resumeIngress it is up to the handler
-   * to decide whether to buffer/drop datagrams
+   * It does not obey pauseIngress()/resumeIngress(); it is up to the handler
+   * to decide whether to buffer or drop datagrams.
    */
   virtual void onDatagram(std::unique_ptr<folly::IOBuf> /*datagram*/) noexcept {
   }
@@ -289,7 +290,7 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * This can only be invoked when the transaction has successfully negotiated
    * WebTransport (CONNECT(webtransport) + 2xx).
    *
-   * Once it is called the handler is responsible for disposing of the stream
+   * Once it is called, the handler is responsible for disposing of the stream
    * until the transaction detaches, at which point it will be automatically
    * reset.
    */
@@ -303,7 +304,7 @@ class HTTPTransactionHandler : public TraceEventObserver {
    * This can only be invoked when the transaction has successfully negotiated
    * WebTransport (CONNECT(webtransport) + 2xx).
    *
-   * Once it is called the handler is responsible for disposing of the stream
+   * Once it is called, the handler is responsible for disposing of the stream
    * until the transaction detaches, at which point it will be automatically
    * abandoned.
    */
@@ -552,7 +553,7 @@ class HTTPTransaction
         const noexcept = 0;
 
     /**
-     * Returns true if the underlying transport has completed full handshake.
+     * Returns true if the underlying transport has completed a full handshake.
      */
     [[nodiscard]] virtual bool isReplaySafe() const = 0;
 
@@ -853,7 +854,7 @@ class HTTPTransaction
   }
 
   /**
-   * Check whether more response is expected. One or more 1xx status
+   * Check whether another response is expected. One or more 1xx status
    * responses can be received prior to the regular response.
    * Note: 101 is handled by the codec using a separate onUpgrade callback
    */
@@ -1048,8 +1049,8 @@ class HTTPTransaction
    * Can be called multiple times per transaction after onHeadersComplete and
    * before detachTransaction()
    *
-   * It does not obey pauseIngress/resumeIngress it is up to the handler
-   * to decide whether to buffer/drop datagrams
+   * It does not obey pauseIngress()/resumeIngress(); it is up to the handler
+   * to decide whether to buffer or drop datagrams.
    */
   void onDatagram(std::unique_ptr<folly::IOBuf> datagram) noexcept;
 
@@ -1217,7 +1218,7 @@ class HTTPTransaction
   virtual void sendPadding(uint16_t bytes);
 
   /**
-   * Returns the cumulative size of body passed to sendBody so far
+   * Returns the cumulative size of the body passed to sendBody so far
    */
   size_t bodyBytesSent() const {
     return actualResponseLength_.value_or(0);
@@ -1245,7 +1246,7 @@ class HTTPTransaction
    * Write any protocol syntax needed to terminate the data. This method
    * does not actually write the message out on the wire immediately. All
    * writes happen at the end of the event loop at the earliest.
-   * Frame begun by the last call to sendChunkHeader().
+   * This terminates the frame begun by the last call to sendChunkHeader().
    */
   virtual void sendChunkTerminator() {
     validateEgressStateTransition(
@@ -1275,7 +1276,7 @@ class HTTPTransaction
    * message out on the wire immediately. All writes happen at the end
    * of the event loop at the earliest.
    *
-   * If the ingress message also is complete, the transaction may
+   * If the ingress message is also complete, the transaction may
    * detach itself from the Handler and Transport and delete itself
    * as part of this method.
    *
@@ -1301,7 +1302,7 @@ class HTTPTransaction
    * Note:
    * Downstream sessions invoking ::sendAbort(NO_ERROR) after egressing eom will
    * queue the RST_STREAM/STOP_SENDING NO_ERROR (if the protocol supports such
-   * sematics). This is different from the typical behaviour of *immediately*
+   * semantics). This is different from the typical behaviour of *immediately*
    * terminating both ingress and egress (and therefore dropping any buffered
    * data) with other ErrorCodes.
    */
@@ -1580,11 +1581,12 @@ class HTTPTransaction
   // Use this API to track TX or Ack for a particular offset of the HTTP body,
   // if the underlying transport is capable of tracking.
   // It will generate a callback to HTTPTransactionTransportCallback either
-  // trackedByteEventTx or trackedByteEventAck.  The the event does not happen,
+  // trackedByteEventTx or trackedByteEventAck. If the event does not happen,
   // there is no cancellation callback.
   //
   // You can call this API before you have egressed the given bodyOffset.
-  // Last byte ack is already tracked implicity and delivered via lastByteAcked.
+  // Last byte ack is already tracked implicitly and delivered via
+  // lastByteAcked.
   bool trackEgressBodyOffset(
       uint64_t bodyOffset,
       ByteEvent::EventFlags flags = ByteEvent::EventFlags::ACK);
@@ -1696,7 +1698,7 @@ class HTTPTransaction
     egressQueue_.clearPendingEgress(queueHandle_);
   }
 
-  void abortAndDeliverError(ErrorCode codecErorr, const std::string& msg);
+  void abortAndDeliverError(ErrorCode codecError, const std::string& msg);
 
   void onDelayedDestroy(bool delayed) override;
 
@@ -1751,7 +1753,7 @@ class HTTPTransaction
     return queueHandle_ ? queueHandle_->isEnqueued() : false;
   }
 
-  // Whther the txn has a pending EOM that can be send out (i.e., no more body
+  // Whether the txn has a pending EOM that can be sent out (i.e., no more body
   // bytes need to go before it.)
   bool hasPendingEOM() const {
     return isEgressEOMQueued() && getOutstandingEgressBodyBytes() == 0;
@@ -1935,7 +1937,7 @@ class HTTPTransaction
   folly::Optional<HTTPCodec::StreamID> assocStreamId_;
 
   /**
-   * Set of all push transactions IDs associated with this transaction.
+   * Set of all pushed transaction IDs associated with this transaction.
    */
   std::set<HTTPCodec::StreamID> pushedTransactions_;
 
@@ -1950,7 +1952,7 @@ class HTTPTransaction
    * insertDepth_ is the depth of this node in the tree when the txn was created
    * currentDepth_ is the depth of this node in the tree after the last
    *               onPriorityUpdate. It may not reflect its real position in
-   *               realtime, since after the last onPriorityUpdate, it may get
+   *               real time, since after the last onPriorityUpdate, it may get
    *               reparented as parent transactions complete.
    * cumulativeRatio_ / egressCalls_ is the average relative weight of this
    *                                 txn during egress
@@ -2004,10 +2006,10 @@ class HTTPTransaction
   UpgradeStatus upgraded_;
 
   /**
-   * If this transaction represents a request (ie, it is backed by an
-   * HTTPUpstreamSession) , this field indicates the last response status
+   * If this transaction represents a request (i.e., it is backed by an
+   * HTTPUpstreamSession), this field indicates the last response status
    * received from the server. If this transaction represents a response,
-   * this field indicates the last status we've sent. For instances, this
+   * this field indicates the last status we've sent. For instance, this
    * could take on multiple 1xx values, and then take on 200.
    */
   uint16_t lastResponseStatus_{0};
@@ -2023,7 +2025,7 @@ class HTTPTransaction
 
   folly::HHWheelTimer* timer_;
 
-  // Keeps track for body offset processed so far.
+  // Keeps track of the body offset processed so far.
   uint64_t ingressBodyOffset_{0};
 
   bool setIngressTimeoutAfterEom_{false};
