@@ -128,7 +128,7 @@ TEST_F(DefaultFlowControl, FlowControlConstruct) {
   ASSERT_EQ(writeBuf_.chainLength(), 0);
 
   // Our send window is limited to kInitialCapacity
-  chain_->generateBody(
+  chain_.generateBody(
       writeBuf_, 1, makeBuf(kInitialCapacity - 1), HTTPCodec::NoPadding, false);
 
   // the window isn't full yet, so getting a window update shouldn't give a
@@ -137,14 +137,14 @@ TEST_F(DefaultFlowControl, FlowControlConstruct) {
 
   // Now fill the window (2 more bytes)
   EXPECT_CALL(flowCallback_, onConnectionSendWindowClosed());
-  chain_->generateBody(writeBuf_, 1, makeBuf(2), HTTPCodec::NoPadding, false);
+  chain_.generateBody(writeBuf_, 1, makeBuf(2), HTTPCodec::NoPadding, false);
   // get the callback informing the window is open once we get a window update
   EXPECT_CALL(flowCallback_, onConnectionSendWindowOpen());
   callbackStart_->onWindowUpdate(0, 1);
 
   // Overflowing the window is fatal. Write 2 bytes (only 1 byte left in window)
   EXPECT_DEATH_NO_CORE(
-      chain_->generateBody(
+      chain_.generateBody(
           writeBuf_, 1, makeBuf(2), HTTPCodec::NoPadding, false),
       ".*");
 }
@@ -182,10 +182,10 @@ TEST_F(BigWindow, RecvTooMuch) {
 
   // Receive the max amount advertised
   callbackStart_->onBody(1, makeBuf(recvWindow_), 0);
-  ASSERT_TRUE(chain_->isReusable());
+  ASSERT_TRUE(chain_.isReusable());
   // Receive 1 byte too much
   callbackStart_->onBody(1, makeBuf(1), 0);
-  ASSERT_FALSE(chain_->isReusable());
+  ASSERT_FALSE(chain_.isReusable());
 }
 
 TEST_F(BigWindow, RemoteIncrease) {
@@ -198,11 +198,11 @@ TEST_F(BigWindow, RemoteIncrease) {
   ASSERT_EQ(filter_->getAvailableSend(), kInitialCapacity + 10);
 
   EXPECT_CALL(flowCallback_, onConnectionSendWindowClosed());
-  chain_->generateBody(writeBuf_,
-                       1,
-                       makeBuf(kInitialCapacity + 10),
-                       HTTPCodec::NoPadding,
-                       false);
+  chain_.generateBody(writeBuf_,
+                      1,
+                      makeBuf(kInitialCapacity + 10),
+                      HTTPCodec::NoPadding,
+                      false);
   ASSERT_EQ(filter_->getAvailableSend(), 0);
 
   // Now the remote side sends a HUGE update (just barely legal)
@@ -223,7 +223,7 @@ TEST_F(BigWindow, RemoteIncrease) {
             std::string(exc->what()));
       }));
   callbackStart_->onWindowUpdate(0, 1);
-  ASSERT_FALSE(chain_->isReusable());
+  ASSERT_FALSE(chain_.isReusable());
 }
 
 TEST_F(HTTPChecksTest, SendTraceBodyDeath) {
@@ -232,7 +232,7 @@ TEST_F(HTTPChecksTest, SendTraceBodyDeath) {
   HTTPMessage msg = getPostRequest();
   msg.setMethod("TRACE");
 
-  EXPECT_DEATH_NO_CORE(chain_->generateHeader(writeBuf_, 0, msg), ".*");
+  EXPECT_DEATH_NO_CORE(chain_.generateHeader(writeBuf_, 0, msg), ".*");
 }
 
 TEST_F(HTTPChecksTest, SendGetBody) {
@@ -244,7 +244,7 @@ TEST_F(HTTPChecksTest, SendGetBody) {
   HTTPMessage msg = getPostRequest();
   msg.setMethod("GET");
 
-  chain_->generateHeader(writeBuf_, 0, msg);
+  chain_.generateHeader(writeBuf_, 0, msg);
 }
 
 TEST_F(HTTPChecksTest, RecvTraceBody) {
@@ -266,8 +266,8 @@ TEST_F(HTTPChecksTest, RecvTraceBody) {
 }
 
 TEST_F(DebugFilterTest, NoError) {
-  chain_->onIngress(*makeIOBuf("foo"));
-  chain_->onIngressEOF();
+  chain_.onIngress(*makeIOBuf("foo"));
+  chain_.onIngressEOF();
   callbackStart_->onMessageBegin(1, nullptr);
   callbackStart_->onHeadersComplete(1, makeGetRequest());
   callbackStart_->onMessageComplete(1, false);
@@ -275,26 +275,26 @@ TEST_F(DebugFilterTest, NoError) {
 }
 
 TEST_F(DebugFilterTest, NoErrorGoaway) {
-  chain_->onIngress(*makeIOBuf("foo"));
+  chain_.onIngress(*makeIOBuf("foo"));
   callbackStart_->onGoaway(0, ErrorCode::NO_ERROR, makeIOBuf("bar"));
   EXPECT_TRUE(dumpedIngress_.empty());
 }
 
 TEST_F(DebugFilterTest, IngressGoaway) {
-  chain_->onIngress(*makeIOBuf("foo"));
+  chain_.onIngress(*makeIOBuf("foo"));
   callbackStart_->onGoaway(0, ErrorCode::PROTOCOL_ERROR, makeIOBuf("bar"));
   EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
 }
 
 TEST_F(DebugFilterTest, EgressGoaway) {
-  chain_->onIngress(*makeIOBuf("foo"));
-  chain_->generateGoaway(
+  chain_.onIngress(*makeIOBuf("foo"));
+  chain_.generateGoaway(
       writeBuf_, 0, ErrorCode::PROTOCOL_ERROR, makeIOBuf("bar"));
   EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
 }
 
 TEST_F(DebugFilterTest, IngressRstTrackedStream) {
-  chain_->onIngress(*makeIOBuf("foo"));
+  chain_.onIngress(*makeIOBuf("foo"));
   callbackStart_->onMessageBegin(1, nullptr);
   auto req = makeGetRequest();
   req->getHeaders().add("trace-header", "true");
@@ -304,24 +304,24 @@ TEST_F(DebugFilterTest, IngressRstTrackedStream) {
 }
 
 TEST_F(DebugFilterTest, EgressRstTrackedStream) {
-  chain_->onIngress(*makeIOBuf("foo"));
+  chain_.onIngress(*makeIOBuf("foo"));
   callbackStart_->onMessageBegin(1, nullptr);
   auto req = makeGetRequest();
   req->getHeaders().add("trace-header", "true");
   callbackStart_->onHeadersComplete(1, std::move(req));
-  chain_->generateRstStream(writeBuf_, 1, ErrorCode::INTERNAL_ERROR);
+  chain_.generateRstStream(writeBuf_, 1, ErrorCode::INTERNAL_ERROR);
   EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
 }
 
 TEST_F(DebugFilterTest, OnSessionError) {
-  chain_->onIngress(*makeIOBuf("foo"));
+  chain_.onIngress(*makeIOBuf("foo"));
   HTTPException ex(HTTPException::Direction::INGRESS, "error");
   callbackStart_->onError(0, ex, false);
   EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
 }
 
 TEST_F(DebugFilterTest, OnStreamErrorTracked) {
-  chain_->onIngress(*makeIOBuf("foo"));
+  chain_.onIngress(*makeIOBuf("foo"));
   callbackStart_->onMessageBegin(1, nullptr);
   auto req = makeGetRequest();
   req->getHeaders().add("trace-header", "true");
@@ -332,7 +332,7 @@ TEST_F(DebugFilterTest, OnStreamErrorTracked) {
 }
 
 TEST_F(DebugFilterTest, OnStreamErrorPartialMsg) {
-  chain_->onIngress(*makeIOBuf("foo"));
+  chain_.onIngress(*makeIOBuf("foo"));
   auto req = makeGetRequest();
   req->getHeaders().add("trace-header", "true");
   HTTPException ex(HTTPException::Direction::INGRESS, "error");
