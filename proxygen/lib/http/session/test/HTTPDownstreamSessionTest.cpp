@@ -3033,7 +3033,8 @@ TEST_F(HTTP2DownstreamSessionTest, ZeroDeltaWindowUpdate) {
   handler->expectHeaders();
   handler->expectError([&](const HTTPException& ex) {
     ASSERT_EQ(ex.getCodecStatusCode(), ErrorCode::PROTOCOL_ERROR);
-    ASSERT_EQ("streamID=1 with window update delta=0", std::string(ex.what()));
+    ASSERT_EQ("window-update-zero-delta-stream stream=1",
+              std::string(ex.what()));
   });
   handler->expectDetachTransaction();
   expectDetachSession();

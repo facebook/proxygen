@@ -31,8 +31,11 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
 
   if (nameSp.startsWith(':')) {
     pseudoHeaderSeen_ = true;
+    if (firstPseudoHeader_.empty()) {
+      firstPseudoHeader_ = nameSp.str();
+    }
     if (regularHeaderSeen_) {
-      parsingError = folly::to<string>("Illegal pseudo header name=", nameSp);
+      parsingError = folly::to<string>("illegal-pseudo-header name=", nameSp);
       return false;
     }
     if (isRequest_) {
@@ -69,7 +72,8 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
           }
           break;
         default:
-          parsingError = folly::to<string>("Invalid req header name=", nameSp);
+          parsingError =
+              folly::to<string>("invalid-request-pseudo-header name=", nameSp);
           return false;
       }
       if (!ok) {
@@ -78,7 +82,10 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
     } else {
       if (headerCode == HTTP_HEADER_COLON_STATUS) {
         if (hasStatus_) {
-          parsingError = string("Duplicate status");
+          parsingError = folly::to<string>("duplicate-status existing=",
+                                           msg->getStatusCode(),
+                                           " new=",
+                                           valueSp);
           return false;
         }
         hasStatus_ = true;
@@ -89,11 +96,12 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
           msg->setStatusCode(code);
           msg->setStatusMessage(HTTPMessage::getDefaultReason(code));
         } else {
-          parsingError = folly::to<string>("Malformed status code=", valueSp);
+          parsingError = folly::to<string>("malformed-status code=", valueSp);
           return false;
         }
       } else {
-        parsingError = folly::to<string>("Invalid resp header name=", nameSp);
+        parsingError =
+            folly::to<string>("invalid-response-pseudo-header name=", nameSp);
         return false;
       }
     }
@@ -101,14 +109,16 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
     regularHeaderSeen_ = true;
     switch (headerCode) {
       case HTTP_HEADER_CONNECTION:
-        parsingError = string("HTTP/2 Message with Connection header");
+        parsingError =
+            folly::to<string>("connection-header-forbidden value=", valueSp);
         return false;
       case HTTP_HEADER_CONTENT_LENGTH: {
         const auto cl = headers.getSingleOrNullptr(HTTP_HEADER_CONTENT_LENGTH);
         if (cl) {
           bool ok = *cl == valueSp;
           if (!ok) {
-            parsingError = string("Multiple content-length headers");
+            parsingError = folly::to<string>(
+                "multiple-content-length existing=", *cl, " new=", valueSp);
           }
           return ok; // skips adding if already present and equal
         }
@@ -118,7 +128,11 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
         if (verifier.hasAuthority()) { // HTTP_HEADER_HOST already present
           bool ok = headers.getSingleOrEmpty(HTTP_HEADER_HOST) == valueSp;
           if (!ok) {
-            parsingError = ":authority/Host header mismatch";
+            parsingError =
+                folly::to<string>("authority-host-mismatch existing=",
+                                  headers.getSingleOrEmpty(HTTP_HEADER_HOST),
+                                  " new=",
+                                  valueSp);
           }
           return ok; // skips adding if already present and equal
         }
@@ -133,16 +147,30 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
                       nameSp,
                       strictValidation_ ? CodecUtil::HEADER_NAME_STRICT
                                         : CodecUtil::HEADER_NAME_STRICT_COMPAT);
-    bool valueOk =
-        !validate_ ||
-        CodecUtil::validateHeaderValue(
-            valueSp,
-            strictValidation_ ? CodecUtil::CtlEscapeMode::STRICT
-                              : CodecUtil::CtlEscapeMode::STRICT_COMPAT);
-    if (!nameOk || !valueOk) {
+    auto valueError =
+        validate_
+            ? CodecUtil::validateHeaderValueDetail(
+                  valueSp,
+                  strictValidation_ ? CodecUtil::CtlEscapeMode::STRICT
+                                    : CodecUtil::CtlEscapeMode::STRICT_COMPAT)
+            : CodecUtil::HeaderValueError::None;
+    if (!nameOk || valueError != CodecUtil::HeaderValueError::None) {
       proxygenError =
           nameSp.empty() ? kErrorParseHeader : kErrorHeaderContentValidation;
-      parsingError = folly::to<string>("Invalid header name=", nameSp);
+      std::string reason =
+          nameSp.empty() ? "empty-name" : (!nameOk ? "invalid-name-char" : "");
+      if (valueError != CodecUtil::HeaderValueError::None) {
+        if (!reason.empty()) {
+          reason += ",";
+        }
+        reason += CodecUtil::describeHeaderValueError(valueError);
+      }
+      parsingError = folly::to<string>(isRequestTrailers_ ? "invalid-trailer "
+                                                          : "invalid-header ",
+                                       "name=",
+                                       nameSp,
+                                       " reason=",
+                                       reason);
       headerErrorValue = valueSp;
       return false;
     }
@@ -170,7 +198,8 @@ void HeaderDecodeInfo::onHeadersComplete(HTTPHeaderSize decodedSize) {
 
   bool isResponseTrailers = (!isRequest_ && !hasStatus_);
   if ((isRequestTrailers_ || isResponseTrailers) && pseudoHeaderSeen_) {
-    parsingError = "Pseudo headers forbidden in trailers.";
+    parsingError = folly::to<string>("pseudo-header-in-trailers name=",
+                                     firstPseudoHeader_);
     return;
   }
 

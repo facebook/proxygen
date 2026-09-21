@@ -176,6 +176,27 @@ TEST_F(HTTP2CodecTestOmitParsePreface, OmitSettingsAfterConnPrefaceError) {
   EXPECT_EQ(callbacks_.sessionErrors, 1);
   EXPECT_EQ(callbacks_.lastParseError->getCodecStatusCode(),
             ErrorCode::PROTOCOL_ERROR);
+  EXPECT_THAT(callbacks_.lastParseError->what(),
+              HasSubstr("[Context]=invalid-connection-preface-frame-type"));
+  // The numeric type is what identifies a frame the name mapping doesn't know.
+  EXPECT_THAT(callbacks_.lastParseError->what(), HasSubstr("type=HEADERS(1)"));
+}
+
+TEST_F(HTTP2CodecTestOmitParsePreface, OversizedNonSettingsPrefaceFrame) {
+  // The preface check and the frame-size check are independent ifs, so a first
+  // frame that is both non-SETTINGS and oversized trips both. The reported
+  // message and context must describe the same failure.
+  writeFrameHeaderManual(
+      output_, 1 << 15, (uint8_t)http2::FrameType::HEADERS, 0, 1);
+
+  parse();
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getCodecStatusCode(),
+            ErrorCode::FRAME_SIZE_ERROR);
+  EXPECT_THAT(callbacks_.lastParseError->what(),
+              HasSubstr("[Context]=frame-exceeds-max-size"));
+  EXPECT_THAT(callbacks_.lastParseError->what(),
+              Not(HasSubstr("invalid connection preface")));
 }
 
 TEST_F(HTTP2CodecTest, BadHeaders) {
@@ -954,6 +975,8 @@ TEST_F(HTTP2CodecTest, FrameTooLarge) {
   EXPECT_TRUE(callbacks_.lastParseError->hasCodecStatusCode());
   EXPECT_EQ(callbacks_.lastParseError->getCodecStatusCode(),
             ErrorCode::FRAME_SIZE_ERROR);
+  EXPECT_THAT(callbacks_.lastParseError->what(),
+              HasSubstr("[Context]=frame-exceeds-max-size"));
 }
 
 TEST_F(HTTP2CodecTest, DataFrameZeroLengthWithEOM) {

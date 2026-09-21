@@ -99,7 +99,6 @@ class HTTPParallelCodec : public HTTPCodec {
   HTTPCodec::Callback* callback_{nullptr};
   StreamID ingressGoawayAck_{std::numeric_limits<uint32_t>::max()};
   StreamID egressGoawayAck_{std::numeric_limits<uint32_t>::max()};
-  std::string goawayErrorMessage_;
 
   enum ClosingState {
     OPEN = 0,

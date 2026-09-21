@@ -36,6 +36,7 @@ class HeaderDecodeInfo {
     pseudoHeaderSeen_ = false;
     parsingError.clear();
     headerErrorValue.clear();
+    firstPseudoHeader_.clear();
     decodeError = HPACK::DecodeError::NONE;
     strictValidation_ = strictValidation;
     allowEmptyPath_ = allowEmptyPath;
@@ -67,6 +68,7 @@ class HeaderDecodeInfo {
   // Default to false for now to match existing behavior
   bool strictValidation_{false};
   bool allowEmptyPath_{false};
+  std::string firstPseudoHeader_;
 };
 
 } // namespace proxygen

@@ -251,6 +251,8 @@ class HTTP2Codec
   ErrorCode handleEndStream();
   ErrorCode checkNewStream(uint32_t stream, bool trailersAllowed);
   bool checkConnectionError(ErrorCode, const folly::IOBuf* buf);
+  void setParseErrorContext(std::string context,
+                            std::string additionalInfo = {});
   ErrorCode handleSettings(const std::deque<SettingPair>& settings);
   void handleSettingsAck();
   size_t maxSendFrameSize() const {
@@ -273,6 +275,8 @@ class HTTP2Codec
 
   // Current frame state
   http2::FrameHeader curHeader_;
+  std::string parseErrorContext_;
+  std::string parseErrorAdditionalInfo_;
   StreamID expectedContinuationStream_{0};
   // Used for parsing PUSH_PROMISE+CONTINUATION
   folly::Optional<StreamID> promisedStream_;
