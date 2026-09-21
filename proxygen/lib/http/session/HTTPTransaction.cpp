@@ -1825,12 +1825,19 @@ WebTransportImpl::BidiStreamHandle HTTPTransaction::onWebTransportBidiStream(
         id, WebTransport::kInternalError);
     return {.readHandle = nullptr, .writeHandle = nullptr};
   }
+  // The handler may close the session or abort the txn, freeing the handles
+  // and possibly this.
+  DestructorGuard dg(this);
   refreshTimeout();
   auto handle = webTransportImpl_->onWebTransportBidiStream(id);
   handler_->onWebTransportBidiStream(
       id, {.readHandle = handle.readHandle, .writeHandle = handle.writeHandle});
-  // what if the handler killed handle (stop sending/fin/rst)?
-  return handle;
+  if (!handler_ || isIngressComplete()) {
+    // The handler ended the txn; dg's release frees the handles with it.
+    return {.readHandle = nullptr, .writeHandle = nullptr};
+  }
+  return {.readHandle = webTransportImpl_->getReadHandle(id),
+          .writeHandle = webTransportImpl_->getWriteHandle(id)};
 }
 
 WebTransportImpl::StreamReadHandle* HTTPTransaction::onWebTransportUniStream(
@@ -1840,12 +1847,16 @@ WebTransportImpl::StreamReadHandle* HTTPTransaction::onWebTransportUniStream(
         id, WebTransport::kInternalError);
     return nullptr;
   }
+  // See onWebTransportBidiStream.
+  DestructorGuard dg(this);
   refreshTimeout();
   auto handle = webTransportImpl_->onWebTransportUniStream(id);
 
   handler_->onWebTransportUniStream(id, handle);
-  // what if the handler killed handle (stop sending)?
-  return handle;
+  if (!handler_ || isIngressComplete()) {
+    return nullptr;
+  }
+  return webTransportImpl_->getReadHandle(id);
 }
 
 bool HTTPTransaction::onWebTransportStopSending(HTTPCodec::StreamID id,

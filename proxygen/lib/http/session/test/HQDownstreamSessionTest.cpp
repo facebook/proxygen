@@ -3940,6 +3940,99 @@ TEST_P(HQDownstreamSessionTestWebTransport, BufferedWTStreamRejectedOnClose) {
   EXPECT_EQ(*socketDriver_->streams_[wtStreamId].error, bufferedRejectedErr);
 }
 
+// The handler aborts the CONNECT on the first buffered stream, which would
+// destroy the stream the drain loop is walking.  The rest get rejected.
+TEST_P(HQDownstreamSessionTestWebTransport,
+       BufferedWTStreamConnectAbortedDuringDrain) {
+  const quic::StreamId sessionId = 0;
+  const quic::StreamId wtStreamId1 = 14;
+  const quic::StreamId wtStreamId2 = 18;
+
+  sendSettings();
+  queuePeerWTUniStream(socketDriver_.get(), wtStreamId1, sessionId);
+  queuePeerWTUniStream(socketDriver_.get(), wtStreamId2, sessionId);
+  flushRequestsAndLoopN(1);
+  EXPECT_FALSE(socketDriver_->streams_[wtStreamId1].error.has_value());
+  EXPECT_FALSE(socketDriver_->streams_[wtStreamId2].error.has_value());
+
+  HTTPMessage req;
+  req.setHTTPVersion(1, 1);
+  req.setUpgradeProtocol("webtransport");
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("/webtransport");
+  req.getHeaders().set(HTTP_HEADER_HOST, "www.facebook.com");
+  auto actualSessionId = sendRequest(req, /*eom=*/false);
+  ASSERT_EQ(actualSessionId, sessionId);
+
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&]() {
+    HTTPMessage resp;
+    resp.setStatusCode(200);
+    handler->txn_->sendHeaders(resp);
+    EXPECT_NE(handler->txn_->getWebTransport(), nullptr);
+  });
+  // Only the first buffered stream reaches the handler.
+  EXPECT_CALL(*handler, onWebTransportUniStream(_, _))
+      .Times(1)
+      .WillOnce([&](HTTPCodec::StreamID, WebTransport::StreamReadHandle*) {
+        handler->txn_->sendAbort();
+      });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoopN(3);
+
+  const uint64_t bufferedRejectedErr =
+      WebTransport::toHTTPErrorCode(WebTransport::kBufferedStreamRejected);
+  ASSERT_TRUE(socketDriver_->streams_[wtStreamId2].error.has_value());
+  EXPECT_EQ(*socketDriver_->streams_[wtStreamId2].error, bufferedRejectedErr);
+
+  hqSession_->dropConnection();
+  flushRequestsAndLoop();
+}
+
+// The handler stops reading from inside onWebTransportUniStream, so
+// deliverWTStream must not turn around and register the handle with quic.
+TEST_P(HQDownstreamSessionTestWebTransport, StopSendingFromOnNewUniStream) {
+  const quic::StreamId sessionId = 0;
+  const quic::StreamId wtStreamId = 14;
+
+  sendSettings();
+  HTTPMessage req;
+  req.setHTTPVersion(1, 1);
+  req.setUpgradeProtocol("webtransport");
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("/webtransport");
+  req.getHeaders().set(HTTP_HEADER_HOST, "www.facebook.com");
+  auto actualSessionId = sendRequest(req, /*eom=*/false);
+  ASSERT_EQ(actualSessionId, sessionId);
+
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&]() {
+    HTTPMessage resp;
+    resp.setStatusCode(200);
+    handler->txn_->sendHeaders(resp);
+    EXPECT_NE(handler->txn_->getWebTransport(), nullptr);
+  });
+  flushRequestsAndLoopN(3);
+
+  EXPECT_CALL(*handler, onWebTransportUniStream(wtStreamId, _))
+      .WillOnce(
+          [](HTTPCodec::StreamID, WebTransport::StreamReadHandle* readHandle) {
+            readHandle->stopSending(WebTransport::kInternalError);
+          });
+  queuePeerWTUniStream(socketDriver_.get(), wtStreamId, sessionId);
+  flushRequestsAndLoopN(2);
+
+  // The handle dies with the session, so it must not be left registered.  The
+  // STOP_SENDING still has to go out, via QuicSocket::stopSending().
+  EXPECT_EQ(socketDriver_->streams_[wtStreamId].readCB, nullptr);
+  EXPECT_TRUE(socketDriver_->streams_[wtStreamId].error.has_value());
+
+  handler->expectDetachTransaction();
+  handler->txn_->sendAbort();
+  hqSession_->dropConnection();
+  flushRequestsAndLoop();
+}
+
 INSTANTIATE_TEST_SUITE_P(HQDownstreamSessionTest,
                          HQDownstreamSessionTestWebTransport,
                          Values([] {

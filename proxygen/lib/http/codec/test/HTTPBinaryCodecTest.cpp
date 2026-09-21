@@ -58,8 +58,16 @@ class HTTPBinaryCodecForTest : public HTTPBinaryCodec {
     return *msgBody_;
   }
 
+  size_t getPendingFieldCount() const {
+    return decodeInfo_.msg ? decodeInfo_.msg->getHeaders().size() : 0;
+  }
+
   size_t getBufferedIngressSize() const {
     return bufferedIngress_.chainLength();
+  }
+
+  const std::string* getPendingFieldName() const {
+    return pendingFieldName_ ? &*pendingFieldName_ : nullptr;
   }
 };
 
@@ -87,6 +95,19 @@ void writeRequestPreamble(folly::io::QueueAppender& appender,
   writeVarintString(appender, "https");
   writeVarintString(appender, "www.example.com");
   writeVarintString(appender, "/");
+}
+
+void writeOverrunningKnownLengthFieldSection(
+    folly::io::QueueAppender& appender) {
+  folly::IOBufQueue fieldSection{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender fieldAppender(&fieldSection, 64);
+  writeVarintString(fieldAppender, "x-first");
+  writeVarintString(fieldAppender, "first-value");
+  writeVarintString(fieldAppender, "x-last");
+  writeVarint(fieldAppender, 64);
+
+  writeVarint(appender, fieldSection.chainLength());
+  appender.insert(fieldSection.move());
 }
 
 std::unique_ptr<folly::IOBuf> makeFiller(size_t size) {
@@ -359,11 +380,12 @@ TEST_F(HttpBinaryUpstreamCodecTest, testParseKnownLengthHeadersEmpty) {
                 .bytesParsed_,
             1);
 }
-TEST_F(HttpBinaryUpstreamCodecTest, testParseKnownLengthHeadersWaiting) {
+TEST_F(HttpBinaryUpstreamCodecTest,
+       testParseKnownLengthHeadersOverrunsDeclaredSection) {
   // Format is `**user-agent*curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l
   // zlib/1.2.3*host*www.example.com*accept-language.en, mi` where the `*` after
-  // accept-language is value 7 instead of 6 which should cause parsing to wait
-  // to get more data
+  // accept-language is value 7 instead of 6, which exceeds the declared
+  // section boundary.
   const std::vector<uint8_t> invalidHeadersLength{
       0x40, 0x6c, 0x0a, 0x75, 0x73, 0x65, 0x72, 0x2d, 0x61, 0x67, 0x65,
       0x6e, 0x74, 0x34, 0x63, 0x75, 0x72, 0x6c, 0x2f, 0x37, 0x2e, 0x31,
@@ -391,7 +413,7 @@ TEST_F(HttpBinaryUpstreamCodecTest, testParseKnownLengthHeadersWaiting) {
                                decodeInfo,
                                /*knownLength=*/true)
                 .parseResultState_,
-            ParseResultState::WAITING_FOR_MORE_DATA);
+            ParseResultState::ERROR);
 
   // Format is `**a*b` where the first `*` represents a too long length
   const std::vector<uint8_t> invalidHeadersUnderflow{
@@ -796,7 +818,9 @@ TEST_F(HttpBinaryDownstreamCodecTest, testOnIngressFailureMalformedMessage) {
 
   // Check onError was called with the correct error
   EXPECT_EQ(std::string(callback.lastParseError.get()->what()),
-            "Incomplete message received");
+            "Invalid Message: Header field exceeds declared section length of "
+            "108");
+  EXPECT_EQ(callback.headersComplete, 0);
 }
 
 TEST_F(HttpBinaryDownstreamCodecTest, testOnIngressFailureIncompleteMessage) {
@@ -1240,6 +1264,245 @@ TEST_F(HttpBinaryDownstreamCodecTest, testPartialChunkIsNotOverCounted) {
   EXPECT_EQ(callback.data_.move()->to<std::string>(), first + second);
 }
 
+TEST_F(HttpBinaryDownstreamCodecTest, testSplitHeaderFieldIsDecodedOnce) {
+  const std::string splitValue = "split-value";
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 256);
+  writeRequestPreamble(appender, 2 /* request, indeterminate length */);
+  writeVarintString(appender, "x-first");
+  writeVarintString(appender, "first-value");
+  writeVarintString(appender, "x-split");
+  writeVarint(appender, splitValue.size());
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecIndeterminateLength_->setCallback(&callback);
+  binaryCodecIndeterminateLength_->onIngress(*message.front());
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 1);
+
+  for (size_t i = 0; i < splitValue.size(); i++) {
+    auto chunk = folly::IOBuf::copyBuffer(splitValue.data() + i, 1);
+    binaryCodecIndeterminateLength_->onIngress(*chunk);
+    EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(),
+              i + 1 == splitValue.size() ? 2 : 1);
+  }
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
+
+  folly::IOBufQueue terminators{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender terminatorAppender(&terminators, 4);
+  writeVarint(terminatorAppender, 0 /* field section terminator */);
+  writeVarint(terminatorAppender, 0 /* empty content field */);
+  writeVarint(terminatorAppender, 0 /* content terminator */);
+  writeVarint(terminatorAppender, 0 /* trailer section terminator */);
+  binaryCodecIndeterminateLength_->onIngress(*terminators.front());
+
+  EXPECT_EQ(callback.lastParseError, nullptr);
+  ASSERT_NE(callback.msg, nullptr);
+  EXPECT_EQ(callback.msg->getHeaders().size(), 2);
+  EXPECT_EQ(callback.msg->getHeaders().getSingleOrEmpty("x-first"),
+            "first-value");
+  EXPECT_EQ(callback.msg->getHeaders().getSingleOrEmpty("x-split"), splitValue);
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest, testSplitTrailerFieldIsDecodedOnce) {
+  const std::string splitValue = "split-value";
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 256);
+  writeRequestPreamble(appender, 2 /* request, indeterminate length */);
+  writeVarint(appender, 0 /* field section terminator */);
+  writeVarint(appender, 0 /* empty content field */);
+  writeVarint(appender, 0 /* content terminator */);
+  writeVarintString(appender, "x-first");
+  writeVarintString(appender, "first-value");
+  writeVarintString(appender, "x-split");
+  writeVarint(appender, splitValue.size());
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecIndeterminateLength_->setCallback(&callback);
+  binaryCodecIndeterminateLength_->onIngress(*message.front());
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 1);
+
+  for (size_t i = 0; i < splitValue.size(); i++) {
+    auto chunk = folly::IOBuf::copyBuffer(splitValue.data() + i, 1);
+    binaryCodecIndeterminateLength_->onIngress(*chunk);
+    EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(),
+              i + 1 == splitValue.size() ? 2 : 1);
+  }
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
+
+  auto terminator = folly::IOBuf::copyBuffer("\0", 1);
+  binaryCodecIndeterminateLength_->onIngress(*terminator);
+
+  EXPECT_EQ(callback.lastParseError, nullptr);
+  ASSERT_NE(callback.msg, nullptr);
+  ASSERT_NE(callback.msg->getTrailers(), nullptr);
+  EXPECT_EQ(callback.msg->getTrailers()->size(), 2);
+  EXPECT_EQ(callback.msg->getTrailers()->getSingleOrEmpty("x-first"),
+            "first-value");
+  EXPECT_EQ(callback.msg->getTrailers()->getSingleOrEmpty("x-split"),
+            splitValue);
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest,
+       testSplitHeaderLengthVarintIsDecodedOnce) {
+  const std::string splitValue(64, 'a');
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 256);
+  writeRequestPreamble(appender, 2 /* request, indeterminate length */);
+  writeVarintString(appender, "x-first");
+  writeVarintString(appender, "first-value");
+  writeVarintString(appender, "x-split");
+  writeVarint(appender, splitValue.size());
+
+  auto head = message.split(message.chainLength() - 1);
+  auto lengthSuffix = message.move();
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecIndeterminateLength_->setCallback(&callback);
+  binaryCodecIndeterminateLength_->onIngress(*head);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 1);
+
+  binaryCodecIndeterminateLength_->onIngress(*lengthSuffix);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 1);
+
+  auto value = folly::IOBuf::copyBuffer(splitValue.data(), splitValue.size());
+  binaryCodecIndeterminateLength_->onIngress(*value);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 2);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
+
+  auto terminators = folly::IOBuf::copyBuffer("\0\0\0\0", 4);
+  binaryCodecIndeterminateLength_->onIngress(*terminators);
+
+  EXPECT_EQ(callback.lastParseError, nullptr);
+  ASSERT_NE(callback.msg, nullptr);
+  EXPECT_EQ(callback.msg->getHeaders().getSingleOrEmpty("x-split"), splitValue);
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest,
+       testBytePacedLargeFieldNameIsTrimmedOnce) {
+  constexpr size_t kOhttpFieldSectionSize = size_t{64} * 1024;
+  constexpr size_t kFieldPartSize = kOhttpFieldSectionSize / 2 - 16;
+  const std::string headerName(kFieldPartSize, 'x');
+  const std::string headerValue(kFieldPartSize, 'v');
+
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 256);
+  writeRequestPreamble(appender, 2 /* request, indeterminate length */);
+  writeVarint(appender, headerName.size());
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecIndeterminateLength_->setMaxFieldSectionSize(
+      kOhttpFieldSectionSize);
+  binaryCodecIndeterminateLength_->setCallback(&callback);
+  binaryCodecIndeterminateLength_->onIngress(*message.front());
+
+  const auto sendByte = [&](const std::string& input, size_t offset) {
+    auto chunk = folly::IOBuf::copyBuffer(input.data() + offset, 1);
+    binaryCodecIndeterminateLength_->onIngress(*chunk);
+  };
+  for (size_t i = 0; i < headerName.size(); i++) {
+    sendByte(headerName, i);
+  }
+
+  const auto* pendingFieldName =
+      binaryCodecIndeterminateLength_->getPendingFieldName();
+  ASSERT_NE(pendingFieldName, nullptr);
+  EXPECT_EQ(*pendingFieldName, headerName);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 0);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
+
+  folly::IOBufQueue valueLength{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender valueLengthAppender(&valueLength, 8);
+  writeVarint(valueLengthAppender, headerValue.size());
+  const auto valueLengthSize = valueLength.chainLength();
+  binaryCodecIndeterminateLength_->onIngress(*valueLength.front());
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(),
+            valueLengthSize);
+
+  for (size_t i = 0; i + 1 < headerValue.size(); i++) {
+    sendByte(headerValue, i);
+  }
+  pendingFieldName = binaryCodecIndeterminateLength_->getPendingFieldName();
+  ASSERT_NE(pendingFieldName, nullptr);
+  EXPECT_EQ(*pendingFieldName, headerName);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(),
+            valueLengthSize + headerValue.size() - 1);
+  sendByte(headerValue, headerValue.size() - 1);
+
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldName(), nullptr);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 1);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
+
+  auto terminators = folly::IOBuf::copyBuffer("\0\0\0\0", 4);
+  binaryCodecIndeterminateLength_->onIngress(*terminators);
+
+  EXPECT_EQ(callback.lastParseError, nullptr);
+  ASSERT_NE(callback.msg, nullptr);
+  EXPECT_EQ(callback.msg->getHeaders().getSingleOrEmpty(headerName),
+            headerValue);
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest, testCachedFieldNameAllowsEmptyValue) {
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 128);
+  writeRequestPreamble(appender, 2 /* request, indeterminate length */);
+  writeVarintString(appender, "x-empty");
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecIndeterminateLength_->setCallback(&callback);
+  binaryCodecIndeterminateLength_->onIngress(*message.front());
+
+  ASSERT_NE(binaryCodecIndeterminateLength_->getPendingFieldName(), nullptr);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
+
+  auto emptyValueAndTerminators = folly::IOBuf::copyBuffer("\0\0\0\0\0", 5);
+  binaryCodecIndeterminateLength_->onIngress(*emptyValueAndTerminators);
+
+  EXPECT_EQ(callback.lastParseError, nullptr);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldName(), nullptr);
+  ASSERT_NE(callback.msg, nullptr);
+  EXPECT_EQ(callback.msg->getHeaders().size(), 1);
+  EXPECT_TRUE(callback.msg->getHeaders().exists("x-empty"));
+  EXPECT_EQ(callback.msg->getHeaders().getSingleOrEmpty("x-empty"), "");
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest,
+       testKnownLengthHeaderFieldCannotExceedDeclaredSection) {
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 128);
+  writeRequestPreamble(appender, 0 /* request, known length */);
+  writeOverrunningKnownLengthFieldSection(appender);
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecKnownLength_->setCallback(&callback);
+  binaryCodecKnownLength_->onIngress(*message.front());
+
+  ASSERT_NE(callback.lastParseError, nullptr);
+  EXPECT_EQ(std::string(callback.lastParseError->what()),
+            "Invalid Message: Failure to parse: headerValue of declared length "
+            "64 exceeds the remaining field section budget of 2");
+  EXPECT_EQ(binaryCodecKnownLength_->getPendingFieldCount(), 1);
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest,
+       testKnownLengthTrailerFieldCannotExceedDeclaredSection) {
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 128);
+  writeRequestPreamble(appender, 0 /* request, known length */);
+  writeVarint(appender, 0 /* empty header section */);
+  writeVarint(appender, 0 /* empty content */);
+  writeOverrunningKnownLengthFieldSection(appender);
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecKnownLength_->setCallback(&callback);
+  binaryCodecKnownLength_->onIngress(*message.front());
+
+  ASSERT_NE(callback.lastParseError, nullptr);
+  EXPECT_EQ(std::string(callback.lastParseError->what()),
+            "Invalid Message: Failure to parse: headerValue of declared length "
+            "64 exceeds the remaining field section budget of 2");
+  EXPECT_EQ(binaryCodecKnownLength_->getPendingFieldCount(), 1);
+}
+
 // Field section lengths are QUIC varints, so a peer can declare up to 2^62-1
 // bytes. The declaration must be rejected up front instead of buffering
 // ingress until the section is complete.
@@ -1306,13 +1569,52 @@ TEST_F(HttpBinaryDownstreamCodecTest,
     writeVarintString(fieldsAppender, "x-pad");
     writeVarintString(fieldsAppender, padValue);
   }
+  constexpr size_t kSuccessfulBatchCount = 2;
+  binaryCodecIndeterminateLength_->setMaxFieldSectionSize(
+      fields.chainLength() * kSuccessfulBatchCount);
   auto fieldsBuf = fields.move();
 
-  for (size_t i = 0; i < kFillerChunkCount && !callback.lastParseError; i++) {
+  for (size_t i = 0; i < kSuccessfulBatchCount; i++) {
     binaryCodecIndeterminateLength_->onIngress(*fieldsBuf);
+    ASSERT_EQ(callback.lastParseError, nullptr);
+    EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
   }
 
+  binaryCodecIndeterminateLength_->onIngress(*fieldsBuf);
   EXPECT_NE(callback.lastParseError, nullptr);
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest,
+       testIndeterminateFieldSectionLimitResetsForTrailers) {
+  const std::string fieldName = "x-near-cap";
+  const std::string fieldValue(128, 'a');
+  const auto fieldSize =
+      quic::getQuicIntegerSize(fieldName.size()).value() + fieldName.size() +
+      quic::getQuicIntegerSize(fieldValue.size()).value() + fieldValue.size();
+
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 512);
+  writeRequestPreamble(appender, 2 /* request, indeterminate length */);
+  writeVarintString(appender, fieldName);
+  writeVarintString(appender, fieldValue);
+  writeVarint(appender, 0 /* field section terminator */);
+  writeVarint(appender, 0 /* empty content field */);
+  writeVarint(appender, 0 /* content terminator */);
+  writeVarintString(appender, fieldName);
+  writeVarintString(appender, fieldValue);
+  writeVarint(appender, 0 /* trailer section terminator */);
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecIndeterminateLength_->setMaxFieldSectionSize(fieldSize);
+  binaryCodecIndeterminateLength_->setCallback(&callback);
+  binaryCodecIndeterminateLength_->onIngress(*message.front());
+
+  EXPECT_EQ(callback.lastParseError, nullptr);
+  ASSERT_NE(callback.msg, nullptr);
+  EXPECT_EQ(callback.msg->getHeaders().getSingleOrEmpty(fieldName), fieldValue);
+  ASSERT_NE(callback.msg->getTrailers(), nullptr);
+  EXPECT_EQ(callback.msg->getTrailers()->getSingleOrEmpty(fieldName),
+            fieldValue);
 }
 
 TEST_F(HttpBinaryDownstreamCodecTest, testMaxFieldSectionSizeIsConfigurable) {
@@ -1426,6 +1728,55 @@ TEST_F(HttpBinaryDownstreamCodecTest, testTruncatedContentIsIncompleteAtEOF) {
   binaryCodecKnownLength_->setCallback(&callback);
   binaryCodecKnownLength_->onIngress(*messageBuf);
   binaryCodecKnownLength_->onIngressEOF();
+
+  ASSERT_NE(callback.lastParseError, nullptr);
+  EXPECT_EQ(std::string(callback.lastParseError->what()),
+            "Incomplete message received");
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest,
+       testTrimmedFieldWithoutTerminatorIsIncompleteAtEOF) {
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 128);
+  writeRequestPreamble(appender, 2 /* request, indeterminate length */);
+  writeVarintString(appender, "x-complete");
+  writeVarintString(appender, "value");
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecIndeterminateLength_->setCallback(&callback);
+  binaryCodecIndeterminateLength_->onIngress(*message.front());
+
+  EXPECT_EQ(callback.lastParseError, nullptr);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 1);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
+
+  binaryCodecIndeterminateLength_->onIngressEOF();
+
+  ASSERT_NE(callback.lastParseError, nullptr);
+  EXPECT_EQ(std::string(callback.lastParseError->what()),
+            "Incomplete message received");
+}
+
+TEST_F(HttpBinaryDownstreamCodecTest,
+       testTrimmedTrailerWithoutTerminatorIsIncompleteAtEOF) {
+  folly::IOBufQueue message{folly::IOBufQueue::cacheChainLength()};
+  folly::io::QueueAppender appender(&message, 128);
+  writeRequestPreamble(appender, 2 /* request, indeterminate length */);
+  writeVarint(appender, 0 /* field section terminator */);
+  writeVarint(appender, 0 /* empty content field */);
+  writeVarint(appender, 0 /* content terminator */);
+  writeVarintString(appender, "x-complete");
+  writeVarintString(appender, "value");
+
+  FakeHTTPCodecCallback callback;
+  binaryCodecIndeterminateLength_->setCallback(&callback);
+  binaryCodecIndeterminateLength_->onIngress(*message.front());
+
+  EXPECT_EQ(callback.lastParseError, nullptr);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getPendingFieldCount(), 1);
+  EXPECT_EQ(binaryCodecIndeterminateLength_->getBufferedIngressSize(), 0);
+
+  binaryCodecIndeterminateLength_->onIngressEOF();
 
   ASSERT_NE(callback.lastParseError, nullptr);
   EXPECT_EQ(std::string(callback.lastParseError->what()),

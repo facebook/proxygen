@@ -512,7 +512,8 @@ TEST_F(HTTPTransactionWebTransportTest, BidiStreamEdgeCases) {
 
   // it gets stopReadingWebTransportIngress when the EOF is read out
   EXPECT_CALL(transport_,
-              stopReadingWebTransportIngress(0, folly::Optional<uint32_t>()));
+              stopReadingWebTransportIngress(0, folly::Optional<uint32_t>()))
+      .WillOnce(Return(folly::unit));
 
   EXPECT_CALL(transport_, sendWTMaxData(kDefaultWTReceiveWindow)).Times(0);
   auto fut = streamHandle.readHandle->readStreamData()
@@ -1391,6 +1392,114 @@ TEST_F(HTTPTransactionWebTransportTest, FrequentFlowControlGrants) {
 
   EXPECT_CALL(transport_, stopReadingWebTransportIngress(0, _))
       .WillRepeatedly(Return(folly::unit));
+}
+
+// The handler closes the session, freeing the handle we just created.
+// Returning it would leave deliverWTStream registering freed memory with quic.
+TEST_F(HTTPTransactionWebTransportTest, CloseSessionFromOnNewUniStream) {
+  auto* wtImpl = dynamic_cast<WebTransportImpl*>(wt_);
+  ASSERT_NE(wtImpl, nullptr);
+  auto* txn = txn_.get();
+  // closeSession() may detach the txn, so keep it alive for the assertions.
+  HTTPTransaction::DestructorGuard dg(txn);
+
+  EXPECT_CALL(handler_, onWebTransportUniStream(_, _))
+      .WillOnce(
+          [this](HTTPCodec::StreamID, WebTransport::StreamReadHandle* handle) {
+            EXPECT_NE(handle, nullptr);
+            EXPECT_CALL(transport_, sendEOM(txn_.get(), nullptr));
+            EXPECT_CALL(transport_, sendAbort(txn_.get(), _));
+            wt_->closeSession();
+          });
+  EXPECT_CALL(
+      transport_,
+      stopReadingWebTransportIngress(2, makeOpt(WebTransport::kSessionGone)))
+      .WillRepeatedly(Return(folly::unit));
+
+  auto* handle = txn->onWebTransportUniStream(2);
+
+  EXPECT_EQ(handle, nullptr);
+  EXPECT_EQ(wtImpl->getReadHandle(2), nullptr);
+  EXPECT_EQ(wtImpl->readStreamData(2).error(),
+            WebTransport::ErrorCode::INVALID_STREAM_ID);
+}
+
+// Same hole on the bidi path.
+TEST_F(HTTPTransactionWebTransportTest, CloseSessionFromOnNewBidiStream) {
+  auto* wtImpl = dynamic_cast<WebTransportImpl*>(wt_);
+  ASSERT_NE(wtImpl, nullptr);
+  auto* txn = txn_.get();
+  HTTPTransaction::DestructorGuard dg(txn);
+
+  EXPECT_CALL(handler_, onWebTransportBidiStream(_, _))
+      .WillOnce(
+          [this](HTTPCodec::StreamID, WebTransport::BidiStreamHandle bidi) {
+            EXPECT_NE(bidi.readHandle, nullptr);
+            EXPECT_CALL(transport_, sendEOM(txn_.get(), nullptr));
+            EXPECT_CALL(transport_, sendAbort(txn_.get(), _));
+            wt_->closeSession();
+          });
+  EXPECT_CALL(
+      transport_,
+      stopReadingWebTransportIngress(1, makeOpt(WebTransport::kSessionGone)))
+      .WillRepeatedly(Return(folly::unit));
+  EXPECT_CALL(transport_,
+              resetWebTransportEgress(1, WebTransport::kSessionGone))
+      .WillRepeatedly(Return(folly::unit));
+
+  auto bidi = txn->onWebTransportBidiStream(1);
+
+  EXPECT_EQ(bidi.readHandle, nullptr);
+  EXPECT_EQ(bidi.writeHandle, nullptr);
+  EXPECT_EQ(wtImpl->getReadHandle(1), nullptr);
+}
+
+// A stream that buffered data + FIN is no longer open(), but its read callback
+// is still registered.  Teardown has to unregister it before freeing it.
+TEST_F(HTTPTransactionWebTransportTest, TerminateSessionUnregistersEofStream) {
+  WebTransport::StreamReadHandle* readHandle{nullptr};
+  EXPECT_CALL(handler_, onWebTransportUniStream(_, _))
+      .WillOnce(SaveArg<1>(&readHandle));
+
+  auto* implHandle = txn_->onWebTransportUniStream(2);
+  ASSERT_NE(implHandle, nullptr);
+  ASSERT_NE(readHandle, nullptr);
+
+  // Data + FIN arrive with no readStreamData() outstanding.
+  EXPECT_CALL(transport_, readWebTransportData(2, 65535))
+      .WillOnce([](auto, auto) { return std::make_pair(makeBuf(10), true); });
+  implHandle->readAvailable(2);
+  EXPECT_FALSE(implHandle->open());
+
+  EXPECT_CALL(transport_, stopReadingWebTransportIngress(2, _))
+      .Times(1)
+      .WillOnce(Return(folly::unit));
+  EXPECT_CALL(transport_, sendEOM(txn_.get(), nullptr));
+  EXPECT_CALL(transport_, sendAbort(txn_.get(), _));
+  wt_->closeSession();
+}
+
+// Aborting the txn leaves the stream in wtIngressStreams_, so the re-lookup
+// finds a handle that releasing the guard frees a moment later.
+TEST_F(HTTPTransactionWebTransportTest, AbortTxnFromOnNewUniStream) {
+  auto* txn = txn_.get();
+
+  EXPECT_CALL(handler_, onWebTransportUniStream(_, _))
+      .WillOnce(
+          [this](HTTPCodec::StreamID, WebTransport::StreamReadHandle* handle) {
+            EXPECT_NE(handle, nullptr);
+            // Completes ingress and egress: the txn dies with the last guard.
+            EXPECT_CALL(transport_, sendAbort(txn_.get(), _));
+            txn_->sendAbort();
+          });
+  EXPECT_CALL(transport_, stopReadingWebTransportIngress(2, _))
+      .WillRepeatedly(Return(folly::unit));
+
+  auto* handle = txn->onWebTransportUniStream(2);
+
+  // The txn, webTransportImpl_ and the handle are all gone by now.
+  EXPECT_EQ(txn_, nullptr);
+  EXPECT_EQ(handle, nullptr);
 }
 
 } // namespace proxygen::test

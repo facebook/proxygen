@@ -40,12 +40,19 @@ void WebTransportImpl::terminateSessionStreams(uint32_t errorCode,
   for (auto& [id, stream] : wtIngressStreams) {
     // Deliver an error to the application if needed
     VLOG(4) << "aborting wt ingress id=" << id << " err=" << errorCode
-            << "; open=" << int(stream.open());
+            << "; open=" << int(stream.open())
+            << "; readCb=" << int(stream.readCallbackRegistered());
     if (stream.open()) {
       stream.deliverReadError(WebTransport::Exception(errorCode, reason));
-      stopReadingWebTransportIngress(id, errorCode);
+    }
+    // Not the same as open(): a handle that saw a FIN with no read
+    // outstanding is closed but still registered, and about to be destroyed.
+    if (stream.readCallbackRegistered()) {
+      stream.onReadCallbackUnregistered();
+      tp_.stopReadingWebTransportIngress(id, errorCode);
     }
   }
+  sp_.refreshTimeout();
 
   auto wtEgressStreams = std::move(wtEgressStreams_);
   for (auto& [id, stream] : wtEgressStreams) {
@@ -217,6 +224,14 @@ folly::Expected<folly::Unit, WebTransport::ErrorCode>
 WebTransportImpl::stopReadingWebTransportIngress(
     HTTPCodec::StreamID id, folly::Optional<uint32_t> errorCode) {
   auto res = tp_.stopReadingWebTransportIngress(id, errorCode);
+  if (!res.hasError()) {
+    // On failure the transport may still hold the handle, so leave it marked
+    // registered and let teardown unregister it.
+    auto it = wtIngressStreams_.find(id);
+    if (it != wtIngressStreams_.end()) {
+      it->second.onReadCallbackUnregistered();
+    }
+  }
   sp_.refreshTimeout();
   return res;
 }
@@ -429,16 +444,15 @@ WebTransportImpl::StreamReadHandle::readStreamData() {
     VLOG(4) << __func__ << " waiting for data";
     auto contract = folly::makePromiseContract<StreamData>();
     readPromise_ = std::move(contract.promise);
-    readPromise_.setInterruptHandler(
-        [this](const folly::exception_wrapper& ex) {
-          VLOG(4) << "Exception from interrupt handler ex=" << ex.what();
-          CHECK(ex.with_exception([this](const folly::FutureCancellation& ex) {
-            // TODO: allow app to configure the reset code on cancellation?
-            impl_.tp_.stopReadingWebTransportIngress(
-                id_, WebTransport::kInternalError);
-            deliverReadError(ex);
-          })) << "Unexpected exception type";
-        });
+    readPromise_.setInterruptHandler([this](
+                                         const folly::exception_wrapper& ex) {
+      VLOG(4) << "Exception from interrupt handler ex=" << ex.what();
+      CHECK(ex.with_exception([this](const folly::FutureCancellation& ex) {
+        // TODO: allow app to configure the reset code on cancellation?
+        impl_.stopReadingWebTransportIngress(id_, WebTransport::kInternalError);
+        deliverReadError(ex);
+      })) << "Unexpected exception type";
+    });
     return std::move(contract.future);
   } else {
     VLOG(4) << __func__ << " returning data len=" << buf_.chainLength();
@@ -515,7 +529,8 @@ WebTransport::FCState WebTransportImpl::StreamReadHandle::dataAvailable(
 
 void WebTransportImpl::StreamReadHandle::readError(
     quic::StreamId id, quic::QuicError error) noexcept {
-  // Do I need to setReadCallback(id, nullptr);
+  // The transport delivers readError() and drops the read callback itself.
+  readCallbackRegistered_ = false;
   impl_.sp_.refreshTimeout();
   auto quicAppErrorCode = error.code.asApplicationErrorCode();
   if (quicAppErrorCode) {
