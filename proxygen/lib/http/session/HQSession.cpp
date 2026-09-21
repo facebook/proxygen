@@ -3594,12 +3594,19 @@ void HQSession::deliverWTStream(HQStreamTransportBase* connectStream,
     return;
   }
   connectStream->txn_.getWebTransport(); // lazy-init webTransportImpl_
+  // The handler runs below and can end the txn, freeing the handle.
+  HTTPTransaction::DestructorGuard dg(&connectStream->txn_);
+  WebTransportImpl::StreamReadHandle* readHandle = nullptr;
   if (sock_->isBidirectionalStream(streamID)) {
-    auto handle = connectStream->txn_.onWebTransportBidiStream(streamID);
-    sock_->setReadCallback(streamID, handle.readHandle);
+    readHandle =
+        connectStream->txn_.onWebTransportBidiStream(streamID).readHandle;
   } else {
-    auto* handle = connectStream->txn_.onWebTransportUniStream(streamID);
-    sock_->setReadCallback(streamID, handle);
+    readHandle = connectStream->txn_.onWebTransportUniStream(streamID);
+  }
+  // No handle means the handler ended the session; an unregistered one means
+  // it called stopSending.
+  if (readHandle && readHandle->readCallbackRegistered()) {
+    sock_->setReadCallback(streamID, readHandle);
   }
 }
 
@@ -3676,7 +3683,16 @@ void HQSession::deliverPendingWTStreams(quic::StreamId sessionID) noexcept {
   VLOG(4) << "delivering " << entry->streams.size()
           << " buffered WT streams wt-sess-id=" << sessionID
           << " sess=" << *this;
+  // The handler may end the CONNECT partway through the loop.  The guard keeps
+  // connectStream alive so the streams behind it can be rejected.
+  HTTPTransaction::DestructorGuard dg(&connectStream->txn_);
   for (auto id : entry->streams) {
+    if (connectStream->txn_.isIngressComplete()) {
+      VLOG(4) << "WT connect stream ended mid-drain, rejecting id=" << id
+              << " wt-sess-id=" << sessionID << " sess=" << *this;
+      rejectStream(id, kBufferedRejectedErr);
+      continue;
+    }
     deliverWTStream(connectStream, id);
   }
 }
@@ -4037,7 +4053,15 @@ HQSession::HQStreamTransport::stopReadingWebTransportIngress(
     }
     auto res = session_.sock_->setReadCallback(id, nullptr, quicErrorCode);
     if (res.hasError()) {
-      return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
+      // setReadCallback only sends STOP_SENDING if a read callback is
+      // installed, which it isn't until deliverWTStream runs.
+      if (!quicErrorCode) {
+        return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
+      }
+      auto ssRes = session_.sock_->stopSending(id, *quicErrorCode);
+      if (ssRes.hasError()) {
+        return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
+      }
     }
   }
   return folly::unit;

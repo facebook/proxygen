@@ -324,6 +324,15 @@ class WebTransportImpl : public WebTransport {
       return !eof_ && !ex_;
     }
 
+    // True while the transport holds this handle as the stream's read
+    // callback.  Destroying the handle while set leaves a dangling callback.
+    [[nodiscard]] bool readCallbackRegistered() const {
+      return readCallbackRegistered_;
+    }
+    void onReadCallbackUnregistered() {
+      readCallbackRegistered_ = false;
+    }
+
     // quic::StreamReadCallback overrides
     void readAvailable(quic::StreamId id) noexcept override;
     void readError(quic::StreamId id, quic::QuicError error) noexcept override;
@@ -333,6 +342,7 @@ class WebTransportImpl : public WebTransport {
     folly::Promise<WebTransport::StreamData> readPromise_;
     folly::IOBufQueue buf_{folly::IOBufQueue::cacheChainLength()};
     bool eof_{false};
+    bool readCallbackRegistered_{true};
   };
 
  private:
@@ -429,6 +439,15 @@ class WebTransportImpl : public WebTransport {
 
   void closeEgressStream(HTTPCodec::StreamID id);
   void closeIngressStream(HTTPCodec::StreamID id);
+
+  [[nodiscard]] StreamReadHandle* getReadHandle(HTTPCodec::StreamID id) {
+    auto it = wtIngressStreams_.find(id);
+    return it == wtIngressStreams_.end() ? nullptr : &it->second;
+  }
+  [[nodiscard]] StreamWriteHandle* getWriteHandle(HTTPCodec::StreamID id) {
+    auto it = wtEgressStreams_.find(id);
+    return it == wtEgressStreams_.end() ? nullptr : &it->second;
+  }
 
   [[nodiscard]] bool isBidirectional(HTTPCodec::StreamID id) const {
     return (id & 0b10) == 0;

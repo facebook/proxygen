@@ -236,6 +236,9 @@ class HTTPBinaryCodec : public HTTPCodec {
   bool parserWaitingForMoreData_{false};
   bool parserPaused_;
   folly::Optional<std::string> parseError_{folly::none};
+  // Complete field bytes trimmed from the current indeterminate section.
+  size_t indeterminateFieldSectionBytesParsed_{0};
+  folly::Optional<std::string> pendingFieldName_{folly::none};
 
   enum class FramingIndicator : uint8_t {
     REQUEST_KNOWN_LENGTH = 0,

@@ -19,6 +19,7 @@
     break;                                                          \
   } else if ((parseResult).parseResultState_ ==                     \
              ParseResultState::WAITING_FOR_MORE_DATA) {             \
+    parsed += (parseResult).bytesParsed_;                           \
     parserWaitingForMoreData_ = true;                               \
     break;                                                          \
   }
@@ -221,17 +222,20 @@ ParseResult HTTPBinaryCodec::parseSingleHeaderHelper(
     size_t& remaining,
     uint64_t maxLength,
     size_t& numHeaders) {
-  std::string headerName;
-  auto headerNameRes = parseKnownLengthString(
-      cursor, remaining, maxLength, "headerName", headerName);
-  if (headerNameRes.parseResultState_ == ParseResultState::ERROR ||
-      headerNameRes.parseResultState_ ==
-          ParseResultState::WAITING_FOR_MORE_DATA) {
-    return headerNameRes;
+  if (!pendingFieldName_) {
+    std::string headerName;
+    auto headerNameRes = parseKnownLengthString(
+        cursor, remaining, maxLength, "headerName", headerName);
+    if (headerNameRes.parseResultState_ == ParseResultState::ERROR ||
+        headerNameRes.parseResultState_ ==
+            ParseResultState::WAITING_FOR_MORE_DATA) {
+      return headerNameRes;
+    }
+    parsed += headerNameRes.bytesParsed_;
+    remaining -= headerNameRes.bytesParsed_;
+    maxLength -= std::min<uint64_t>(maxLength, headerNameRes.bytesParsed_);
+    pendingFieldName_.emplace(std::move(headerName));
   }
-  parsed += headerNameRes.bytesParsed_;
-  remaining -= headerNameRes.bytesParsed_;
-  maxLength -= std::min<uint64_t>(maxLength, headerNameRes.bytesParsed_);
 
   std::string headerValue;
   auto headerValueRes = parseKnownLengthString(
@@ -244,6 +248,9 @@ ParseResult HTTPBinaryCodec::parseSingleHeaderHelper(
   parsed += headerValueRes.bytesParsed_;
   remaining -= headerValueRes.bytesParsed_;
 
+  CHECK(pendingFieldName_);
+  auto headerName = std::move(*pendingFieldName_);
+  pendingFieldName_.reset();
   if (!decodeInfo.onHeader(proxygen::HPACKHeaderName(headerName),
                            headerValue) ||
       !decodeInfo.parsingError.empty()) {
@@ -287,20 +294,31 @@ ParseResult HTTPBinaryCodec::parseKnownLengthHeadersHelper(
     return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
   }
 
+  const auto fieldSectionLength = static_cast<size_t>(lengthOfHeaders->first);
+  folly::io::Cursor fieldSectionCursor(cursor, fieldSectionLength);
+  size_t fieldSectionParsed = 0;
+  size_t fieldSectionRemaining = fieldSectionLength;
   size_t numHeaders = 0;
-  while (parsed < lengthOfHeaders->first) {
-    auto result = parseSingleHeaderHelper(cursor,
+  while (fieldSectionParsed < fieldSectionLength) {
+    auto result = parseSingleHeaderHelper(fieldSectionCursor,
                                           decodeInfo,
-                                          parsed,
-                                          remaining,
-                                          maxFieldSectionSize_,
+                                          fieldSectionParsed,
+                                          fieldSectionRemaining,
+                                          fieldSectionRemaining,
                                           numHeaders);
-    if (result.parseResultState_ == ParseResultState::ERROR ||
-        result.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
+    if (result.parseResultState_ == ParseResultState::ERROR) {
       return result;
+    }
+    if (result.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
+      return ParseResult(
+          fmt::format("{} field exceeds declared section length of {}",
+                      isTrailers ? "Trailer" : "Header",
+                      lengthOfHeaders->first));
     }
   }
 
+  cursor.skip(fieldSectionLength);
+  parsed += fieldSectionParsed;
   return ParseResult(parsed);
 }
 
@@ -314,21 +332,28 @@ ParseResult HTTPBinaryCodec::parseIndeterminateLengthHeadersHelper(
   auto currentByte = cursor.peek().data();
   size_t numHeaders = 0;
   // Continue parsing headers until we reach the Content Terminator field (0)
-  while (currentByte != nullptr && *currentByte != 0x00) {
+  while (currentByte != nullptr &&
+         (pendingFieldName_ || *currentByte != 0x00)) {
     // A field whose declared length cannot fit in what is left of the section
     // has to be rejected on sight: waiting for it to arrive would retain the
     // fields already parsed plus the whole declaration
     const uint64_t sectionBudget =
-        maxFieldSectionSize_ - std::min<uint64_t>(parsed, maxFieldSectionSize_);
+        maxFieldSectionSize_ -
+        std::min<uint64_t>(indeterminateFieldSectionBytesParsed_ + parsed,
+                           maxFieldSectionSize_);
     auto result = parseSingleHeaderHelper(
         cursor, decodeInfo, parsed, remaining, sectionBudget, numHeaders);
-    if (result.parseResultState_ == ParseResultState::ERROR ||
-        result.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
+    if (result.parseResultState_ == ParseResultState::ERROR) {
       return result;
+    }
+    if (result.parseResultState_ == ParseResultState::WAITING_FOR_MORE_DATA) {
+      indeterminateFieldSectionBytesParsed_ += parsed;
+      return ParseResult(parsed, ParseResultState::WAITING_FOR_MORE_DATA);
     }
     // There is no declared length to check against, so bound the section by
     // what has actually been seen
-    if (parsed > maxFieldSectionSize_) {
+    if (indeterminateFieldSectionBytesParsed_ > maxFieldSectionSize_ ||
+        parsed > maxFieldSectionSize_ - indeterminateFieldSectionBytesParsed_) {
       return ParseResult(
           fmt::format("Unterminated {} section exceeds the maximum field "
                       "section size of {}",
@@ -339,7 +364,8 @@ ParseResult HTTPBinaryCodec::parseIndeterminateLengthHeadersHelper(
     // waiting for more data since we haven't seen a Content Terminator field
     // yet
     if (cursor.isAtEnd()) {
-      return ParseResult(ParseResultState::WAITING_FOR_MORE_DATA);
+      indeterminateFieldSectionBytesParsed_ += parsed;
+      return ParseResult(parsed, ParseResultState::WAITING_FOR_MORE_DATA);
     }
     currentByte = cursor.peek().data();
   }
@@ -347,6 +373,7 @@ ParseResult HTTPBinaryCodec::parseIndeterminateLengthHeadersHelper(
   parsed++;
   remaining--;
   cursor.skip(1);
+  indeterminateFieldSectionBytesParsed_ = 0;
   return ParseResult(parsed);
 }
 
@@ -613,7 +640,8 @@ size_t HTTPBinaryCodec::onIngress(const folly::IOBuf& buf) {
 
 void HTTPBinaryCodec::onIngressEOF() {
   if (!parseError_ &&
-      (!bufferedIngress_.empty() || remainingContentLength_.value_or(0) > 0)) {
+      (!bufferedIngress_.empty() || remainingContentLength_.value_or(0) > 0 ||
+       indeterminateFieldSectionBytesParsed_ > 0)) {
     // Case where the ingress EOF is received before the entire message is
     // parsed
     callback_->onError(ingressTxnID_,
@@ -632,7 +660,7 @@ void HTTPBinaryCodec::onIngressEOF() {
                       "contains framing indicator"));
     return;
   }
-  if (state_ == ParseState::HEADERS_SECTION) {
+  if (!parseError_ && state_ == ParseState::HEADERS_SECTION) {
     // Case where the sent message only contains control data and no headers
     // nor body
     callback_->onHeadersComplete(ingressTxnID_, std::move(decodeInfo_.msg));
