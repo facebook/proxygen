@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <folly/portability/Time.h>
 #include <memory>
@@ -154,9 +155,9 @@ inline std::string getDateTimeStr(TimePoint tp) {
   time_t t = toTimeT(tp);
   struct tm final_tm;
   gmtime_r(&t, &final_tm);
-  char buf[256];
-  if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S %z", &final_tm) > 0) {
-    return std::string(buf);
+  std::array<char, 256> buf{};
+  if (strftime(buf.data(), buf.size(), "%Y-%m-%dT%H:%M:%S %z", &final_tm) > 0) {
+    return std::string(buf.data());
   }
   return "";
 }
