@@ -197,7 +197,6 @@ class HTTP2Codec
                                size_t bufLen,
                                size_t& parsed);
   ErrorCode parseHeaders(folly::io::Cursor& cursor);
-  ErrorCode parseExHeaders(folly::io::Cursor& cursor);
   ErrorCode parseRFC9218Priority(folly::io::Cursor& cursor);
   ErrorCode parseRstStream(folly::io::Cursor& cursor);
   ErrorCode parseSettings(folly::io::Cursor& cursor);
