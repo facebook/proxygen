@@ -1281,10 +1281,11 @@ size_t HTTPTransaction::sendEOMNow() {
   size_t nbytes = transport_.sendEOM(this, trailers_.get());
   trailers_.reset();
   updateReadTimeout();
-  // rst_stream/no_error if downstream egresses eom before ingress eom seen
-  deferredNoError_ = transport_.serverEarlyResponseEnabled() &&
-                     isDownstream() && !isIngressEOMSeen() &&
-                     !isUpgradeComplete();
+  // rst_stream/no_error if downstream egresses eom before ingress eom seen.
+  // sendAbort(NO_ERROR) may have set it already.
+  deferredNoError_ |= transport_.serverEarlyResponseEnabled() &&
+                      isDownstream() && !isIngressEOMSeen() &&
+                      !isUpgradeComplete();
 
   nbytes += maybeSendDeferredNoError();
 
@@ -1414,10 +1415,12 @@ void HTTPTransaction::sendAbort() {
 
 void HTTPTransaction::sendAbort(ErrorCode statusCode) {
   if (statusCode == ErrorCode::NO_ERROR) {
-    // we can only send RST_STREAM or STOP_SENDING w/ NO_ERROR if downstream and
-    // eom is either queued or flushed
+    // we can only send RST_STREAM or STOP_SENDING w/ NO_ERROR if downstream or
+    // a WebTransport CONNECT stream, and eom is either queued or flushed.  A
+    // client closing a WebTransport session has to stop reading without
+    // discarding the capsule it just queued.
     const bool canSendNoError =
-        isDownstream() &&
+        (isDownstream() || isWebTransportConnectStream()) &&
         getEgressState() >= HTTPTransactionEgressSMData::State::EOMQueued;
 
     // we defer sending abort only if eom is queued

@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/webtransport/WebTransportFramer.h>
 #include <proxygen/lib/http/session/test/HQDownstreamSessionTest.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
@@ -2904,14 +2905,17 @@ TEST_P(HQDownstreamSessionTest, SendNoErrorAfterEomFlush) {
   auto streamId = nextStreamId();
   sendRequest(getPostRequest(), /*eom=*/false, streamId);
   handler->expectDetachTransaction();
-  flushRequestsAndLoopN(1);
-  evbLoopNonBlockN(2);
+  // The response and FIN still flush, so the detach waits on delivery.
+  flushRequestsAndLoop();
 
   // verify that the server has invoked QuicSocket::stopSending
   auto& streams = socketDriver_->streams_;
   EXPECT_NE(streams.find(streamId), streams.end());
   EXPECT_EQ(streams[streamId].error,
             folly::make_optional(HTTP3::ErrorCode::HTTP_NO_ERROR));
+  // egress was not reset -- the response headers and FIN reached the peer
+  EXPECT_TRUE(streams[streamId].writeEOF);
+  EXPECT_GT(streams[streamId].writeBuf.chainLength(), 0);
 
   hqSession_->closeWhenIdle();
 }
@@ -2939,20 +2943,23 @@ TEST_P(HQDownstreamSessionTest, SendDeferredNoError) {
   evbLoopNonBlockN(2);
 
   // resuming ingress and sending the rest of body & eom should detach the
-  // transaction
+  // transaction.  The body and FIN still flush, so the detach waits on
+  // delivery.
   handler->expectDetachTransaction();
   txn->sendBody(makeBuf(100));
   txn->sendEOM();
   txn->sendAbort(ErrorCode::NO_ERROR);
   txn->resumeEgress(); // unnecessary since pending eom wil resume egress
                        // anyways
-  evbLoopNonBlockN(2);
+  flushRequestsAndLoop();
 
   // verify that the server has invoked QuicSocket::stopSending
   auto& streams = socketDriver_->streams_;
   EXPECT_NE(streams.find(streamId), streams.end());
   EXPECT_EQ(streams[streamId].error,
             folly::make_optional(HTTP3::ErrorCode::HTTP_NO_ERROR));
+  // egress was not reset -- the full 200-byte body and FIN reached the peer
+  EXPECT_TRUE(streams[streamId].writeEOF);
 
   hqSession_->closeWhenIdle();
 }
@@ -3682,6 +3689,57 @@ TEST_P(HQDownstreamSessionTestWebTransport,
   handler->txn_->sendAbort();
   hqSession_->closeWhenIdle();
   flushRequestsAndLoop();
+}
+
+// Server close before ingress EOM.  The CLOSE_WEBTRANSPORT_SESSION capsule
+// and the FIN must reach the client.
+TEST_P(HQDownstreamSessionTestWebTransport, LocalCloseSendsCapsule) {
+  HTTPMessage req;
+  req.setHTTPVersion(1, 1);
+  req.setUpgradeProtocol("webtransport");
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("/webtransport");
+  req.getHeaders().set(HTTP_HEADER_HOST, "www.facebook.com");
+  auto sessionId = sendRequest(req, /*eom=*/false);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  flushRequestsAndLoopN(3);
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  handler->txn_->sendHeaders(resp);
+  auto* wt = handler->txn_->getWebTransport();
+  ASSERT_NE(wt, nullptr);
+  flushRequestsAndLoopN(1);
+
+  auto& connectStream = socketDriver_->streams_[sessionId];
+  auto bytesBefore = connectStream.writeBuf.chainLength();
+
+  EXPECT_CALL(*socketDriver_->getSocket(), resetStream(sessionId, testing::_))
+      .Times(0);
+  handler->expectDetachTransaction();
+  wt->closeSession(42);
+  hqSession_->closeWhenIdle();
+  flushRequestsAndLoop();
+
+  EXPECT_TRUE(connectStream.writeEOF);
+  ASSERT_TRUE(connectStream.error.has_value());
+  EXPECT_EQ(*connectStream.error, uint32_t(HTTP3::ErrorCode::HTTP_NO_ERROR));
+
+  folly::IOBufQueue capsuleQueue;
+  CloseWebTransportSessionCapsule closeCapsule{.applicationErrorCode = 42,
+                                               .applicationErrorMessage = ""};
+  ASSERT_TRUE(
+      writeCloseWebTransportSession(capsuleQueue, closeCapsule).has_value());
+  auto expected = capsuleQueue.move()->cloneCoalesced();
+
+  ASSERT_GT(connectStream.writeBuf.chainLength(), bytesBefore);
+  auto written = connectStream.writeBuf.front()->cloneCoalesced();
+  folly::StringPiece wire(folly::ByteRange(written->data(), written->length()));
+  folly::StringPiece needle(
+      folly::ByteRange(expected->data(), expected->length()));
+  EXPECT_NE(wire.find(needle), std::string::npos)
+      << "CLOSE_WEBTRANSPORT_SESSION capsule was dropped";
 }
 
 TEST_P(HQDownstreamSessionTestWebTransport, WTRequestNegotiates) {

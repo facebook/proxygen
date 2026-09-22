@@ -1658,11 +1658,22 @@ class HQUpstreamSessionTestWebTransport : public HQUpstreamSessionTest {
 
   // Local-initiated close: app calls closeSession() before ingress EOF.
   // closeSession() sends EOM + stop-sending (abort with NO_ERROR).
-  void closeWTSession() {
+  void closeWTSession(folly::Optional<uint32_t> error = folly::none) {
+    auto& connectStream = socketDriver_->streams_[sessionId_];
+    // The abort must be ingress-only.  The driver's flushWrites puts
+    // writeState back to CLOSED after a FIN, so check resetStream.
+    EXPECT_CALL(*socketDriver_->getSocket(),
+                resetStream(sessionId_, testing::_))
+        .Times(0);
     handler_->expectDetachTransaction();
-    wt_->closeSession();
+    wt_->closeSession(error);
     hqSession_->closeWhenIdle();
     flushAndLoop();
+
+    // A FIN on the CONNECT stream, and a stop-sending with HTTP_NO_ERROR.
+    EXPECT_TRUE(connectStream.writeEOF);
+    ASSERT_TRUE(connectStream.error.has_value());
+    EXPECT_EQ(*connectStream.error, uint32_t(HTTP3::ErrorCode::HTTP_NO_ERROR));
   }
 
   // Peer-initiated close: peer sends EOF first, then local app closes.
@@ -1723,6 +1734,51 @@ TEST_P(HQUpstreamSessionTestWebTransport, FilterInstallation) {
 // closeSession() sends only EOM (no stop-sending needed).
 TEST_P(HQUpstreamSessionTestWebTransport, PeerClose) {
   peerCloseWTSession();
+}
+
+// closeSession() after the CONNECT stream's FIN is written.  Nothing is
+// queued when HQSession sees the abort, but egress is finished, so this must
+// still stop-send.
+TEST_P(HQUpstreamSessionTestWebTransport, CloseAfterEgressEomWritten) {
+  handler_->txn_->sendEOM();
+  flushAndLoopN(1);
+  auto& connectStream = socketDriver_->streams_[sessionId_];
+  ASSERT_TRUE(connectStream.writeEOF);
+
+  // Resetting here would retract a FIN the peer has not necessarily acked.
+  EXPECT_CALL(*socketDriver_->getSocket(), resetStream(sessionId_, testing::_))
+      .Times(0);
+  handler_->expectDetachTransaction();
+  wt_->closeSession();
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+
+  ASSERT_TRUE(connectStream.error.has_value());
+  EXPECT_EQ(*connectStream.error, uint32_t(HTTP3::ErrorCode::HTTP_NO_ERROR));
+}
+
+// Local close with an application error code.  The CLOSE_WEBTRANSPORT_SESSION
+// capsule queued by closeSession() must still reach the peer.
+TEST_P(HQUpstreamSessionTestWebTransport, LocalCloseSendsCapsule) {
+  auto& connectStream = socketDriver_->streams_[sessionId_];
+  auto bytesBefore = connectStream.writeBuf.chainLength();
+
+  closeWTSession(42);
+
+  folly::IOBufQueue capsuleQueue;
+  CloseWebTransportSessionCapsule closeCapsule{.applicationErrorCode = 42,
+                                               .applicationErrorMessage = ""};
+  ASSERT_TRUE(
+      writeCloseWebTransportSession(capsuleQueue, closeCapsule).has_value());
+  auto expected = capsuleQueue.move()->cloneCoalesced();
+
+  ASSERT_GT(connectStream.writeBuf.chainLength(), bytesBefore);
+  auto written = connectStream.writeBuf.front()->cloneCoalesced();
+  folly::StringPiece wire(folly::ByteRange(written->data(), written->length()));
+  folly::StringPiece needle(
+      folly::ByteRange(expected->data(), expected->length()));
+  EXPECT_NE(wire.find(needle), std::string::npos)
+      << "CLOSE_WEBTRANSPORT_SESSION capsule was dropped";
 }
 
 TEST_P(HQUpstreamSessionTestWebTransport, BidirectionalStream) {

@@ -29,8 +29,9 @@ class HTTPTransactionWebTransportTest : public testing::Test {
     setup(/*withHandler=*/true);
   }
 
-  void setup(bool withHandler) {
-    makeTxn();
+  void setup(bool withHandler,
+             TransportDirection direction = TransportDirection::DOWNSTREAM) {
+    makeTxn(direction);
     EXPECT_CALL(transport_, describe(_)).WillRepeatedly(Return());
     EXPECT_CALL(transport_, supportsWebTransport())
         .WillRepeatedly(Return(true));
@@ -129,8 +130,9 @@ class HTTPTransactionWebTransportTest : public testing::Test {
     EXPECT_EQ(streamData->fin, expectFin);
   }
 
-  HTTPTransaction& makeTxn() {
-    txn_ = std::make_unique<HTTPTransaction>(TransportDirection::DOWNSTREAM,
+  HTTPTransaction& makeTxn(
+      TransportDirection direction = TransportDirection::DOWNSTREAM) {
+    txn_ = std::make_unique<HTTPTransaction>(direction,
                                              HTTPCodec::StreamID(1),
                                              0,
                                              transport_,
@@ -141,6 +143,51 @@ class HTTPTransactionWebTransportTest : public testing::Test {
   WebTransport* wt_{nullptr};
   folly::EventBase evb_;
 };
+
+// closeSession() on a client's transaction must also abort with NO_ERROR.
+class HTTPTransactionWebTransportUpstreamTest
+    : public HTTPTransactionWebTransportTest {
+ public:
+  void SetUp() override {
+    setup(/*withHandler=*/true, TransportDirection::UPSTREAM);
+  }
+};
+
+// RST_STREAM on a classic CONNECT tunnel means a TCP connection error, so
+// plain CONNECT keeps the default abort code.
+class HTTPTransactionClassicConnectTest
+    : public HTTPTransactionWebTransportTest {
+ public:
+  void SetUp() override {
+    makeTxn(TransportDirection::UPSTREAM);
+    EXPECT_CALL(transport_, describe(_)).WillRepeatedly(Return());
+    EXPECT_CALL(transport_, supportsWebTransport())
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(transport_, notifyPendingEgress()).Times(AtLeast(0));
+    EXPECT_CALL(transport_, sendHeaders(txn_.get(), _, _, false));
+    EXPECT_CALL(transport_, detach(txn_.get())).WillOnce([this] {
+      txn_.reset();
+    });
+    HTTPMessage req;
+    req.setHTTPVersion(1, 1);
+    req.setMethod(HTTPMethod::CONNECT);
+    req.setURL("www.facebook.com:443");
+    txn_->sendHeaders(req);
+  }
+};
+
+TEST_F(HTTPTransactionClassicConnectTest, NoErrorAbortFallsBackToCancel) {
+  EXPECT_CALL(transport_, sendEOM(txn_.get(), nullptr));
+  txn_->sendEOM();
+  EXPECT_CALL(transport_, sendAbort(txn_.get(), ErrorCode::CANCEL));
+  txn_->sendAbort(ErrorCode::NO_ERROR);
+}
+
+TEST_F(HTTPTransactionWebTransportUpstreamTest, CloseSessionSendsNoError) {
+  EXPECT_CALL(transport_, sendEOM(txn_.get(), nullptr));
+  EXPECT_CALL(transport_, sendAbort(txn_.get(), ErrorCode::NO_ERROR));
+  wt_->closeSession();
+}
 
 class MockDeliveryCallback : public WebTransport::ByteEventCallback {
  public:
@@ -208,7 +255,9 @@ TEST_F(HTTPTransactionWebTransportTest, CreateStreams) {
             WebTransport::ErrorCode::STREAM_CREATION_ERROR);
 
   EXPECT_CALL(transport_, sendEOM(txn_.get(), nullptr));
-  EXPECT_CALL(transport_, sendAbort(txn_.get(), _));
+  // A WebTransport CONNECT stream aborts ingress with NO_ERROR once the EOM
+  // is queued or flushed.
+  EXPECT_CALL(transport_, sendAbort(txn_.get(), ErrorCode::NO_ERROR));
   wt_->closeSession();
 }
 

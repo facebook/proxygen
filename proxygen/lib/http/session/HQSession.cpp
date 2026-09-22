@@ -751,12 +751,12 @@ bool HQSession::HQStreamTransportBase::hasPendingBody() const {
 }
 
 bool HQSession::HQStreamTransportBase::hasPendingEOM() const {
-  return pendingEOM_ ||
+  return pendingEOM() ||
          (queueHandle_.isTransactionEnqueued() && txn_.isEgressEOMQueued());
 }
 
 bool HQSession::HQStreamTransportBase::hasPendingEgress() const {
-  return hasWriteBuffer() || pendingEOM_ ||
+  return hasWriteBuffer() || pendingEOM() ||
          queueHandle_.isTransactionEnqueued();
 }
 
@@ -2102,7 +2102,7 @@ size_t HQSession::handleWrite(WriteFunc writeFunc,
     hqStream->txn_.incrementPendingByteEvents();
     // NOTE: This may not be necessary long term, once we properly implement
     // detach or when we enforce flow control for headers and EOM
-    hqStream->pendingEOM_ = false;
+    hqStream->markEgressEOMWritten();
   }
   hqStream->bytesWritten_ += sent;
   onBodyBytesWritten(sent);
@@ -2148,14 +2148,14 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
     VLOG(4) << __func__ << " asking txn for more bytes sess=" << *this
             << ": streamID=" << streamId << " canSend=" << canSend
             << " remain=" << hqStream->writeBufferSize()
-            << " pendingEOM=" << hqStream->pendingEOM_
+            << " pendingEOM=" << hqStream->pendingEOM()
             << " maxBodySend=" << maxBodySend << " ratio=" << ratio;
     hqStream->txn_.onWriteReady(maxBodySend, ratio);
     // onWriteReady may not be able to detach any byte from the deferred egress
     // body bytes, in case it's getting rate limited.
     // In that case the txn will get removed from the egress queue from
     // onWriteReady
-    if (!hqStream->hasWriteBuffer() && !hqStream->pendingEOM_) {
+    if (!hqStream->hasWriteBuffer() && !hqStream->pendingEOM()) {
       return 0;
     }
   }
@@ -2171,7 +2171,7 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
   size_t sent = 0;
   auto bufSendLen = std::min(canSend, hqStream->writeBuf_.chainLength());
   auto tryWriteBuf = hqStream->writeBuf_.splitAtMost(canSend);
-  bool sendEof = (hqStream->pendingEOM_ && !hqStream->hasPendingBody());
+  bool sendEof = (hqStream->pendingEOM() && !hqStream->hasPendingBody());
   if (bufSendLen > 0 || sendEof) {
     VLOG(4) << __func__ << " before write sess=" << *this
             << ": streamID=" << streamId << " maxEgress=" << maxEgress
@@ -2189,7 +2189,7 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
           << ": streamID=" << streamId << " sent=" << sent
           << " buflen=" << hqStream->writeBufferSize()
           << " hasPendingBody=" << hqStream->txn_.hasPendingBody()
-          << " EOM=" << hqStream->pendingEOM_;
+          << " EOM=" << hqStream->pendingEOM();
   CHECK_GE(maxEgress, sent);
 
   bool flowControlBlocked = (sent == streamSendWindow && !sendEof);
@@ -2502,7 +2502,7 @@ void HQSession::startNow() {
 }
 
 void HQSession::HQStreamTransportBase::checkForDetach() {
-  if (detached_ && readBuf_.empty() && !hasWriteBuffer() && !pendingEOM_ &&
+  if (detached_ && readBuf_.empty() && !hasWriteBuffer() && !pendingEOM() &&
       !queueHandle_.isStreamTransportEnqueued()) {
     session_.detachStreamTransport(this);
   }
@@ -2989,9 +2989,11 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
                                   true);
   }
 
-  pendingEOM_ = includeEOM;
+  if (includeEOM) {
+    egressEOM_ = EgressEOM::Pending;
+  }
   // Headers can be empty for a 0.9 response
-  if (writeBuf_.chainLength() > 0 || pendingEOM_) {
+  if (writeBuf_.chainLength() > 0 || pendingEOM()) {
     notifyPendingEgress();
   }
 
@@ -3063,7 +3065,7 @@ size_t HQSession::HQStreamTransportBase::sendEOM(
   }
   // For H1 without chunked transfer-encoding, generateEOM is a no-op
   // We need to make sure writeChain(eom=true) gets called
-  pendingEOM_ = true;
+  egressEOM_ = EgressEOM::Pending;
   notifyPendingEgress();
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
@@ -3091,9 +3093,17 @@ size_t HQSession::HQStreamTransportBase::sendAbortImpl(HTTP3::ErrorCode code,
                                                        std::string errorMsg) {
   VLOG(4) << __func__ << " txn=" << txn_ << " msg=" << errorMsg;
 
+  // Abort ingress only, because the EOM will close egress after data flushes.
+  const bool ingressOnly =
+      code == HTTP3::ErrorCode::HTTP_NO_ERROR &&
+      (egressEOM_ == EgressEOM::Pending || egressEOM_ == EgressEOM::Written);
+
   // If the HQ stream is bound to a transport stream, abort it.
   if (hasStreamId()) {
-    session_.abortStream(getStreamDirection(), getStreamId(), code);
+    session_.abortStream(ingressOnly ? HTTPException::Direction::INGRESS
+                                     : getStreamDirection(),
+                         getStreamId(),
+                         code);
   }
   // Like abortIngress, but not safe to clear readBuf_, because we may be
   // parsing it.  If we are, then abortIngress will be called at the end of
@@ -3102,7 +3112,7 @@ size_t HQSession::HQStreamTransportBase::sendAbortImpl(HTTP3::ErrorCode code,
   ingressError_ = true;
   codecFilterChain->setParserPaused(true);
 
-  if (hasEgressStreamId()) {
+  if (!ingressOnly && hasEgressStreamId()) {
     abortEgress(true);
   }
   // NOTE: What about the streams that only `hasIngressStreamId()` ?
@@ -3131,7 +3141,7 @@ void HQSession::HQStreamTransportBase::abortEgress(bool checkForDetach) {
   VLOG(4) << "Aborting egress for " << txn_;
   byteEventTracker_.drainByteEvents();
   writeBuf_.move();
-  pendingEOM_ = false;
+  egressEOM_ = EgressEOM::Aborted;
   if (queueHandle_.isStreamTransportEnqueued()) {
     VLOG(4) << "clearPendingEgress for " << txn_;
     clearPendingEgressStreamTransport();
@@ -3269,7 +3279,7 @@ void HQSession::HQStreamTransportBase::coalesceEOM(size_t encodedBodyBytes) {
                                 true);
   VLOG(3) << "sending EOM in body for streamID=" << getStreamId()
           << " txn=" << txn_;
-  pendingEOM_ = true;
+  egressEOM_ = EgressEOM::Pending;
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
   auto sock = session_.sock_;
@@ -3731,7 +3741,9 @@ void HQSession::HQStreamTransport::sendPushPromise(
                                   true);
   }
 
-  pendingEOM_ = includeEOM;
+  if (includeEOM) {
+    egressEOM_ = EgressEOM::Pending;
+  }
   notifyPendingEgress();
 
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
