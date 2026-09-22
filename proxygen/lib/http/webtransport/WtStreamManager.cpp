@@ -608,7 +608,7 @@ WtStreamManager::Result WtStreamManager::onMaxData(MaxConnData data) noexcept {
     return Fail;
   }
 
-  bool wasEmpty = !hasEvent();
+  const bool wasEmpty = !hasEvent();
   // Re-add all connection-FC-blocked streams to the priority queue
   auto blockedStreams = std::move(connFcBlockedStreams_);
   for (auto* wh : blockedStreams) {
@@ -674,24 +674,7 @@ Result WtStreamManager::enqueue(WtReadHandle& rh, StreamData data) noexcept {
 
 WtBufferedStreamData::DequeueResult WtStreamManager::dequeue(
     WtWriteHandle& wh, uint64_t atMost) noexcept {
-  // we're limited by conn egress fc
-  atMost = std::min(atMost, connSendFc_.getAvailable());
-  auto& writeHandle = writehandle_ref_cast(wh);
-  auto res = writeHandle.dequeue(atMost);
-  // TODO(@damlaj): return len to elide unnecessarily computing chain len
-  auto len = computeChainLength(res.data);
-  // commit len bytes to conn window
-  connSendFc_.commit(len);
-
-  // Connection FC blocked if we have data but conn window is exhausted
-  const bool hasData = !res.fin && writeHandle.bufferedSendData_.hasData();
-  if (connSendFc_.getAvailable() == 0 && hasData) {
-    connFcBlockedStreams_.insert(&wh);
-  }
-
-  XLOG(DBG8) << __func__ << "; atMost=" << atMost << "; len=" << len
-             << "; fin=" << res.fin;
-  return res;
+  return writehandle_ref_cast(wh).dequeue(atMost);
 }
 
 auto WtStreamManager::getFlowControlInfo(const WtWriteHandle& wh) const noexcept
@@ -710,9 +693,8 @@ void WtStreamManager::onStreamWritable(WtWriteHandle& wh) noexcept {
     return;
   }
 
-  bool wasEmpty = !hasEvent();
+  const bool wasEmpty = !hasEvent();
   writableStreams_.insert(writeHandle.getID(), writeHandle.getPriority());
-
   if (wasEmpty && hasEvent()) {
     egressCb_.eventsAvailable();
   }
@@ -1143,6 +1125,10 @@ WtBufferedStreamData::DequeueResult WriteHandle::dequeue(
     uint64_t atMost) noexcept {
   XCHECK_NE(state_, WriteHandleState::Closed) << "dequeue after close";
 
+  // atMost limited by connFc
+  auto& connFc = smAccessor_.connSend();
+  atMost = std::min(connFc.getAvailable(), atMost);
+
   auto res = bufferedSendData_.dequeue(atMost);
   const auto bufferAvailable = bufferedSendData_.window().getBufferAvailable();
   if (bufferAvailable > 0) {
@@ -1151,21 +1137,28 @@ WtBufferedStreamData::DequeueResult WriteHandle::dequeue(
     }
   }
 
-  auto bytesDequeued = computeChainLength(res.data);
+  // commit dequeued bytes to conn window
+  const auto bytesDequeued = computeChainLength(res.data);
+  connFc.commit(bytesDequeued);
+
   XLOG(DBG6) << __func__ << "; id=" << id_ << "; len=" << bytesDequeued
              << "; fin=" << res.fin;
 
-  // Erase if blocked (wrote nothing) or done (!canSendData)
+  const bool streamBlocked = !bufferedSendData_.canSendData();
+  const bool connBlocked = connFc.getAvailable() == 0;
   // Consume if wrote data and still have more
-  if (bytesDequeued > 0 && bufferedSendData_.canSendData()) {
+  if (bytesDequeued > 0 && !streamBlocked) {
     smAccessor_.writableStreams().consume(bytesDequeued);
     if (bufferedSendData_.onlyFinPending()) {
       smAccessor_.finOnlyStreams().insert(this);
     }
-  } else {
-    smAccessor_.writableStreams().erase(getID());
   }
-
+  if (streamBlocked || connBlocked) {
+    smAccessor_.writableStreams().erase(id_);
+    if (connBlocked) {
+      smAccessor_.connFcBlockedStreams().insert(this);
+    }
+  }
   finish(res.fin);
   return res;
 }

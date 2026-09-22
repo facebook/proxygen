@@ -386,20 +386,31 @@ TEST_F(WtStreamManagerTest, WriteEgressHandle) {
 }
 
 TEST_F(WtStreamManagerTest, DequeueWriteConnFcBlocked) {
-  config = {.peerMaxStreamsUni = 1};
+  config = {.peerMaxStreamsUni = 2};
   reinit(config);
 
-  auto uni = CHECK_NOTNULL(streamManager->createEgressHandle());
-  // write kBufLen & fin into stream (fills egress buffer)
+  auto one = CHECK_NOTNULL(streamManager->createEgressHandle());
+  auto two = CHECK_NOTNULL(streamManager->createEgressHandle());
+
+  // write kBufLen & fin into streams (fills egress buffer)
   constexpr auto kBufLen = 65'535;
-  auto res = uni->writeStreamData(
-      makeBuf(kBufLen), /*fin=*/true, /*byteEventCallback=*/nullptr);
-  EXPECT_TRUE(res.hasValue() && *res == WebTransport::FCState::BLOCKED);
+  for (auto* h : {one, two}) {
+    auto res = h->writeStreamData(
+        makeBuf(kBufLen), /*fin=*/true, /*byteEventCallback=*/nullptr);
+    EXPECT_TRUE(res.hasValue() && *res == WebTransport::FCState::BLOCKED);
+  }
 
   // we should be able to dequeue kBufLen data from one.writeHandle
-  expectNextWritable(*priorityQueue, uni->getID());
-  auto dequeue = streamManager->dequeue(*uni, /*atMost=*/kBufLen);
+  expectNextWritable(*priorityQueue, one->getID());
+  auto dequeue = streamManager->dequeue(*one, /*atMost=*/kBufLen);
   EXPECT_TRUE(dequeue.data && dequeue.fin);
+
+  // two is the nextWritable stream, however when attempting to dequeue it will
+  // be erased from the PriorityQueue
+  expectNextWritable(*priorityQueue, two->getID());
+  dequeue = streamManager->dequeue(*two, /*atMost=*/kBufLen);
+  EXPECT_FALSE(dequeue.data || dequeue.fin);
+  EXPECT_TRUE(priorityQueue->empty());
 }
 
 TEST_F(WtStreamManagerTest, BidiHandleCancellation) {
@@ -817,8 +828,13 @@ TEST_F(WtStreamManagerTest, WritableStreams) {
   EXPECT_EQ(streamManager->nextWritable(), one);
   expectNextWritable(*priorityQueue, one->getID());
 
-  // dequeue should yield the expected results
-  auto dequeue = streamManager->dequeue(*one, kAtMost);
+  // dequeue of zero bytes should yield nothing & keep the stream in the queue
+  auto dequeue = streamManager->dequeue(*one, /*atMost=*/0);
+  EXPECT_FALSE(dequeue.data || dequeue.fin);
+  expectNextWritable(*priorityQueue, one->getID());
+
+  // dequeue kAtMost should yield the expected results
+  dequeue = streamManager->dequeue(*one, kAtMost);
   EXPECT_TRUE(dequeue.data->length() == 1 && dequeue.fin);
 
   // no more writableStreams

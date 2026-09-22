@@ -22,7 +22,7 @@ namespace proxygen::detail {
  * This is needed due to the asynchronous nature of CoroWtSession in
  * proxygen::coro – when writing to an egress handle, data is flushed to the
  * transport at a later time (e.g. next evb loop). This is an extremely thin
- * wrapper around proxygen/lib/http/webtransport/FlowController.h; simple keeps
+ * wrapper around proxygen/lib/http/webtransport/FlowController.h; simply keeps
  * track of an additional bufferedOffset_ (invariant bufferedOffset_ >=
  * currentOffset_). We apply egress backpressure (e.g. return Blocked) if the
  * the application has buffered more than 64KiB bytes.

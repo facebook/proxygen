@@ -50,7 +50,7 @@ WtBufferedStreamData::FcRes WtBufferedStreamData::enqueue(
 
 WtBufferedStreamData::DequeueResult WtBufferedStreamData::dequeue(
     uint64_t atMost) noexcept {
-  // min of maxBytes and how many bytes remaining in egress window
+  // min of atMost and how many bytes remaining in egress window
   atMost = std::min({atMost, window_.getAvailable()});
   DequeueResult res;
   if (atMost == 0 && !onlyFinPending()) {
