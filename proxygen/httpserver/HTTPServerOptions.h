@@ -169,11 +169,6 @@ class HTTPServerOptions {
       zstdContentCompressionLevelSelector;
 
   /**
-   * Enable support for pub-sub extension.
-   */
-  bool enableExHeaders{false};
-
-  /**
    * Content types to compress, all entries as lowercase
    */
   std::set<std::string> contentCompressionTypes = {
