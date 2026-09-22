@@ -35,8 +35,12 @@ class HTTP2Codec
   ~HTTP2Codec() override;
 
   // HTTPCodec API
-  CodecProtocol getProtocol() const override {
-    return CodecProtocol::HTTP_2;
+  HTTPCodecTraits getTraits() const override {
+    return HTTPCodecTraits{.protocol = CodecProtocol::HTTP_2,
+                           .direction = transportDirection_,
+                           .supportsParallelRequests = true,
+                           .supportsSessionFlowControl = true,
+                           .supportsStreamFlowControl = true};
   }
 
   const std::string& getUserAgent() const override {

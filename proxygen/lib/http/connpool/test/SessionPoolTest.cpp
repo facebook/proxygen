@@ -397,14 +397,11 @@ TEST_F(SessionPoolFixture, CloseNotReusable) {
 
   // Codec expectations
   bool reusable = true;
-  auto codec = std::make_unique<NiceMock<MockHTTPCodec>>();
-  EXPECT_CALL(*codec, getTransportDirection())
-      .WillRepeatedly(Return(TransportDirection::UPSTREAM));
+  auto codec = std::make_unique<NiceMock<MockHTTPCodec>>(
+      HTTPCodecTraits{.protocol = CodecProtocol::HTTP_2,
+                      .direction = TransportDirection::UPSTREAM});
   EXPECT_CALL(*codec, createStream()).WillOnce(Return(1));
   EXPECT_CALL(*codec, isReusable()).WillRepeatedly(ReturnPointee(&reusable));
-  EXPECT_CALL(*codec, supportsParallelRequests()).WillRepeatedly(Return(false));
-  EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(Return(CodecProtocol::HTTP_2));
 
   p.putSession(makeSession(std::move(codec)));
   ASSERT_EQ(p.getNumSessions(), 1);

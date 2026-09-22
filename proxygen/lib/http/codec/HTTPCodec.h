@@ -29,6 +29,19 @@ class HTTPTransactionHandler;
 class HTTPErrorPage;
 
 /**
+ * Codec properties that never change after construction.
+ */
+struct HTTPCodecTraits {
+  CodecProtocol protocol{};
+  TransportDirection direction{};
+  bool supportsParallelRequests{false};
+  bool supportsSessionFlowControl{false};
+  bool supportsStreamFlowControl{false};
+
+  bool operator==(const HTTPCodecTraits&) const = default;
+};
+
+/**
  * Interface for a parser&generator that can translate between an internal
  * representation of an HTTP request and a wire format.  The details of the
  * wire format (e.g., HTTP/1.x encoding vs. SPDY encoding) are left for
@@ -334,11 +347,15 @@ class HTTPCodec {
     return defaultCompressionInfo;
   }
 
+  [[nodiscard]] virtual HTTPCodecTraits getTraits() const = 0;
+
   /**
    * Gets the session protocol currently used by the codec. This can be
    * mapped to a string for logging and diagnostic use.
    */
-  [[nodiscard]] virtual CodecProtocol getProtocol() const = 0;
+  [[nodiscard]] CodecProtocol getProtocol() const {
+    return getTraits().protocol;
+  }
 
   /**
    * Gets the user agent string of the client. Thus, it is only meaningful for a
@@ -353,20 +370,22 @@ class HTTPCodec {
    * DOWNSTREAM if the codec receives requests from clients or
    * UPSTREAM if the codec sends requests to servers.
    */
-  [[nodiscard]] virtual TransportDirection getTransportDirection() const = 0;
+  [[nodiscard]] TransportDirection getTransportDirection() const {
+    return getTraits().direction;
+  }
 
   /**
    * Returns true iff this codec supports per stream flow control
    */
-  [[nodiscard]] virtual bool supportsStreamFlowControl() const {
-    return false;
+  [[nodiscard]] bool supportsStreamFlowControl() const {
+    return getTraits().supportsStreamFlowControl;
   }
 
   /**
    * Returns true iff this codec supports session level flow control
    */
-  [[nodiscard]] virtual bool supportsSessionFlowControl() const {
-    return false;
+  [[nodiscard]] bool supportsSessionFlowControl() const {
+    return getTraits().supportsSessionFlowControl;
   }
 
   /**
@@ -442,7 +461,9 @@ class HTTPCodec {
    * Check whether the codec supports the processing of multiple
    * requests in parallel.
    */
-  [[nodiscard]] virtual bool supportsParallelRequests() const = 0;
+  [[nodiscard]] bool supportsParallelRequests() const {
+    return getTraits().supportsParallelRequests;
+  }
 
   /**
    * Check whether the codec supports pushing resources from server to
