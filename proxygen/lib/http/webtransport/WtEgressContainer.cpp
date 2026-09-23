@@ -27,9 +27,7 @@ WtBufferedStreamData::FcRes WtBufferedStreamData::enqueue(
     std::unique_ptr<folly::IOBuf> data,
     bool fin,
     proxygen::WebTransport::ByteEventCallback* callback) noexcept {
-  XCHECK(pendingWrites_.empty() || !pendingWrites_.back().fin)
-      << "enqueue after fin";
-
+  XCHECK(!enqueuedFin_) << "::enqueue after fin";
   enqueuedFin_ |= fin;
   auto len = data ? data->computeChainDataLength() : 0;
   uint64_t offset = window_.getBufferedOffset() + (len ? len - 1 : 0);
