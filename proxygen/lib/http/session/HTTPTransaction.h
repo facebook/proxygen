@@ -1407,14 +1407,6 @@ class HTTPTransaction
   }
 
   /**
-   * Invoked by the session (upstream only) when a new pushed transaction
-   * arrives.  The txn's handler will be notified and is responsible for
-   * installing a handler.  If no handler is installed in the callback,
-   * the pushed transaction will be aborted.
-   */
-  bool onPushedTransaction(HTTPTransaction* txn);
-
-  /**
    * True if this transaction is a server push transaction
    */
   bool isPushed() const {

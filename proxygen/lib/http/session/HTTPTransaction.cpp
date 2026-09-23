@@ -1704,23 +1704,6 @@ void HTTPTransaction::checkCreateDeferredIngress() {
   }
 }
 
-bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
-  DestructorGuard g(this);
-  INVARIANT_RETURN(*pushTxn->assocStreamId_ == id_, false);
-  if (!handler_) {
-    VLOG(4) << "Cannot add a pushed txn to an unhandled txn";
-    return false;
-  }
-  refreshTimeout();
-  handler_->onPushedTransaction(pushTxn);
-  if (!pushTxn->getHandler()) {
-    VLOG(4) << "Failed to create a handler for push transaction";
-    return false;
-  }
-  pushedTransactions_.insert(pushTxn->getID());
-  return true;
-}
-
 void HTTPTransaction::setIdleTimeout(std::chrono::milliseconds idleTimeout) {
   idleTimeout_ = idleTimeout;
   VLOG(4) << "HTTPTransaction: idle timeout is set to  "
