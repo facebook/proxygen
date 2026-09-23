@@ -867,11 +867,12 @@ std::tuple<size_t, size_t, size_t> estimateResponseSize(bool isHq,
                                                         size_t contentLength,
                                                         size_t chunkSize) {
   folly::IOBufQueue estimateSizeBuf{folly::IOBufQueue::cacheChainLength()};
-  std::unique_ptr<HTTPCodec> codec;
   QPACKCodec qpackCodec;
   folly::IOBufQueue encoderWriteBuf{folly::IOBufQueue::cacheChainLength()};
   folly::IOBufQueue decoderWriteBuf{folly::IOBufQueue::cacheChainLength()};
   HTTPSettings dummySettings;
+  // The codec uses all of the above when destroyed, so it must go first
+  std::unique_ptr<HTTPCodec> codec;
   qpackCodec.setEncoderHeaderTableSize(kQPACKTestDecoderMaxTableSize);
   if (isHq) {
     codec = std::make_unique<hq::HQStreamCodec>(

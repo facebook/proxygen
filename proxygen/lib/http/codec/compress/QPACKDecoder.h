@@ -46,6 +46,9 @@ class QPACKDecoder
 
   std::unique_ptr<folly::IOBuf> encodeCancelStream(uint64_t streamId);
 
+  // Callers must purge before the block's StreamingCallback is destroyed
+  void purgeQueuedBlocks(uint64_t streamId);
+
   uint64_t getHolBlockCount() const {
     return holBlockCount_;
   }

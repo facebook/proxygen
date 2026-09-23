@@ -611,6 +611,34 @@ TEST(QPACKContextTests, TestDecodeQueueResetSelf) {
             HPACK::DecodeError::NONE);
 }
 
+TEST(QPACKContextTests, TestPurgeQueuedBlocks) {
+  // This test purges a blocked stream, then unblocks it
+  QPACKEncoder encoder(true, 100);
+  QPACKDecoder decoder(100);
+
+  vector<HPACKHeader> req1;
+  req1.emplace_back("Blarf", "Blah");
+  auto result1 = encoder.encode(req1, 0, 1);
+
+  // Decode #1, no control stream, queued
+  TestStreamingCallback cb1;
+  auto length = result1.stream->computeChainDataLength();
+  decoder.decodeStreaming(1, std::move(result1.stream), length, &cb1);
+  EXPECT_GT(decoder.getQueuedBytes(), 0);
+
+  // Purging an unrelated stream leaves the block alone
+  decoder.purgeQueuedBlocks(2);
+  EXPECT_GT(decoder.getQueuedBytes(), 0);
+
+  decoder.purgeQueuedBlocks(1);
+  EXPECT_EQ(decoder.getQueuedBytes(), 0);
+
+  EXPECT_EQ(decoder.decodeEncoderStream(std::move(result1.control)),
+            HPACK::DecodeError::NONE);
+  EXPECT_EQ(cb1.error, HPACK::DecodeError::NONE);
+  EXPECT_EQ(cb1.headers.size(), 0);
+}
+
 TEST(QPACKContextTests, TestEncoderStreamEndBlocked) {
   // This test queues a blocked stream, then ends the encoder stream
   QPACKEncoder encoder(true, 100);

@@ -99,6 +99,82 @@ TEST_F(HQMultiCodecTest, Ingress) {
   EXPECT_EQ(callbacks.messageComplete, 1);
 }
 
+TEST_F(HQMultiCodecTest, RemoveCodecWithBlockedHeaders) {
+  // Remove a codec whose header block is still waiting on encoder data, then
+  // deliver that data
+  HQMultiCodec upstreamCodec{TransportDirection::UPSTREAM};
+  upstreamCodec.getQPACKCodec().setEncoderHeaderTableSize(4096);
+  upstreamCodec.setQPACKEncoderMaxDataFn([] { return 1000; });
+  codec_.getQPACKCodec().setDecoderHeaderTableMaxSize(4096);
+
+  HTTPCodec::StreamID id{0};
+  upstreamCodec.addCodec(id);
+  auto req = getGetRequest();
+  req.getHeaders().add("Blarf", "Blah");
+  upstreamCodec.generateHeader(writeBuf_, id, req, true);
+  // The encoder indexed a header, so the block references the dynamic table
+  EXPECT_GT(upstreamCodec.getQPACKEncoderWriteBuf().chainLength(), 0);
+
+  FakeHTTPCodecCallback callbacks;
+  callbacks.setSessionStreamId(kSessionStreamId);
+  codec_.addCodec(id);
+  codec_.setCallback(&callbacks);
+  EXPECT_TRUE(codec_.setCurrentStream(id));
+  codec_.onIngress(*writeBuf_.front());
+  // Blocked on the encoder stream, which has not arrived
+  EXPECT_EQ(callbacks.headersComplete, 0);
+
+  codec_.removeCodec(id);
+
+  EXPECT_EQ(codec_.getQPACKCodec().decodeEncoderStream(
+                upstreamCodec.getQPACKEncoderWriteBuf().move()),
+            HPACK::DecodeError::NONE);
+  EXPECT_EQ(callbacks.headersComplete, 0);
+}
+
+TEST_F(HQMultiCodecTest, RemoveCodecWithBlockedTrailers) {
+  // Same as above, but the queued block is a trailer section
+  HQMultiCodec upstreamCodec{TransportDirection::UPSTREAM};
+  upstreamCodec.getQPACKCodec().setEncoderHeaderTableSize(4096);
+  upstreamCodec.setQPACKEncoderMaxDataFn([] { return 1000; });
+  codec_.getQPACKCodec().setDecoderHeaderTableMaxSize(4096);
+
+  HTTPCodec::StreamID id{0};
+  upstreamCodec.addCodec(id);
+  auto req = getGetRequest();
+  req.getHeaders().add("Blarf", "Blah");
+  upstreamCodec.generateHeader(writeBuf_, id, req, false);
+
+  FakeHTTPCodecCallback callbacks;
+  callbacks.setSessionStreamId(kSessionStreamId);
+  codec_.addCodec(id);
+  codec_.setCallback(&callbacks);
+
+  // Let the headers decode, so only the trailers end up queued
+  EXPECT_EQ(codec_.getQPACKCodec().decodeEncoderStream(
+                upstreamCodec.getQPACKEncoderWriteBuf().move()),
+            HPACK::DecodeError::NONE);
+  EXPECT_TRUE(codec_.setCurrentStream(id));
+  codec_.onIngress(*writeBuf_.front());
+  EXPECT_EQ(callbacks.headersComplete, 1);
+
+  writeBuf_.reset();
+  HTTPHeaders trailers;
+  trailers.add("x-trailer1", "trailer1");
+  upstreamCodec.generateTrailers(writeBuf_, id, trailers);
+  EXPECT_GT(upstreamCodec.getQPACKEncoderWriteBuf().chainLength(), 0);
+  EXPECT_TRUE(codec_.setCurrentStream(id));
+  codec_.onIngress(*writeBuf_.front());
+  EXPECT_EQ(callbacks.trailers, 0);
+
+  codec_.removeCodec(id);
+
+  EXPECT_EQ(codec_.getQPACKCodec().decodeEncoderStream(
+                upstreamCodec.getQPACKEncoderWriteBuf().move()),
+            HPACK::DecodeError::NONE);
+  EXPECT_EQ(callbacks.trailers, 0);
+}
+
 TEST_F(HQMultiCodecTest, Generic) {
   EXPECT_TRUE(codec_.supportsParallelRequests());
   EXPECT_NE(codec_.getEgressSettings(), nullptr);

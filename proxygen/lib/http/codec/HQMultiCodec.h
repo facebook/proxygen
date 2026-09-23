@@ -44,7 +44,10 @@ class HQMultiCodec : public HQControlCodec {
     minUnseenPushID_ = 0;
   }
 
-  ~HQMultiCodec() override = default;
+  ~HQMultiCodec() override {
+    // Stream codecs use qpackCodec_ when destroyed, so they must go first
+    codecs_.clear();
+  }
 
   void setControlStreamID(StreamID controlID) {
     streamId_ = controlID;

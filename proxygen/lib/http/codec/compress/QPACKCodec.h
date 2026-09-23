@@ -108,6 +108,10 @@ class QPACKCodec : public HeaderCodec {
     return decoder_.encodeCancelStream(streamId);
   }
 
+  void purgeQueuedBlocks(uint64_t streamId) {
+    decoder_.purgeQueuedBlocks(streamId);
+  }
+
   void describe(std::ostream& os) const;
 
   void setMaxUncompressed(uint64_t maxUncompressed) override {

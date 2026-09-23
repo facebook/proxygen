@@ -1186,6 +1186,61 @@ TEST_P(HQUpstreamSessionTest, DelayedQPACKAfterReset) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQUpstreamSessionTest, DelayedQPACKAfterGoaway) {
+  // GOAWAY erases a stream whose response headers are blocked on QPACK data.
+  // The session survives the first GOAWAY and later receives that data.
+  auto handler = openTransaction();
+  auto streamId = handler->txn_->getID();
+  handler->txn_->sendHeadersWithOptionalEOM(getGetRequest(), true);
+
+  auto resp = makeResponse(200, 0);
+  std::get<0>(resp)->getHeaders().add("Response", "Dynamic");
+  sendResponse(
+      streamId, *std::get<0>(resp), std::move(std::get<1>(resp)), true);
+  auto qpackData = encoderWriteBuf_.move();
+  flushAndLoopN(1);
+
+  handler->expectGoaway();
+  handler->expectError([](const HTTPException& err) {
+    EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
+  });
+  handler->expectDetachTransaction();
+  sendGoaway(streamId);
+  flushAndLoop();
+
+  // type byte plus cancel
+  auto& decoderStream = socketDriver_->streams_[kQPACKDecoderEgressStreamId];
+  EXPECT_EQ(decoderStream.writeBuf.chainLength(), 2);
+
+  EXPECT_CALL(*handler, _onHeadersComplete(testing::_)).Times(0);
+  socketDriver_->addReadEvent(kQPACKEncoderIngressStreamId,
+                              std::move(qpackData));
+  eventBase_.loopOnce();
+
+  hqSession_->dropConnection();
+}
+
+TEST_P(HQUpstreamSessionTest, GoawayRejectedStreamCancelsQPACK) {
+  // Nothing is queued and no response arrived, but the peer encoder may still
+  // be holding references for a header block that is in flight
+  auto handler = openTransaction();
+  auto streamId = handler->txn_->getID();
+  handler->txn_->sendHeadersWithOptionalEOM(getGetRequest(), true);
+  flushAndLoopN(1);
+
+  handler->expectGoaway();
+  handler->expectError();
+  handler->expectDetachTransaction();
+  sendGoaway(streamId);
+  flushAndLoop();
+
+  // type byte plus cancel
+  auto& decoderStream = socketDriver_->streams_[kQPACKDecoderEgressStreamId];
+  EXPECT_EQ(decoderStream.writeBuf.chainLength(), 2);
+
+  hqSession_->dropConnection();
+}
+
 TEST_P(HQUpstreamSessionTestQPACK, QPACKQueuedOnClose) {
   InSequence enforceOrder;
   auto handler = openTransaction();

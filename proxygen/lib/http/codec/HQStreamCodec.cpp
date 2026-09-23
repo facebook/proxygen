@@ -38,7 +38,12 @@ HQStreamCodec::HQStreamCodec(StreamID streamId,
           << " HQ stream codec for stream " << streamId_;
 }
 
-HQStreamCodec::~HQStreamCodec() = default;
+HQStreamCodec::~HQStreamCodec() {
+  // The queued block holds this as its decode callback
+  if (decodePending()) {
+    headerCodec_.purgeQueuedBlocks(streamId_);
+  }
+}
 
 ParseResult HQStreamCodec::checkFrameAllowed(FrameType type) {
   if (isConnect_ && type != hq::FrameType::DATA) {
@@ -135,7 +140,7 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
       streamId_, std::move(outHeaderData), header.length, this);
   // decodeInfo_.msg gets moved in onHeadersComplete.  If it is still around,
   // parsing is incomplete, leave the parser paused.
-  if (!decodeInfo_.msg) {
+  if (!decodePending()) {
     setParserPaused(false);
   }
   return res;
@@ -168,7 +173,7 @@ ParseResult HQStreamCodec::parsePushPromise(Cursor& cursor,
   auto headerDataLength = outHeaderData->computeChainDataLength();
   headerCodec_.decodeStreaming(
       streamId_, std::move(outHeaderData), headerDataLength, this);
-  if (!decodeInfo_.msg) {
+  if (!decodePending()) {
     setParserPaused(false);
   } // else parsing incomplete, see comment in parseHeaders
 

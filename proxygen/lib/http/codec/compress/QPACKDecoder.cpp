@@ -419,18 +419,23 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeHeaderAck(
   return ackEncoder.release();
 }
 
-std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeCancelStream(
-    uint64_t streamId) {
-  // Remove this stream from the queue
-  VLOG(6) << "encodeCancelStream id=" << streamId;
+void QPACKDecoder::purgeQueuedBlocks(uint64_t streamId) {
   auto it = queue_.begin();
   while (it != queue_.end()) {
     if (it->second.streamID == streamId) {
+      DCHECK_LE(it->second.length, queuedBytes_);
+      queuedBytes_ -= it->second.length;
       it = queue_.erase(it);
     } else {
       it++;
     }
   }
+}
+
+std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeCancelStream(
+    uint64_t streamId) {
+  VLOG(6) << "encodeCancelStream id=" << streamId;
+  purgeQueuedBlocks(streamId);
   HPACKEncodeBuffer ackEncoder(kGrowth, false);
   ackEncoder.encodeInteger(streamId, HPACK::Q_CANCEL_STREAM);
   return ackEncoder.release();

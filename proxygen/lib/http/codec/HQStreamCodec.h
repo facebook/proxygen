@@ -152,6 +152,11 @@ class HQStreamCodec
                                const FrameHeader& header) override;
 
  private:
+  // Set exactly while the decoder holds a block for this codec
+  bool decodePending() const {
+    return decodeInfo_.msg != nullptr;
+  }
+
   void generateHeaderImpl(folly::IOBufQueue& writeBuf,
                           const HTTPMessage& msg,
                           folly::Optional<StreamID> pushId,

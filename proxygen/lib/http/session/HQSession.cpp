@@ -1753,6 +1753,8 @@ void HQSession::onGoaway(uint64_t minUnseenId,
     // Abort transactions which have been initiated locally but not created
     // successfully at the remote end
     if (stream->getStreamId() >= peerMinUnseenId_) {
+      // Reading is abandoned, so the peer's encoder can drop this stream
+      abortStream(stream->getStreamId());
       stream->errorOnTransaction(kErrorStreamUnacknowledged, "");
     }
   });
