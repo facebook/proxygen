@@ -240,9 +240,15 @@ folly::coro::Task<std::unique_ptr<CoroTransportIf>> connectFizz(
     wangle::TransportInfo& tinfo) {
   ConnectCB cb;
   AsyncFizzClient::UniquePtr fizzClient;
-  auto pskIdentity = connParams.fizzPskIdentity.value_or(
-      connParams.serverName.empty() ? connectAddr.getAddressStr()
-                                    : connParams.serverName);
+  const std::string pskIdentity = [&]() -> std::string {
+    if (connParams.fizzPskIdentity) {
+      return *connParams.fizzPskIdentity;
+    }
+    if (connParams.serverName.empty()) {
+      return connectAddr.getAddressStr();
+    }
+    return connParams.serverName;
+  }();
 
   std::optional<ExpectedIdentity> expectedIdentity;
   folly::Optional<std::string> sendSNI;
