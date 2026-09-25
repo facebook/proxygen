@@ -8,6 +8,10 @@
 
 #pragma once
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 #include <folly/Expected.h>
 #include <folly/Optional.h>
 
