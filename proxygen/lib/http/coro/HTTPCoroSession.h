@@ -280,7 +280,7 @@ class HTTPCoroSession
   }
 
   CodecProtocol getCodecProtocol() const override {
-    return codec_->getProtocol();
+    return codec_.getProtocol();
   }
 
   size_t getSequenceNumberFromStreamId(
@@ -412,7 +412,7 @@ class HTTPCoroSession
       XLOG(ERR) << "Cannot set maxConcurrentOutgoingStreams_ to 0";
       return;
     }
-    if (codec_->supportsParallelRequests()) {
+    if (codec_.supportsParallelRequests()) {
       maxConcurrentOutgoingStreamsConfig_ = maxConcurrentOutgoingStreams;
     }
   }
@@ -653,13 +653,13 @@ class HTTPCoroSession
   bool checkForDetach(StreamState& stream);
 
   uint32_t getStreamSendFlowControlWindow() const {
-    return getStreamFlowControlWindow(codec_->getIngressSettings());
+    return getStreamFlowControlWindow(codec_.getIngressSettings());
   }
   uint32_t getStreamRecvFlowControlWindow() {
-    return getStreamFlowControlWindow(codec_->getEgressSettings());
+    return getStreamFlowControlWindow(codec_.getEgressSettings());
   }
   uint32_t getStreamFlowControlWindow(const HTTPSettings* settings) const {
-    if (codec_->supportsStreamFlowControl()) {
+    if (codec_.supportsStreamFlowControl()) {
       XCHECK(settings) << "H2 has settings and stream flow control";
       auto setting = settings->getSetting(SettingsId::INITIAL_WINDOW_SIZE);
       return setting ? uint32_t(setting->value) : http2::kInitialWindow;
@@ -724,7 +724,7 @@ class HTTPCoroSession
     /* ignore, we have our own timeouts? */
   }
   bool isBusy() const override {
-    return !streams_.empty() || codec_->isBusy();
+    return !streams_.empty() || codec_.isBusy();
   }
   std::chrono::milliseconds getIdleTime() const override {
     // TODO: implement
@@ -953,7 +953,7 @@ class HTTPUniplexTransportSession final : public HTTPCoroSession {
     // TODO: byte events for timing ping latency?
     // TODO: tracking e2e RTT measurements
     deliverLifecycleEvent(&LifecycleObserver::onPingReplySent, 0);
-    codec_->generatePingReply(writeBuf_, data);
+    codec_.generatePingReply(writeBuf_, data);
     writeEvent_.signal();
   }
   void onPingReply(uint64_t /*data*/) override {
@@ -1248,7 +1248,7 @@ class HTTPQuicCoroSession final
     SettingsId setting = *hq::hqToHttpSettingsId(hq::SettingId::H3_DATAGRAM);
     return multiCodec_->getEgressSettings()->getSetting(setting) &&
            (!multiCodec_->receivedSettings() ||
-            codec_->getIngressSettings()->getSetting(setting));
+            codec_.getIngressSettings()->getSetting(setting));
   }
   bool sendDatagram(HTTPCodec::StreamID id,
                     std::unique_ptr<folly::IOBuf> datagram);

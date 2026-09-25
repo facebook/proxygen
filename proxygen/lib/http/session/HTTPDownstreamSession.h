@@ -40,7 +40,7 @@ class HTTPDownstreamSession final : public HTTPSession {
                     std::move(codec),
                     tinfo,
                     infoCallback) {
-    CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
+    CHECK_EQ(codec_.getTransportDirection(), TransportDirection::DOWNSTREAM);
   }
 
   // allows using HTTPDownstreamSession with HHWheelTimer when it is not shared

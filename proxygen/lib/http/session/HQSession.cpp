@@ -682,7 +682,7 @@ size_t HQSession::sendPriority(HTTPCodec::StreamID id, HTTPPriority priority) {
     return 0;
   }
   auto g = folly::makeGuard(controlStream->setActiveCodec(__func__));
-  auto ret = controlStream->codecFilterChain->generatePriority(
+  auto ret = controlStream->codecFilterChain.generatePriority(
       controlStream->writeBuf_, id, priority);
   scheduleWrite();
   return ret;
@@ -709,7 +709,7 @@ size_t HQSession::sendPushPriority(hq::PushId pushId, HTTPPriority priority) {
     return 0;
   }
   auto g = folly::makeGuard(controlStream->setActiveCodec(__func__));
-  auto ret = controlStream->codecFilterChain->generatePushPriority(
+  auto ret = controlStream->codecFilterChain.generatePushPriority(
       controlStream->writeBuf_, pushId, priority);
   scheduleWrite();
   return ret;
@@ -793,7 +793,7 @@ void HQSession::sendGoaway() {
   auto g = folly::makeGuard(connCtrlStream->setActiveCodec(__func__));
   DCHECK(connCtrlStream);
   auto goawayStreamId = getGoawayStreamId();
-  auto generated = connCtrlStream->codecFilterChain->generateGoaway(
+  auto generated = connCtrlStream->codecFilterChain.generateGoaway(
       connCtrlStream->writeBuf_, goawayStreamId, ErrorCode::NO_ERROR);
   auto writeOffset =
       sock_->getStreamWriteOffset(connCtrlStream->getEgressStreamId());
@@ -876,7 +876,7 @@ size_t HQSession::sendSettings() {
   auto connCtrlStream = findControlStream(UnidirectionalStreamType::CONTROL);
   auto g = folly::makeGuard(connCtrlStream->setActiveCodec(__func__));
   DCHECK(connCtrlStream);
-  auto generated = connCtrlStream->codecFilterChain->generateSettings(
+  auto generated = connCtrlStream->codecFilterChain.generateSettings(
       connCtrlStream->writeBuf_);
   scheduleWrite();
   return generated;
@@ -2409,7 +2409,7 @@ void HQSession::HQStreamTransportBase::initCodec(
   }
   auto g = folly::makeGuard(setActiveCodec(__func__));
   if (isUpstream(session_.direction_) || txn_.isPushed()) {
-    codecStreamId_ = codecFilterChain->createStream();
+    codecStreamId_ = codecFilterChain.createStream();
   }
   hasCodec_ = true;
 }
@@ -2427,7 +2427,7 @@ void HQSession::HQStreamTransportBase::initIngress(const std::string& where) {
 
   auto g = folly::makeGuard(setActiveCodec(where));
 
-  codecFilterChain->setCallback(this);
+  codecFilterChain.call()->setCallback(this);
   eomGate_.then([this] { txn_.onIngressEOM(); });
   hasIngress_ = true;
 }
@@ -2645,7 +2645,7 @@ bool HQSession::HQStreamTransportBase::processReadData() {
     while (readBuf_.front()->length() == 0) {
       readBuf_.pop_front();
     }
-    size_t bytesParsed = codecFilterChain->onIngress(*readBuf_.front());
+    size_t bytesParsed = codecFilterChain.onIngress(*readBuf_.front());
     VLOG(4) << "streamID=" << getStreamId()
             << " parsed bytes=" << static_cast<int>(bytesParsed)
             << " from readBuf remain=" << readBuf_.chainLength()
@@ -2689,7 +2689,7 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
   CHECK_EQ(streamID, *codecStreamId_);
 
   if (msg->isRequest() && session_.userAgent_.empty()) {
-    session_.userAgent_ = session_.codec_->getUserAgent();
+    session_.userAgent_ = session_.codec_.getUserAgent();
   }
 
   hasHeaders_ = true;
@@ -2826,7 +2826,7 @@ void HQSession::HQStreamTransportBase::transactionTimeout(
 
   if (!codecStreamId_) {
     // transactionTimeout before onMessageBegin
-    codecStreamId_ = codecFilterChain->createStream();
+    codecStreamId_ = codecFilterChain.createStream();
   }
 
   if (!txn_.getHandler() &&
@@ -2917,12 +2917,12 @@ HQSession::HQStreamTransportBase::generateHeadersCommon(
       << headers.isRequest()
       << "; assocTxnId=" << txn_.getAssocTxnId().value_or(-1)
       << "; txn=" << txn_.getID();
-  codecFilterChain->generateHeader(writeBuf_,
-                                   *codecStreamId_,
-                                   headers,
-                                   includeEOM,
-                                   size,
-                                   session_.getExtraHeaders(headers, streamId));
+  codecFilterChain.generateHeader(writeBuf_,
+                                  *codecStreamId_,
+                                  headers,
+                                  includeEOM,
+                                  size,
+                                  session_.getExtraHeaders(headers, streamId));
 
   const uint64_t newOffset = streamWriteByteOffset();
   if (size) {
@@ -3042,11 +3042,11 @@ size_t HQSession::HQStreamTransportBase::sendEOM(
 
   CHECK(codecStreamId_);
   if (trailers) {
-    encodedSize = codecFilterChain->generateTrailers(
+    encodedSize = codecFilterChain.generateTrailers(
         writeBuf_, *codecStreamId_, *trailers);
   }
 
-  encodedSize += codecFilterChain->generateEOM(writeBuf_, *codecStreamId_);
+  encodedSize += codecFilterChain.generateEOM(writeBuf_, *codecStreamId_);
 
   // This will suppress the call to onEgressBodyLastByte in
   // handleLastByteEvents, since we're going to add a last byte event anyways.
@@ -3102,7 +3102,7 @@ size_t HQSession::HQStreamTransportBase::sendAbortImpl(HTTP3::ErrorCode code,
   // processReadData.  If not, then the STOP_SENDING we emit will trigger a peer
   // RST_STREAM (eventually), which will clear the readBuf_.
   ingressError_ = true;
-  codecFilterChain->setParserPaused(true);
+  codecFilterChain.setParserPaused(true);
 
   if (hasEgressStreamId()) {
     abortEgress(true);
@@ -3126,7 +3126,7 @@ void HQSession::HQStreamTransportBase::abortIngress() {
   VLOG(4) << "Aborting ingress for " << txn_;
   ingressError_ = true;
   readBuf_.move();
-  codecFilterChain->setParserPaused(true);
+  codecFilterChain.setParserPaused(true);
 }
 
 void HQSession::HQStreamTransportBase::abortEgress(bool checkForDetach) {
@@ -3296,11 +3296,11 @@ size_t HQSession::HQStreamTransportBase::sendBody(
 
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
-  size_t encodedSize = codecFilterChain->generateBody(writeBuf_,
-                                                      *codecStreamId_,
-                                                      std::move(body),
-                                                      HTTPCodec::NoPadding,
-                                                      includeEOM);
+  size_t encodedSize = codecFilterChain.generateBody(writeBuf_,
+                                                     *codecStreamId_,
+                                                     std::move(body),
+                                                     HTTPCodec::NoPadding,
+                                                     includeEOM);
   bodyBytesEgressed_ += bodyLength;
   if (auto httpSessionActivityTracker =
           session_.getHTTPSessionActivityTracker()) {
@@ -3333,7 +3333,7 @@ size_t HQSession::HQStreamTransportBase::sendChunkHeader(
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
   size_t encodedSize =
-      codecFilterChain->generateChunkHeader(writeBuf_, *codecStreamId_, length);
+      codecFilterChain.generateChunkHeader(writeBuf_, *codecStreamId_, length);
   notifyPendingEgress();
   return encodedSize;
 }
@@ -3346,7 +3346,7 @@ size_t HQSession::HQStreamTransportBase::sendChunkTerminator(
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
   size_t encodedSize =
-      codecFilterChain->generateChunkTerminator(writeBuf_, *codecStreamId_);
+      codecFilterChain.generateChunkTerminator(writeBuf_, *codecStreamId_);
   notifyPendingEgress();
   return encodedSize;
 }
@@ -3359,7 +3359,7 @@ size_t HQSession::HQStreamTransportBase::sendPadding(
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
   size_t encodedSize =
-      codecFilterChain->generatePadding(writeBuf_, *codecStreamId_, padding);
+      codecFilterChain.generatePadding(writeBuf_, *codecStreamId_, padding);
   if (encodedSize > 0) {
     notifyPendingEgress();
   }
@@ -3731,7 +3731,7 @@ void HQSession::HQStreamTransport::sendPushPromise(
   const uint64_t oldOffset = streamWriteByteOffset();
   auto g = folly::makeGuard(setActiveCodec(__func__));
 
-  codecFilterChain->generatePushPromise(
+  codecFilterChain.generatePushPromise(
       writeBuf_, *codecStreamId_, headers, pushId.value(), includeEOM, size);
 
   const uint64_t newOffset = streamWriteByteOffset();

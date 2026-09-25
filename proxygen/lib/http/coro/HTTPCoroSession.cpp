@@ -135,8 +135,8 @@ struct HTTPCoroSession::WtHelper {
     auto wt = std::make_shared<CoroWtSessionImpl>(
         sess.eventBase_.get(),
         dir,
-        getWtConfig(sess.codec_->getIngressSettings(),
-                    sess.codec_->getEgressSettings()),
+        getWtConfig(sess.codec_.getIngressSettings(),
+                    sess.codec_.getEgressSettings()),
         std::move(wtHandler),
         std::move(transport),
         CoroWtSession::Config{.readTimeout = sess.connReadTimeout_,
@@ -476,11 +476,11 @@ HTTPCoroSession::HTTPCoroSession(folly::EventBase* eventBase,
       codec_(std::move(codec)),
       handler_(std::move(handler)),
       setupTransportInfo_(std::move(tinfo)),
-      sendWindow_(codec_->supportsSessionFlowControl()
-                      ? codec_->getDefaultWindowSize()
+      sendWindow_(codec_.supportsSessionFlowControl()
+                      ? codec_.getDefaultWindowSize()
                       : std::numeric_limits<int32_t>::max()),
-      recvWindow_(codec_->supportsSessionFlowControl()
-                      ? codec_->getDefaultWindowSize()
+      recvWindow_(codec_.supportsSessionFlowControl()
+                      ? codec_.getDefaultWindowSize()
                       : std::numeric_limits<int32_t>::max()) {
   localAddr_.tryConvertToIPv4();
   peerAddr_.tryConvertToIPv4();
@@ -566,13 +566,13 @@ CoroSessionHandle HTTPCoroSession::makeDownstreamCoroSession(
 
 void HTTPUniplexTransportSession::start() {
   maybeEnableByteEvents();
-  if (!codec_->supportsParallelRequests()) {
+  if (!codec_.supportsParallelRequests()) {
     maxConcurrentOutgoingStreamsRemote_ = isDownstream() ? 0 : 1;
   }
 
   codec_.add<HTTPChecks>();
-  if (codec_->supportsParallelRequests() &&
-      proxygen::isDownstream(codec_->getTransportDirection())) {
+  if (codec_.supportsParallelRequests() &&
+      proxygen::isDownstream(codec_.getTransportDirection())) {
     auto rateLimitFilter =
         std::make_unique<RateLimitFilter>(&eventBase_->timer(), sessionStats_);
     rateLimitFilter->addRateLimiter(RateLimiter::Type::HEADERS);
@@ -588,7 +588,7 @@ void HTTPUniplexTransportSession::start() {
   }
   codec_.setCallback(this);
   ::proxygen::detail::setEgressWtHttpSettings(direction_,
-                                              codec_->getEgressSettings());
+                                              codec_.getEgressSettings());
   sendPreface();
 }
 
@@ -601,7 +601,7 @@ void HTTPQuicCoroSession::start() {
   quicSocket_->setPingCallback(this);
   codec_.add<HTTPChecks>();
 
-  if (proxygen::isDownstream(codec_->getTransportDirection())) {
+  if (proxygen::isDownstream(codec_.getTransportDirection())) {
     auto rateLimitFilter =
         std::make_unique<RateLimitFilter>(&eventBase_->timer(), sessionStats_);
     rateLimitFilter->addRateLimiter(RateLimiter::Type::HEADERS);
@@ -686,7 +686,7 @@ size_t HTTPQuicCoroSession::sendPriority(quic::StreamId id, HTTPPriority pri) {
   quicSocket_->setStreamPriority(
       id, HTTPPriorityQueue::Priority(pri.urgency, pri.incremental));
 
-  auto ret = codec_->generatePriority(writeBuf_, id, pri);
+  auto ret = codec_.generatePriority(writeBuf_, id, pri);
   writeEvent_.signal();
 
   return ret;
@@ -714,7 +714,7 @@ size_t HTTPQuicCoroSession::sendPushPriority(uint64_t pushId,
     return 0;
   }
 
-  auto ret = codec_->generatePushPriority(writeBuf_, pushId, pri);
+  auto ret = codec_.generatePushPriority(writeBuf_, pushId, pri);
 
   writeEvent_.signal();
   return ret;
@@ -765,9 +765,9 @@ folly::coro::Task<void> HTTPUniplexTransportSession::runImpl() {
 }
 
 void HTTPCoroSession::sendPreface() {
-  codec_->generateConnectionPreface(writeBuf_);
+  codec_.generateConnectionPreface(writeBuf_);
   applyEgressSettings();
-  codec_->generateSettings(writeBuf_);
+  codec_.generateSettings(writeBuf_);
   writeEvent_.signal();
 }
 
@@ -864,7 +864,7 @@ void HTTPCoroSession::onMessageBegin(HTTPCodec::StreamID streamID,
   if (it == streams_.end()) {
     if (isUpstream()) {
       // Headers on a stream that has already been reset?
-      if (!codec_->supportsParallelRequests()) {
+      if (!codec_.supportsParallelRequests()) {
         connectionError(HTTPErrorCode::PROTOCOL_ERROR,
                         "HTTP response without request");
       }
@@ -873,7 +873,7 @@ void HTTPCoroSession::onMessageBegin(HTTPCodec::StreamID streamID,
   } else {
     if (isDownstream()) {
       // The codecs shouldn't do this, but HQ manually invokes onMessageBegin
-      XLOG_IF(DFATAL, codec_->getProtocol() != CodecProtocol::HQ)
+      XLOG_IF(DFATAL, codec_.getProtocol() != CodecProtocol::HQ)
           << "Duplicate stream sess=" << *this << " id=" << streamID;
     } // upstream, it can happen
     return;
@@ -881,16 +881,16 @@ void HTTPCoroSession::onMessageBegin(HTTPCodec::StreamID streamID,
 
   // http/1.1 edge-case – read returned bytes after cancel; to prevent new
   // streams from being created, we simply pause the parser here
-  if (!codec_->isReusable()) {
-    codec_->setParserPaused(true);
+  if (!codec_.isReusable()) {
+    codec_.setParserPaused(true);
     return;
   }
 
   deliverLifecycleEvent(&LifecycleObserver::onRequestBegin, *this);
   auto& stream = createNewStream(streamID);
   if (isDownstream()) {
-    if (!codec_->supportsParallelRequests() && streams_.size() > 1) {
-      codec_->setParserPaused(true);
+    if (!codec_.supportsParallelRequests() && streams_.size() > 1) {
+      codec_.setParserPaused(true);
     }
     // Start a task to read the response to this request (downstream only)
     // onMessageBegin can only be invoked once per downstream txn
@@ -956,8 +956,8 @@ void HTTPCoroSession::onHeadersComplete(HTTPCodec::StreamID streamID,
   }
 
   auto upgrade = stream->checkForUpgrade(*msg, /*isIngress=*/true);
-  if (isDownstream() && upgrade && !codec_->supportsParallelRequests()) {
-    codec_->setParserPaused(true);
+  if (isDownstream() && upgrade && !codec_.supportsParallelRequests()) {
+    codec_.setParserPaused(true);
     // TODO: pause reading from transport too?
   }
   if (isDownstream() && msg->isRequest() &&
@@ -967,7 +967,7 @@ void HTTPCoroSession::onHeadersComplete(HTTPCodec::StreamID streamID,
 
   // Upstream/Downstream receiving headers
   setSecureMsg(*msg, setupTransportInfo_);
-  msg->setSeqNo(HTTPCodec::streamIDToSeqNo(codec_->getProtocol(), streamID));
+  msg->setSeqNo(HTTPCodec::streamIDToSeqNo(codec_.getProtocol(), streamID));
   auto priority = httpPriorityFromHTTPMessage(*msg);
   stream->setPriority(priority.value_or(kDefaultPriority));
   stream->streamSource.headers(std::move(msg));
@@ -1150,7 +1150,7 @@ void HTTPCoroSession::onBody(HTTPCodec::StreamID streamID,
 void HTTPUniplexTransportSession::handleIngressLimitExceeded(
     HTTPCodec::StreamID) {
   // only applies to h1 since h2 has session fc protocol semantics
-  if (!codec_->supportsSessionFlowControl()) {
+  if (!codec_.supportsSessionFlowControl()) {
     flowControlBaton_.reset();
   }
 }
@@ -1196,8 +1196,8 @@ void HTTPCoroSession::onMessageComplete(HTTPCodec::StreamID streamID,
   } // else, this is a 200 reply to a CONNECT?  Or WS?
 
   // handle http/1.1 keep-alive=false
-  if (isUpstream() && !codec_->isReusable() &&
-      !codec_->supportsParallelRequests()) {
+  if (isUpstream() && !codec_.isReusable() &&
+      !codec_.supportsParallelRequests()) {
     initiateDrain();
   }
 }
@@ -1314,7 +1314,7 @@ void HTTPCoroSession::onGoaway(uint64_t lastGoodStreamID,
   // TODO: Queue an onGoaway event for all active transactions
   //       Do something with debugData?
 
-  XCHECK(codec_->supportsParallelRequests()) << "GOAWAY is for parallel codecs";
+  XCHECK(codec_.supportsParallelRequests()) << "GOAWAY is for parallel codecs";
 
   // Notify the interested parties
   deliverLifecycleEvent(
@@ -1342,7 +1342,7 @@ void HTTPCoroSession::onGoaway(uint64_t lastGoodStreamID,
     // The peer errored the connection, reset all open streams
     resetOpenStreams(ErrorCode2HTTPErrorCode(code),
                      "Peer closed with connection error");
-    codec_->generateImmediateGoaway(writeBuf_);
+    codec_.generateImmediateGoaway(writeBuf_);
     writeEvent_.signal();
     // ingress callback, no need to interrupt reads
   }
@@ -1383,7 +1383,7 @@ void HTTPCoroSession::connectionError(
   resetOpenStreams(streamError.value_or(httpError), msg);
   writeEvent_.signal();
   interruptReadLoop();
-  XCHECK(!codec_->isWaitingToDrain());
+  XCHECK(!codec_.isWaitingToDrain());
   writableStreams_.clear();
 }
 
@@ -1391,19 +1391,19 @@ void HTTPUniplexTransportSession::handleConnectionError(HTTPErrorCode httpError,
                                                         std::string msg) {
   HTTPError err(httpError, msg);
   byteEventObserver_.cancelEvents(err);
-  codec_->generateImmediateGoaway(writeBuf_,
-                                  HTTPErrorCode2ErrorCode(httpError, false),
-                                  folly::IOBuf::copyBuffer(msg));
-  if (!codec_->supportsParallelRequests()) {
+  codec_.generateImmediateGoaway(writeBuf_,
+                                 HTTPErrorCode2ErrorCode(httpError, false),
+                                 folly::IOBuf::copyBuffer(msg));
+  if (!codec_.supportsParallelRequests()) {
     resetAfterDrainingWrites_ = true;
   }
 }
 
 void HTTPQuicCoroSession::handleConnectionError(HTTPErrorCode error,
                                                 std::string msg) {
-  codec_->generateImmediateGoaway(writeBuf_,
-                                  ErrorCode::PROTOCOL_ERROR, // ignored
-                                  nullptr);                  // ignored
+  codec_.generateImmediateGoaway(writeBuf_,
+                                 ErrorCode::PROTOCOL_ERROR, // ignored
+                                 nullptr);                  // ignored
   connectionError_.emplace(
       quic::ApplicationErrorCode(HTTPErrorCode2HTTP3ErrorCode(error, false)),
       std::move(msg));
@@ -1417,10 +1417,10 @@ void HTTPCoroSession::initiateDrain() {
   drainStarted();
   // Even if generateGoaway doesn't produce egress, it may change 'isReusable'
   // So signal the writeEvent_.
-  codec_->generateGoaway(writeBuf_);
+  codec_.generateGoaway(writeBuf_);
   writeEvent_.signal();
   interruptReadLoop();
-  if (codec_->isWaitingToDrain()) {
+  if (codec_.isWaitingToDrain()) {
     scheduleGoawayTimeout();
   }
 }
@@ -1434,7 +1434,7 @@ void HTTPCoroSession::closeWhenIdle() {
 void HTTPCoroSession::goawayTimeoutExpired() {
   // This is the equivalent of HTTPSession::closeWhenIdle
   drainStarted();
-  codec_->generateImmediateGoaway(writeBuf_);
+  codec_.generateImmediateGoaway(writeBuf_);
   writeEvent_.signal();
   interruptReadLoop();
 }
@@ -1597,7 +1597,7 @@ void HTTPUniplexTransportSession::onSettings(const SettingsList& settings) {
     }
   }
 
-  codec_->generateSettingsAck(writeBuf_);
+  codec_.generateSettingsAck(writeBuf_);
   writeEvent_.signal();
 }
 
@@ -1688,7 +1688,7 @@ void HTTPUniplexTransportSession::bytesProcessed(HTTPCodec::StreamID id,
                                                  size_t delta,
                                                  size_t toAckStream) {
   HTTPCoroSession::bytesProcessed(id, delta, toAckStream);
-  if (!codec_->supportsSessionFlowControl()) {
+  if (!codec_.supportsSessionFlowControl()) {
     auto stream = findStream(id);
     if (stream && shouldResumeIngress(*stream, delta)) {
       XLOG(DBG4) << "resuming stream previously ingress limited; sess="
@@ -1716,7 +1716,7 @@ void HTTPQuicCoroSession::bytesProcessed(HTTPCodec::StreamID id,
 
 bool HTTPUniplexTransportSession::sendFlowControlUpdate(HTTPCodec::StreamID id,
                                                         size_t delta) {
-  return codec_->generateWindowUpdate(writeBuf_, id, delta);
+  return codec_.generateWindowUpdate(writeBuf_, id, delta);
 }
 
 void HTTPCoroSession::sourceComplete(HTTPCodec::StreamID id,
@@ -1746,7 +1746,7 @@ void HTTPCoroSession::sourceComplete(HTTPCodec::StreamID id,
       if (isNoError(egressErrorCode) && isDownstream()) {
         // delay STOP_SENDING w/ NO_ERROR until egress EOM (except for
         // http/1.1)
-        stream->setDeferredStopSending(codec_->supportsParallelRequests());
+        stream->setDeferredStopSending(codec_.supportsParallelRequests());
       } else {
         // egress bidirectional reset
         egressResetStream(id,
@@ -1887,8 +1887,8 @@ HTTPCoroSession::ResponseState HTTPCoroSession::processResponseHeaderEvent(
              << " sess=" << *this;
   headers.dumpMessage(4);
   auto upgrade = stream.checkForUpgrade(headers, /*isIngress=*/false);
-  if (upgrade & !codec_->supportsParallelRequests()) {
-    codec_->setParserPaused(false);
+  if (upgrade & !codec_.supportsParallelRequests()) {
+    codec_.setParserPaused(false);
   }
 
   if (auto pri = headerEvent->headers->getHTTPPriority()) {
@@ -1896,7 +1896,7 @@ HTTPCoroSession::ResponseState HTTPCoroSession::processResponseHeaderEvent(
   }
 
   HTTPHeaderSize size;
-  codec_->generateHeader(
+  codec_.generateHeader(
       stream.getWriteBuf(), stream.getID(), headers, headerEvent->eom, &size);
   stream.addToStreamOffset(size.compressed);
   HTTPByteEvent::FieldSectionInfo fsInfo = {
@@ -2305,7 +2305,7 @@ folly::Expected<HTTPSourceHolder, HTTPError> HTTPCoroSession::sendRequestImpl(
   // TODO: do we want to throttle reading request headers on buffer space
   bool eom = !bodySource.readable();
   HTTPHeaderSize size;
-  codec_->generateHeader(stream->getWriteBuf(), streamID, headers, eom, &size);
+  codec_.generateHeader(stream->getWriteBuf(), streamID, headers, eom, &size);
   stream->addToStreamOffset(size.compressed);
   XLOG(DBG6) << "Done generating headers sess=" << *this << " id=" << streamID;
   HTTPByteEvent::FieldSectionInfo fsInfo = {
@@ -2345,7 +2345,7 @@ folly::Expected<HTTPSourceHolder, HTTPError> HTTPCoroSession::sendRequestImpl(
 
 HTTPCoroSession::StreamState* HTTPUniplexTransportSession::createReqStream() {
   // create request stream with no timeout until EOM is sent
-  return &createNewStream(codec_->createStream(), /*fromSendRequest=*/true);
+  return &createNewStream(codec_.createStream(), /*fromSendRequest=*/true);
 }
 
 HTTPCoroSession::StreamState* HTTPQuicCoroSession::createReqStream() {
@@ -2403,7 +2403,7 @@ void HTTPUniplexTransportSession::generateResetStream(
     bool fromSource,
     bool /*bidirectionalReset*/) {
   // h1 & h2 resets are bidirectional (terminates ingress & egress)
-  if (!codec_->generateRstStream(
+  if (!codec_.generateRstStream(
           writeBuf_, id, HTTPErrorCode2ErrorCode(error, fromSource))) {
     XLOG(DBG4) << "resetAfterDrainingWrites sess=" << *this;
     resetAfterDrainingWrites_ = true;
@@ -2465,7 +2465,7 @@ bool HTTPCoroSession::checkForDetach(StreamState& stream) {
     XLOG(DBG4) << "detaching stream=" << stream.getID() << " sess=" << *this;
     eraseStream(stream.getID());
     transactionDetached();
-    if (!codec_->supportsParallelRequests() && streams_.size() <= 1) {
+    if (!codec_.supportsParallelRequests() && streams_.size() <= 1) {
       handlePipeliningOnDetach();
     }
     writeEvent_.signal();
@@ -2495,13 +2495,13 @@ void HTTPUniplexTransportSession::handlePipeliningOnDetach() {
     resetStreamState(*streams_.begin()->second,
                      HTTPError(HTTPErrorCode::CANCEL, "Pipeline cancel"));
   } else {
-    codec_->setParserPaused(false);
+    codec_.setParserPaused(false);
   }
   antiPipelineBaton_.signal();
 }
 
 void HTTPCoroSession::setSetting(SettingsId id, uint32_t value) {
-  auto settings = codec_->getEgressSettings();
+  auto settings = codec_.getEgressSettings();
   if (settings) {
     settings->setSetting(id, value);
   }
@@ -2514,7 +2514,7 @@ void HTTPCoroSession::setReadBufNewAllocSize(size_t size) {
 }
 
 void HTTPUniplexTransportSession::sendPing() {
-  codec_->generatePingRequest(writeBuf_, folly::none);
+  codec_.generatePingRequest(writeBuf_, folly::none);
   writeEvent_.signal();
 }
 
@@ -2524,10 +2524,10 @@ void HTTPQuicCoroSession::sendPing() {
 
 void HTTPUniplexTransportSession::setConnectionFlowControl(
     uint32_t connFlowControl) {
-  if (codec_->supportsSessionFlowControl()) {
+  if (codec_.supportsSessionFlowControl()) {
     auto delta = recvWindow_.setCapacity(connFlowControl);
     if (delta) {
-      codec_->generateWindowUpdate(writeBuf_, 0, delta);
+      codec_.generateWindowUpdate(writeBuf_, 0, delta);
       writeEvent_.signal();
     }
   }
@@ -2541,14 +2541,14 @@ bool HTTPUniplexTransportSession::shouldContinueReadLooping() const {
   // Continue reading while there are open streams or the codec is reusable,
   // unless writes have finished or there is a pending reset
   bool continueLoop = !writesFinished_.ready() && !resetAfterDrainingWrites_ &&
-                      (codec_->isReusable() || !streams_.empty());
+                      (codec_.isReusable() || !streams_.empty());
   // clang-format off
   XLOG(DBG4)
     << __func__
     << " continue=" << uint32_t(continueLoop)
     << " writesFinished_=" << uint32_t(writesFinished_.ready())
     << " resetAfterDrainingWrites_=" << uint32_t(resetAfterDrainingWrites_)
-    << " isReusable=" << uint32_t(codec_->isReusable())
+    << " isReusable=" << uint32_t(codec_.isReusable())
     << " nStreams=" << streams_.size()
     << " sess=" << *this;
   // clang-format on
@@ -2609,7 +2609,7 @@ folly::coro::Task<void> HTTPUniplexTransportSession::readLoop() noexcept {
     if (*rc == 0) { // peer closed the connection
       XLOG(DBG4) << "Read EOF sess=" << *this;
       deliverLifecycleEvent(&LifecycleObserver::onIngressEOF, *this);
-      codec_->onIngressEOF();
+      codec_.onIngressEOF();
       for (auto& [_, stream] : streams_) {
         stream->abortIngress(HTTPErrorCode::TRANSPORT_EOF);
       }
@@ -2622,10 +2622,10 @@ folly::coro::Task<void> HTTPUniplexTransportSession::readLoop() noexcept {
     resetTimeout();
     size_t bytesParsed = 0;
     do {
-      bytesParsed = codec_->onIngress(*readBuf.front());
+      bytesParsed = codec_.onIngress(*readBuf.front());
       readBuf.trimStart(bytesParsed);
       if (bytesParsed == 0 && !readBuf.empty() &&
-          !codec_->supportsParallelRequests() && streams_.size() > 1) {
+          !codec_.supportsParallelRequests() && streams_.size() > 1) {
         XLOG(DBG4) << "Waiting for previous transaction(s) to finish before "
                    << "parsing more sess=" << *this;
         antiPipelineBaton_.reset();
@@ -2991,7 +2991,7 @@ void HTTPQuicCoroSession::StreamRCB::processRead(quic::StreamId id) {
       baton_.signal();
       return;
     }
-    auto parsed = session_.codec_->onIngress(*input_.front());
+    auto parsed = session_.codec_.onIngress(*input_.front());
     input_.trimStart(parsed);
   }
   if (input_.empty() && readEOF_) {
@@ -3004,7 +3004,7 @@ void HTTPQuicCoroSession::StreamRCB::processRead(quic::StreamId id) {
       baton_.signal();
       return;
     }
-    session_.codec_->onIngressEOF();
+    session_.codec_.onIngressEOF();
     baton_.signal();
     return;
   }
@@ -3162,7 +3162,7 @@ bool HTTPUniplexTransportSession::shouldContinueWriteLooping() const {
   // We may need to terminate the write loop with open streams - if we need
   // an EOM to terminate the current message, or a TCP RST
   bool closeWithOpenStreams =
-      codec_->closeOnEgressComplete() || resetAfterDrainingWrites_;
+      codec_.closeOnEgressComplete() || resetAfterDrainingWrites_;
   // Continue waiting for write events while the socket is good and:
   //   1) There is some data to write OR
   //   2) There is at least one stream and !closeWithOpenStreams OR
@@ -3172,18 +3172,18 @@ bool HTTPUniplexTransportSession::shouldContinueWriteLooping() const {
   bool continueLoop =
       (!writeBuf_.empty() ||
        (!closeWithOpenStreams && !streams_.empty()) ||
-       (!readsClosed_ && codec_->isReusable()) ||
+       (!readsClosed_ && codec_.isReusable()) ||
        pendingSendStreams_ > 0);
   // clang-format on
   XLOG(DBG6)
       << __func__ << " continueLoop=" << (continueLoop ? 1 : 0)
       << " pendingSendStreams_=" << pendingSendStreams_
-      << " closeOnEgressComplete=" << (codec_->closeOnEgressComplete() ? 1 : 0)
+      << " closeOnEgressComplete=" << (codec_.closeOnEgressComplete() ? 1 : 0)
       << " resetAfterDrainingWrites_=" << (resetAfterDrainingWrites_ ? 1 : 0)
       << " nStreams=" << streams_.size()
       << " writeBuf_.chainLength()=" << writeBuf_.chainLength()
       << " readsClosed_=" << (readsClosed_ ? 1 : 0)
-      << " codec_->isReusable()=" << (codec_->isReusable() ? 1 : 0)
+      << " codec_.isReusable()=" << (codec_.isReusable() ? 1 : 0)
       << " sess=" << *this;
 
   return continueLoop;
@@ -3191,10 +3191,10 @@ bool HTTPUniplexTransportSession::shouldContinueWriteLooping() const {
 
 bool HTTPQuicCoroSession::shouldContinueWriteLooping() const {
   auto continueLoop =
-      hasControlWrite() || codec_->isReusable() || !streams_.empty();
+      hasControlWrite() || codec_.isReusable() || !streams_.empty();
   XLOG(DBG6) << __func__ << " continueLoop=" << (continueLoop ? 1 : 0)
              << " hasControlWrite=" << hasControlWrite()
-             << " codec_->isReusable()=" << (codec_->isReusable() ? 1 : 0)
+             << " codec_.isReusable()=" << (codec_.isReusable() ? 1 : 0)
              << " nStreams=" << streams_.size() << " sess=" << *this;
   return continueLoop;
 }
@@ -3390,11 +3390,11 @@ folly::coro::Task<void> HTTPQuicCoroSession::writeLoop() noexcept {
                   recordPendingBufferedWriteBytes,
                   -static_cast<int64_t>(bodyEvent.event.body.chainLength()));
 
-              bytesWritten += codec_->generateBody(stream->getWriteBuf(),
-                                                   stream->getID(),
-                                                   bodyEvent.event.body.move(),
-                                                   HTTPCodec::NoPadding,
-                                                   bodyEvent.eom);
+              bytesWritten += codec_.generateBody(stream->getWriteBuf(),
+                                                  stream->getID(),
+                                                  bodyEvent.event.body.move(),
+                                                  HTTPCodec::NoPadding,
+                                                  bodyEvent.eom);
             }
             break;
           }
@@ -3415,9 +3415,9 @@ folly::coro::Task<void> HTTPQuicCoroSession::writeLoop() noexcept {
           case HTTPBodyEvent::TRAILERS: {
             XLOG(DBG4) << "Sending trailers sess=" << *this
                        << " id=" << stream->getID();
-            auto sz = codec_->generateTrailers(stream->getWriteBuf(),
-                                               stream->getID(),
-                                               *bodyEvent.event.trailers);
+            auto sz = codec_.generateTrailers(stream->getWriteBuf(),
+                                              stream->getID(),
+                                              *bodyEvent.event.trailers);
             bytesWritten += sz;
             fieldSectionInfo.emplace<HTTPByteEvent::FieldSectionInfo>(
                 {HTTPByteEvent::FieldSectionInfo::Type::TRAILERS,
@@ -3436,10 +3436,9 @@ folly::coro::Task<void> HTTPQuicCoroSession::writeLoop() noexcept {
             break;
           }
           case HTTPBodyEvent::PADDING: {
-            bytesWritten +=
-                codec_->generatePadding(stream->getWriteBuf(),
-                                        stream->getID(),
-                                        bodyEvent.event.paddingSize);
+            bytesWritten += codec_.generatePadding(stream->getWriteBuf(),
+                                                   stream->getID(),
+                                                   bodyEvent.event.paddingSize);
             break;
           }
         }
@@ -3574,10 +3573,10 @@ size_t HTTPUniplexTransportSession::addStreamBodyDataToWriteBuf(uint32_t max) {
             // In opt builds, continue and send anyways, the peer will close
           }
           // Simulate window updates for H1 if needed
-          if (!codec_->supportsSessionFlowControl()) {
+          if (!codec_.supportsSessionFlowControl()) {
             onWindowUpdate(0, length);
           }
-          if (!codec_->supportsStreamFlowControl()) {
+          if (!codec_.supportsStreamFlowControl()) {
             onWindowUpdate(streamId, length);
           }
           if (sendWindow_.getSize() == 0) {
@@ -3587,15 +3586,15 @@ size_t HTTPUniplexTransportSession::addStreamBodyDataToWriteBuf(uint32_t max) {
           }
           if (length == 0) {
             XCHECK(bodyEvent.eom);
-            auto eomBytes = codec_->generateEOM(writeBuf_, streamId);
+            auto eomBytes = codec_.generateEOM(writeBuf_, streamId);
             bytesWritten += eomBytes;
             stream->addToStreamOffset(eomBytes);
           } else {
-            auto genBytes = codec_->generateBody(writeBuf_,
-                                                 streamId,
-                                                 bodyEvent.event.body.move(),
-                                                 HTTPCodec::NoPadding,
-                                                 bodyEvent.eom);
+            auto genBytes = codec_.generateBody(writeBuf_,
+                                                streamId,
+                                                bodyEvent.event.body.move(),
+                                                HTTPCodec::NoPadding,
+                                                bodyEvent.eom);
             XCHECK_GT(genBytes, 0ul);
             fcBytesWritten += length;
             bytesWritten += genBytes;
@@ -3617,7 +3616,7 @@ size_t HTTPUniplexTransportSession::addStreamBodyDataToWriteBuf(uint32_t max) {
           break;
         case HTTPBodyEvent::TRAILERS: {
           XLOG(DBG4) << "Sending trailers sess=" << *this << " id=" << streamId;
-          auto sz = codec_->generateTrailers(
+          auto sz = codec_.generateTrailers(
               writeBuf_, streamId, *bodyEvent.event.trailers);
           bytesWritten += sz;
           stream->addToStreamOffset(sz);
@@ -3630,7 +3629,7 @@ size_t HTTPUniplexTransportSession::addStreamBodyDataToWriteBuf(uint32_t max) {
           break;
         }
         case HTTPBodyEvent::PADDING: {
-          size_t genBytes = codec_->generatePadding(
+          size_t genBytes = codec_.generatePadding(
               writeBuf_, streamId, bodyEvent.event.paddingSize);
           bytesWritten += genBytes;
           stream->addToStreamOffset(genBytes);
@@ -3669,7 +3668,7 @@ size_t HTTPUniplexTransportSession::addStreamBodyDataToWriteBuf(uint32_t max) {
 
 folly::Expected<std::pair<HTTPCodec::StreamID, HTTPCodec::StreamID>, ErrorCode>
 HTTPUniplexTransportSession::createEgressPushStream() {
-  auto pushStreamID = codec_->createStream();
+  auto pushStreamID = codec_.createStream();
   std::pair<HTTPCodec::StreamID, HTTPCodec::StreamID> res{pushStreamID,
                                                           pushStreamID};
   return res;
@@ -3701,7 +3700,7 @@ HTTPHeaderSize HTTPCoroSession::addPushPromiseToWriteBuf(
   XCHECK(isDownstream());
   XLOG(DBG4) << "Sending push promise sess=" << *this
              << " id=" << stream.getID();
-  if (!codec_->supportsPushTransactions()) {
+  if (!codec_.supportsPushTransactions()) {
     XLOG(WARNING) << "Ignoring push because peer does not support push";
     return {0, 0, 0};
   }
@@ -3727,12 +3726,12 @@ HTTPHeaderSize HTTPCoroSession::addPushPromiseToWriteBuf(
   numPushStreams_++;
 
   HTTPHeaderSize size;
-  codec_->generatePushPromise(stream.getWriteBuf(),
-                              pushID,
-                              *bodyEvent.event.push.promise,
-                              stream.getID(),
-                              bodyEvent.eom,
-                              &size);
+  codec_.generatePushPromise(stream.getWriteBuf(),
+                             pushID,
+                             *bodyEvent.event.push.promise,
+                             stream.getID(),
+                             bodyEvent.eom,
+                             &size);
 
   // A little strange to start a co-routine from the egress path
   XLOG(DBG4) << "Starting egress push readResponse for id="
@@ -3845,10 +3844,10 @@ void HTTPQuicCoroSession::attachEvb(folly::EventBase* evb) {
 void HTTPCoroSession::describe(std::ostream& os) const {
   if (isDownstream()) {
     os << "downstream=" << peerAddr_ << ", " << localAddr_ << "=local"
-       << ", proto=" << getCodecProtocolString(codec_->getProtocol());
+       << ", proto=" << getCodecProtocolString(codec_.getProtocol());
   } else {
     os << ", local=" << localAddr_ << ", " << peerAddr_ << "=upstream"
-       << ", proto=" << getCodecProtocolString(codec_->getProtocol());
+       << ", proto=" << getCodecProtocolString(codec_.getProtocol());
   }
 }
 
@@ -3872,12 +3871,12 @@ folly::coro::Task<WtReqResult> HTTPCoroSession::sendWtReq(
     return makeInternalEx("Invalid reservation");
   }
 
-  const auto* ingress = codec_->getIngressSettings();
-  const auto* egress = codec_->getEgressSettings();
+  const auto* ingress = codec_.getIngressSettings();
+  const auto* egress = codec_.getEgressSettings();
   const bool wtEnabled =
       isHQCodecProtocol(getCodecProtocol())
           ? ::proxygen::detail::supportsH3Wt(
-                codec_->getTransportDirection(), ingress, egress)
+                codec_.getTransportDirection(), ingress, egress)
           : ::proxygen::detail::supportsH2Wt(direction_, ingress, egress);
   const bool validWtReq = HTTPWebTransport::isConnectMessage(msg);
   if (!(wtEnabled && validWtReq)) {
