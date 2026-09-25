@@ -1006,6 +1006,17 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     }
   }
 
+  // Delivers the ACK byte events for bytes already written, without waiting for
+  // the delay writePendingDataAndAck() simulates.
+  void deliverPendingByteEvents() {
+    for (auto& it : streams_) {
+      fireCallbacks(it.first,
+                    it.second,
+                    it.second.deliveryCallbacks,
+                    ByteEvent::Type::ACK);
+    }
+  }
+
   uint64_t maxConnWritable() {
     return streams_[kConnectionStreamId].flowControlWindow;
   }

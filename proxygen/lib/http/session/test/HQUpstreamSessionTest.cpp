@@ -1883,6 +1883,7 @@ TEST_P(HQUpstreamSessionTestWebTransport, BidirectionalStream) {
       });
   VLOG(4) << "flushLoop 3";
   flushAndLoopN(1);
+  socketDriver_->deliverPendingByteEvents();
   closeWTSession();
 }
 
