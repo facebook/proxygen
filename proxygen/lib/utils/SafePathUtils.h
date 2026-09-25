@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 #include <folly/ExceptionWrapper.h>
 #include <folly/Expected.h>
