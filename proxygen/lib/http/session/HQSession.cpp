@@ -2427,7 +2427,7 @@ void HQSession::HQStreamTransportBase::initIngress(const std::string& where) {
 
   auto g = folly::makeGuard(setActiveCodec(where));
 
-  codecFilterChain.call()->setCallback(this);
+  codecFilterChain.setCallback(this);
   eomGate_.then([this] { txn_.onIngressEOM(); });
   hasIngress_ = true;
 }
