@@ -1662,7 +1662,7 @@ class HQSession
     void clearPendingEgress(HTTP2PriorityQueueBase::Handle /*h*/) override {
       CHECK(queueHandle_.isTransactionEnqueued());
       queueHandle_.setTransactionEnqueued(false);
-      if (pendingEOM_ || hasWriteBuffer()) {
+      if (pendingEOM() || hasWriteBuffer()) {
         // no-op
         // Only HQSession can clearPendingEgress for these cases
         return;
@@ -1712,8 +1712,13 @@ class HQSession
 
     HQPriHandle queueHandle_;
     HTTPTransaction txn_;
-    // need to send EOM
-    bool pendingEOM_{false};
+    // still need to send EOM
+    bool pendingEOM() const {
+      return egressEOM_ == EgressEOM::Pending;
+    }
+    void markEgressEOMWritten() {
+      egressEOM_ = EgressEOM::Written;
+    }
     // have read EOF
     bool readEOF_{false};
     bool hasCodec_{false};
@@ -1763,6 +1768,11 @@ class HQSession
     uint64_t numActiveDeliveryCallbacks() const {
       return numActiveDeliveryCallbacks_;
     }
+
+   protected:
+    // egress EOM progress
+    enum class EgressEOM : uint8_t { None, Pending, Written, Aborted };
+    EgressEOM egressEOM_{EgressEOM::None};
 
    private:
     void updatePriority(const HTTPMessage& headers) noexcept;
