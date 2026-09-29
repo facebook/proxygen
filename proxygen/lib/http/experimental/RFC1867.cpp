@@ -7,6 +7,8 @@
  */
 
 #include <proxygen/lib/http/experimental/RFC1867.h>
+
+#include <array>
 #include <proxygen/lib/utils/Logging.h>
 
 using folly::IOBuf;
@@ -87,11 +89,11 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
           return input_.move();
         }
         Cursor c(input_.front());
-        char firstTwo[2];
-        c.pull(firstTwo, 2);
+        std::array<char, 2> firstTwo{};
+        c.pull(firstTwo.data(), firstTwo.size());
         // We have at least 3 chars available to read
         uint8_t toTrim = 3;
-        if (memcmp(firstTwo, "--", 2) == 0) {
+        if (memcmp(firstTwo.data(), "--", firstTwo.size()) == 0) {
           do {
             auto ch = c.read<char>();
             if (ch == '\n') {
