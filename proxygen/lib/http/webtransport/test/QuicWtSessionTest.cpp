@@ -375,6 +375,7 @@ TEST_F(QuicWtSessionTest, ResetStream) {
 }
 
 TEST_F(QuicWtSessionTest, QuicStreamWriteError) {
+  constexpr uint64_t kWriteWindow = 65'536;
   auto handle = session_->createUniStream().value();
   const auto id = handle->getID();
   bool cancellationRequested = false;
@@ -383,23 +384,24 @@ TEST_F(QuicWtSessionTest, QuicStreamWriteError) {
                                          handle->resetStream(0x00);
                                        }};
 
-  // block writes => QuicWtSession will install StreamWriteCallback on next
-  // ::writeStreamData
+  // QuicWtSession will write up to kWriteWindow before applying egress
+  // backpressure
   socketDriver_.setStreamFlowControlWindow(id, 0);
-  handle->writeStreamData(folly::IOBuf::copyBuffer("data"), false, nullptr);
-  eventBase_.loopOnce();
+  auto result = handle->writeStreamData(
+      folly::IOBuf::copyBuffer(std::string(2 * kWriteWindow, 'a')),
+      false,
+      nullptr);
+  ASSERT_TRUE(result.hasValue());
+  eventBase_.loop();
 
-  // data should not have been written to the socket
   auto& stream = socketDriver_.streams_[id];
-  EXPECT_EQ(stream.writeBuf.chainLength(), 0);
-  EXPECT_TRUE(stream.pendingWriteCb.stream);
+  EXPECT_EQ(stream.unsentBuf.chainLength(), kWriteWindow);
+  ASSERT_TRUE(stream.pendingWriteCb.stream);
 
   // ::onStreamWriteError should not cancel callback
   stream.pendingWriteCb.stream->onStreamWriteError(
       id, quic::QuicError{quic::ApplicationErrorCode(WT_ERROR_1)});
   EXPECT_FALSE(cancellationRequested);
-
-  eventBase_.loop();
 }
 
 TEST_F(QuicWtSessionTest, SetPriority) {
@@ -779,30 +781,42 @@ TEST_F(QuicWtSessionTest, ReadAvailableReadFails) {
 }
 
 TEST_F(QuicWtSessionTest, WriteFlowControlBlocked) {
+  /**
+   * When a unidirectional stream is first created, it queries the QuicSocket
+   * for available flow control. In the case of MockQuicSocketDriver, it
+   * defaults to 65,536.
+   *
+   * In this test we enqueue one more byte + fin (i.e. 65,537 bytes).
+   * QuicWtSession will only dequeue 65,536 bytes and keep the remaining byte +
+   * fin buffered until additional flow control becomes available
+   */
   auto handle = session_->createUniStream();
   ASSERT_TRUE(handle.hasValue());
-  auto id = handle.value()->getID();
+  const auto id = handle.value()->getID();
 
-  // block writes by setting stream flow control window to 0
-  socketDriver_.setStreamFlowControlWindow(id, 0);
+  // unlimited conn fc
+  socketDriver_.setConnectionFlowControlWindow(
+      std::numeric_limits<uint64_t>::max());
 
-  // write data: eventsAvailable() will see maxData==0 and call
-  // notifyPendingWriteOnStream instead of writing
+  constexpr size_t kDataLength = 65'537;
+  std::string data(kDataLength, 'a');
   handle.value()->writeStreamData(
-      folly::IOBuf::copyBuffer("blocked data"), false, nullptr);
+      /*data=*/folly::IOBuf::copyBuffer(data), /*fin=*/true, nullptr);
   eventBase_.loopOnce();
 
-  // data should NOT have been written to the socket
-  EXPECT_EQ(socketDriver_.streams_[id].writeBuf.chainLength(), 0);
+  // We expect 65'536 bytes to be in the sent buffer
+  auto& stream = socketDriver_.streams_[id];
+  EXPECT_EQ(stream.writeBuf.chainLength(), kDataLength - 1);
+  // QuicWtSession installs a PendingWriteCb when saturating peer advertised fc
+  EXPECT_NE(stream.pendingWriteCb.stream, nullptr);
 
-  // unblock by restoring flow control window: this triggers
-  // onStreamWriteReady() which re-inserts into priority queue and calls
-  // eventsAvailable()
-  socketDriver_.setStreamFlowControlWindow(id, 65536);
+  // simulating peer advertisting additional fc credits
+  socketDriver_.setStreamFlowControlWindow(id, kDataLength);
   eventBase_.loop();
 
-  // data should now be written
-  EXPECT_EQ(socketDriver_.streams_[id].writeBuf.chainLength(), 12);
+  // data including remaining byte + fin should now be written
+  EXPECT_EQ(stream.writeBuf.chainLength(), kDataLength);
+  EXPECT_TRUE(stream.writeEOF);
 }
 
 /**

@@ -2577,6 +2577,7 @@ TEST_P(H3WtUpstreamTest, SimpleUniEgress) {
   CHECK(createStream.hasValue());
   auto* wh = createStream.value();
   auto id = wh->getID();
+  socketDriver_->setConnectionFlowControlWindow(kLargeFc);
   socketDriver_->setStreamFlowControlWindow(id, kLargeFc);
 
   // fill up egress buffer => writes blocked
@@ -2587,6 +2588,8 @@ TEST_P(H3WtUpstreamTest, SimpleUniEgress) {
   EXPECT_EQ(writeRes.value(), WebTransport::FCState::BLOCKED);
   // data written to underlying quic socket
   const auto& quicStream = socketDriver_->streams_.at(id);
+  EXPECT_TRUE(quicStream.pendingWriteCb.stream); // installed when 64KiB written
+  loopN(1);
   EXPECT_EQ(quicStream.nextWriteOffset, kBufLen + wtPrefixSize);
 
   // blocked on connection-level fc; buffered data will not be dequeued from

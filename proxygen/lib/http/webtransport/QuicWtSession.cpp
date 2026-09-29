@@ -16,9 +16,18 @@ using FCState = WebTransport::FCState;
 
 namespace {
 static constexpr uint64_t kMaxWtIngressBuf = 65'535;
+static constexpr uint64_t kDefaultWtWrite = 65'535;
 
-WtStreamManager::WtConfig createQuicConfig() {
-  WtStreamManager::WtConfig config;
+using WtConfig = WtStreamManager::WtConfig;
+WtConfig& overwritePeerMaxDataWtConfig(WtConfig& config) {
+  config.peerMaxStreamDataBidiLocal = kDefaultWtWrite;
+  config.peerMaxStreamDataBidiRemote = kDefaultWtWrite;
+  config.peerMaxStreamDataUni = kDefaultWtWrite;
+  return config;
+}
+
+WtConfig createQuicConfig() {
+  WtConfig config;
   config.selfMaxStreamsBidi = kMaxVarint;
   config.selfMaxStreamsUni = kMaxVarint;
   config.selfMaxConnData = kMaxVarint;
@@ -28,10 +37,42 @@ WtStreamManager::WtConfig createQuicConfig() {
   config.peerMaxStreamsBidi = kMaxVarint;
   config.peerMaxStreamsUni = kMaxVarint;
   config.peerMaxConnData = kMaxVarint;
-  config.peerMaxStreamDataBidiLocal = kMaxVarint;
-  config.peerMaxStreamDataBidiRemote = kMaxVarint;
-  config.peerMaxStreamDataUni = kMaxVarint;
+  overwritePeerMaxDataWtConfig(config);
   return config;
+}
+
+bool isWtStreamEgressFcBlocked(
+    const WtStreamManager& sm,
+    const WtStreamManager::WtWriteHandle& wh) noexcept {
+  const auto [currentOffset, maxOffset] = sm.getFlowControlInfo(wh);
+  return currentOffset == maxOffset;
+}
+
+/**
+ * Queries the quic socket for the peer's current max advertised offset and sets
+ * it accordingly on the WtStreamManager's WriteHandle. As of now this function
+ * is invoked mainly from two places:
+ *
+ * - When we first create an egress stream (either peer bidi, local bidi, or
+ *   local uni). Since we start with a default minimum value of kDefaultWtWrite.
+ *
+ * - During the write loop, when we eventually saturate the window previously
+ *   queried, we reinstall the notifyPendingWriteOnStream and re-query the
+ *   window.
+ */
+void grantMaxData(const QuicSocket& sock,
+                  WtStreamManager& sm,
+                  const WtStreamManager::WtWriteHandle& wh) noexcept {
+  using MaxStreamData = WtStreamManager::MaxStreamData;
+  const auto id = wh.getID();
+  // query quic flow control
+  const auto fc = sock.getStreamFlowControl(id);
+  if (fc.hasError()) { // let normal flows handle errors (e.g. ::readError)
+    return;
+  }
+  // no-op if the peer rwnd max offset hasn't increased
+  sm.onMaxData(MaxStreamData{{.maxData = fc->sendWindowMaxOffset}, id});
+  return;
 }
 
 struct QuicWtEventVisitor {
@@ -122,7 +163,7 @@ QuicWtSessionBase::QuicWtSessionBase(
       sm_{quicSocket_->getNodeType() == quic::QuicNodeType::Server
               ? WtDir::Server
               : WtDir::Client,
-          wtConfig,
+          overwritePeerMaxDataWtConfig(wtConfig),
           smCb_,
           smCb_,
           *priorityQueue_},
@@ -141,6 +182,7 @@ auto QuicWtSessionBase::createWtEgressHandle(StreamId id) noexcept
   const bool bidi = success && res.readHandle;
   // canCreate(Uni|Bidi) checked in ::create(Uni|Bidi)Stream
   XCHECK(success);
+  grantMaxData(*quicSocket_, sm_, *res.writeHandle);
   quicSocket_->setStopSendingCallback(id, &stopSendingCb_);
   if (bidi) {
     sm_.setReadCb(*res.readHandle, &smCb_);
@@ -305,24 +347,19 @@ void QuicWtSessionBase::StreamManagerCallback::eventsAvailableImpl() noexcept {
   }
 
   // then process writable streams
-  while (!sess.priorityQueue_->empty()) {
-    auto id = sess.priorityQueue_->getNextScheduledID(std::nullopt);
+  auto& pq = *sess.priorityQueue_;
+  while (!pq.empty()) {
+    const auto id = pq.getNextScheduledID(std::nullopt);
     XCHECK(id.isStreamID());
-    auto streamId = id.asStreamID();
-    auto maxData = sess.quicSocket_->getMaxWritableOnStream(streamId);
-    auto* wh = sess.sm_.getBidiHandle(streamId).writeHandle;
-    if (!wh || !maxData) {
-      XLOG(DBG4) << "nullptr wh id=" << streamId;
-      sess.priorityQueue_->erase(id);
-      continue;
-    }
-    if (*maxData == 0) {
-      XLOG(DBG4) << "egress fc blocked id=" << streamId;
-      sess.priorityQueue_->erase(id);
-      sess.quicSocket_->notifyPendingWriteOnStream(streamId, &sess);
-      continue;
-    }
-    auto streamData = sess.sm_.dequeue(*wh, *maxData);
+    const auto streamId = id.asStreamID();
+    auto* wh = CHECK_NOTNULL(sess.sm_.getBidiHandle(streamId).writeHandle);
+    /**
+     * Dequeue will be capped by the quic conn/stream flow control. This will
+     * either dequeue all the buffered data, or saturate the conn/stream flow
+     * control -- in either case the stream will be removed from the
+     * PriorityQueue by WtStreamManager
+     */
+    auto streamData = sess.sm_.dequeue(*wh, kMaxVarint);
     XCHECK(streamData.data || streamData.fin);
     auto res = sess.quicSocket_->writeChain(streamId,
                                             std::move(streamData.data),
@@ -330,6 +367,10 @@ void QuicWtSessionBase::StreamManagerCallback::eventsAvailableImpl() noexcept {
                                             streamData.deliveryCallback);
     XLOG_IF(ERR, res.hasError())
         << "::writeChain err= " << res.error() << "; id=" << streamId;
+
+    if (!streamData.fin && isWtStreamEgressFcBlocked(sess.sm_, *wh)) {
+      sess.quicSocket_->notifyPendingWriteOnStream(streamId, &sess);
+    }
   }
 }
 
@@ -340,11 +381,9 @@ void QuicWtSessionBase::StreamManagerCallback::onNewPeerStream(
 // -- StreamWriteCallback overrides --
 void QuicWtSessionBase::onStreamWriteReady(quic::StreamId streamId,
                                            uint64_t /*maxToSend*/) noexcept {
+  XCHECK(quicSocket_);
   if (auto* wh = sm_.getBidiHandle(streamId).writeHandle) {
-    priorityQueue_->insertOrUpdate(
-        quic::PriorityQueue::Identifier::fromStreamID(wh->getID()),
-        wh->getPriority());
-    smCb_.eventsAvailable();
+    grantMaxData(*quicSocket_, sm_, *wh);
   }
 }
 
@@ -388,6 +427,7 @@ bool QuicWtSessionBase::acquireIngressStream(uint64_t id) noexcept {
     quicSocket_->setReadCallback(id, &readCb_);
     if (bidi) {
       quicSocket_->setStopSendingCallback(id, &stopSendingCb_);
+      grantMaxData(*quicSocket_, sm_, *handle.writeHandle);
       wtHandler_->onNewBidiStream(handle);
     } else {
       wtHandler_->onNewUniStream(handle.readHandle);
