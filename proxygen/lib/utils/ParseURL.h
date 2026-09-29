@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <array>
+#include <charconv>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -126,9 +128,13 @@ class ParseURL {
     if (port_ == 0) {
       return std::string(host_);
     }
-    std::stringstream ss;
-    ss << host_ << ":" << port_;
-    return ss.str();
+    std::array<char, 5> digits{};
+    const auto digitsEnd =
+        std::to_chars(digits.data(), digits.data() + digits.size(), port_).ptr;
+    std::string result;
+    result.reserve(host_.size() + 1 + digits.size());
+    result.append(host_).append(1, ':').append(digits.data(), digitsEnd);
+    return result;
   }
 
   [[nodiscard]] std::string_view path() const {

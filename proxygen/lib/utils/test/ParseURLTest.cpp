@@ -68,6 +68,18 @@ TEST(ParseURL, HostNoBrackets) {
   EXPECT_EQ("1.2.3.4", p->hostNoBrackets());
 }
 
+TEST(ParseURL, HostAndPort) {
+  EXPECT_EQ("", ParseURL::parseURL("/bar")->hostAndPort());
+  EXPECT_EQ("localhost",
+            ParseURL::parseURL("http://localhost/")->hostAndPort());
+  EXPECT_EQ("localhost:1",
+            ParseURL::parseURL("http://localhost:1/")->hostAndPort());
+  EXPECT_EQ("localhost:65535",
+            ParseURL::parseURL("http://localhost:65535/")->hostAndPort());
+  EXPECT_EQ("1.2.3.4:80", ParseURL::parseURL("1.2.3.4:80")->hostAndPort());
+  EXPECT_EQ("[::1]:443", ParseURL::parseURL("[::1]:443")->hostAndPort());
+}
+
 TEST(ParseURL, FullyFormedURL) {
   testParseURL("http://localhost:80/foo?bar#qqq",
                "http",
