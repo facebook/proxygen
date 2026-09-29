@@ -24,6 +24,12 @@
 #include "proxygen/lib/dns/DNSResolver.h"
 
 namespace proxygen {
+#if ARES_VERSION >= 0x012207
+using AresCallbackBuffer = const unsigned char;
+#else
+using AresCallbackBuffer = unsigned char;
+#endif
+
 /**
  * Class to perform asynchronous DNS resolutions.
  *
@@ -53,13 +59,13 @@ struct ParseError {
 };
 
 folly::Expected<std::vector<DNSResolver::Answer>, ParseError> parseTxtRecords(
-    unsigned char* aresBuffer, int alen) noexcept;
+    const unsigned char* aresBuffer, int alen) noexcept;
 
 folly::Expected<std::vector<DNSResolver::Answer>, ParseError> parseSrvRecords(
-    unsigned char* aresBuffer, int alen) noexcept;
+    const unsigned char* aresBuffer, int alen) noexcept;
 
 folly::Expected<std::vector<DNSResolver::Answer>, ParseError> parseMxRecords(
-    unsigned char* aresBuffer, int alen) noexcept;
+    const unsigned char* aresBuffer, int alen) noexcept;
 } // namespace detail
 
 class CAresResolver : public DNSResolver {
@@ -136,8 +142,11 @@ class CAresResolver : public DNSResolver {
      */
     static void checkForCName(Query* self, hostent* host);
 
-    static void queryCallback(
-        void* data, int status, int timeouts, unsigned char* abuf, int alen);
+    static void queryCallback(void* data,
+                              int status,
+                              int timeouts,
+                              AresCallbackBuffer* abuf,
+                              int alen);
   };
 
   template <typename... Args>

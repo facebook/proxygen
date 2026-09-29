@@ -227,8 +227,11 @@ void CAresResolver::Query::checkForCName(Query* self, hostent* host) {
   self->succeed({});
 }
 
-void CAresResolver::Query::queryCallback(
-    void* data, int status, int /*timeouts*/, unsigned char* abuf, int alen) {
+void CAresResolver::Query::queryCallback(void* data,
+                                         int status,
+                                         int /*timeouts*/,
+                                         AresCallbackBuffer* abuf,
+                                         int alen) {
   auto* self = static_cast<Query*>(data);
   self->resolver_->noteCAresQueryCompleted();
 
@@ -1193,7 +1196,7 @@ void CAresResolver::destroyGlobal() {
 
 namespace detail {
 folly::Expected<std::vector<DNSResolver::Answer>, ParseError> parseTxtRecords(
-    unsigned char* aresBuffer, int bufferLen) noexcept {
+    const unsigned char* aresBuffer, int bufferLen) noexcept {
   std::vector<DNSResolver::Answer> answers;
   struct ares_txt_reply* txts = nullptr;
   auto status = ares_parse_txt_reply(aresBuffer, bufferLen, &txts);
@@ -1218,7 +1221,7 @@ folly::Expected<std::vector<DNSResolver::Answer>, ParseError> parseTxtRecords(
 }
 
 folly::Expected<std::vector<DNSResolver::Answer>, ParseError> parseSrvRecords(
-    unsigned char* aresBuffer, int bufferLen) noexcept {
+    const unsigned char* aresBuffer, int bufferLen) noexcept {
   std::vector<DNSResolver::Answer> answers;
   struct ares_srv_reply* srvs = nullptr;
   auto status = ares_parse_srv_reply(aresBuffer, bufferLen, &srvs);
@@ -1241,7 +1244,7 @@ folly::Expected<std::vector<DNSResolver::Answer>, ParseError> parseSrvRecords(
 }
 
 folly::Expected<std::vector<DNSResolver::Answer>, ParseError> parseMxRecords(
-    unsigned char* aresBuffer, int bufferLen) noexcept {
+    const unsigned char* aresBuffer, int bufferLen) noexcept {
   std::vector<DNSResolver::Answer> answers;
   struct ares_mx_reply* mxs = nullptr;
   auto status = ares_parse_mx_reply(aresBuffer, bufferLen, &mxs);
