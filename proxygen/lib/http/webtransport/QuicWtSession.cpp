@@ -82,6 +82,7 @@ struct QuicWtEventVisitor {
   // operations map to QuicSocket invocations
   void operator()(WtStreamManager::ResetStream ev) const {
     quicSocket.resetStream(ev.streamId, ev.err);
+    quicSocket.setStopSendingCallback(ev.streamId, nullptr);
   }
 
   void operator()(WtStreamManager::StopSending ev) const {
@@ -339,8 +340,9 @@ void QuicWtSessionBase::StreamManagerCallback::eventsAvailable() noexcept {
 
 void QuicWtSessionBase::StreamManagerCallback::eventsAvailableImpl() noexcept {
   XCHECK(sess.quicSocket_);
+  auto& sock = sess.quicSocket_;
   // process control events first
-  QuicWtEventVisitor visitor{*sess.quicSocket_, sess.observer_};
+  QuicWtEventVisitor visitor{*sock, sess.observer_};
   auto events = sess.sm_.moveEvents();
   for (auto& event : events) {
     std::visit(visitor, std::move(event));
@@ -361,14 +363,16 @@ void QuicWtSessionBase::StreamManagerCallback::eventsAvailableImpl() noexcept {
      */
     auto streamData = sess.sm_.dequeue(*wh, kMaxVarint);
     XCHECK(streamData.data || streamData.fin);
-    auto res = sess.quicSocket_->writeChain(streamId,
-                                            std::move(streamData.data),
-                                            streamData.fin,
-                                            streamData.deliveryCallback);
+    auto res = sock->writeChain(streamId,
+                                std::move(streamData.data),
+                                streamData.fin,
+                                streamData.deliveryCallback);
     XLOG_IF(ERR, res.hasError())
         << "::writeChain err= " << res.error() << "; id=" << streamId;
 
-    if (!streamData.fin && isWtStreamEgressFcBlocked(sess.sm_, *wh)) {
+    if (streamData.fin) {
+      sock->setStopSendingCallback(streamId, nullptr);
+    } else if (isWtStreamEgressFcBlocked(sess.sm_, *wh)) {
       sess.quicSocket_->notifyPendingWriteOnStream(streamId, &sess);
     }
   }
@@ -569,6 +573,7 @@ folly::Expected<folly::Unit, WebTransport::ErrorCode> H3WtSession::closeSession(
   // bidirectionally reset all assoc quic streams
   for (uint64_t id : streamIds) {
     quicSocket_->setReadCallback(id, nullptr, ec);
+    quicSocket_->setStopSendingCallback(id, nullptr);
     quicSocket_->resetStream(id, ec);
   }
   QuicWtSessionBase::closeSession(error);

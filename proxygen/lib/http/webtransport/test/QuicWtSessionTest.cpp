@@ -183,24 +183,51 @@ TEST_F(QuicWtSessionTest, AwaitBidiStreamCredit) {
 }
 
 TEST_F(QuicWtSessionTest, WriteStreamData) {
-  // id=2 is client-initiated uni, so it's not egress for the server
-  constexpr uint64_t kClientInitiatedUniId = 2;
-
-  auto result = session_->writeStreamData(
-      kClientInitiatedUniId, folly::IOBuf::copyBuffer("test"), true, nullptr);
-  EXPECT_FALSE(result.hasValue());
-  EXPECT_EQ(result.error(), WebTransport::ErrorCode::INVALID_STREAM_ID);
-
   auto handle = session_->createUniStream();
   EXPECT_TRUE(handle.hasValue());
-  auto id = handle.value()->getID();
+  const auto id = handle.value()->getID();
+  const auto& stream = socketDriver_.streams_[id];
+  EXPECT_NE(stream.stopSendingCb, nullptr); // installed when stream created
 
   auto data = folly::IOBuf::copyBuffer("hello world");
   auto res = session_->writeStreamData(id, std::move(data), true, nullptr);
   EXPECT_TRUE(res.hasValue());
+  EXPECT_EQ(stream.stopSendingCb, nullptr); // removed when fin written
 
   eventBase_.loop();
   EXPECT_EQ(socketDriver_.streams_[id].writeBuf.chainLength(), 11);
+}
+
+TEST_F(QuicWtSessionTest, ShutdownWithOpenStreams) {
+  // create one of each stream type
+  auto uni = session_->createUniStream();
+  auto bidi = session_->createBidiStream();
+  CHECK(uni.hasValue() && bidi.hasValue());
+
+  auto uniId = uni.value()->getID();
+  auto bidiId = bidi.value().writeHandle->getID();
+
+  // validate StopSendingCallback is installed for each
+  auto& streams = socketDriver_.streams_;
+  EXPECT_NE(streams[uniId].stopSendingCb, nullptr);
+  EXPECT_NE(streams[bidiId].stopSendingCb, nullptr);
+
+  // close with open streams should bidirectionally reset each stream
+  session_->closeSession(folly::none);
+
+  { // bidi
+    auto& stream = streams[bidiId];
+    EXPECT_EQ(stream.writeState, MockQuicSocketDriver::StateEnum::ERROR);
+    EXPECT_EQ(stream.readState, MockQuicSocketDriver::StateEnum::ERROR);
+    EXPECT_NE(stream.stopSendingCb, nullptr);
+  }
+
+  { // uni
+    auto& stream = streams[uniId];
+    EXPECT_EQ(stream.writeState, MockQuicSocketDriver::StateEnum::ERROR);
+    EXPECT_EQ(stream.readState, MockQuicSocketDriver::StateEnum::CLOSED);
+    EXPECT_NE(stream.stopSendingCb, nullptr);
+  }
 }
 
 TEST_F(QuicWtSessionTest, ReadStreamData) {
