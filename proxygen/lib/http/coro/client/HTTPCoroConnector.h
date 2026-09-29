@@ -148,7 +148,7 @@ class HTTPCoroConnector {
     // Next protocol for plaintext (TCP) connections
     std::string plaintextProtocol;
 
-    IdentityValidation identityValidation{IdentityValidation::Logging};
+    IdentityValidation identityValidation{IdentityValidation::Enforcing};
 
     CertVerifyLogFn certVerifyLogFn;
   };
