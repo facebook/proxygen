@@ -441,6 +441,31 @@ class LoopTerminatingCallback : public CAresResolver::ResolutionCallback {
   folly::EventBase& evb_;
 };
 
+TEST_F(CAresResolverTest, SocketCallbackWithSearchDomains) {
+  folly::EventBase evb;
+  auto testResolver = CAresResolver::newResolver();
+  testResolver->attachEventBase(&evb);
+  testResolver->setSearchDomainsEnabled(true);
+  testResolver->init();
+
+  bool socketConfigured = false;
+  ASSERT_TRUE(testResolver->setSocketConfigureCallback(
+      [](ares_socket_t, int, void* data) -> int {
+        *static_cast<bool*>(data) = true;
+        return ARES_SUCCESS;
+      },
+      &socketConfigured));
+
+  LoopTerminatingCallback cb(evb);
+  testResolver->resolveHostname(
+      &cb, "fwdproxy", std::chrono::seconds(5), AF_INET6);
+  evb.loopForever();
+
+  EXPECT_TRUE(cb.success_);
+  EXPECT_FALSE(cb.answers_.empty());
+  EXPECT_TRUE(socketConfigured);
+}
+
 class RecordingResolutionCallback : public CAresResolver::ResolutionCallback {
  public:
   void resolutionSuccess(

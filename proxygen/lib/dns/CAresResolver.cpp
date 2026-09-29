@@ -690,6 +690,15 @@ void CAresResolver::setPort(uint16_t port) {
   port_ = port;
 }
 
+bool CAresResolver::setSocketConfigureCallback(
+    ares_sock_config_callback callback, void* data) {
+  if (channel_ == nullptr) {
+    return false;
+  }
+  ares_set_socket_configure_callback(channel_, callback, data);
+  return true;
+}
+
 void CAresResolver::setStatsCollector(DNSResolver::StatsCollector* sc) {
   statsCollector_ = sc;
 }
@@ -1119,12 +1128,25 @@ void CAresResolver::query(const std::string& name,
     }
   }
 
-  ares_query(channel_,
-             name.c_str(),
-             1 /* ns_c_in */,
-             static_cast<int>(type),
-             cb,
-             cb_data);
+  if (searchDomainsEnabled_) {
+    // CAresResolver's callbacks and parsers still use the legacy wire-buffer
+    // API. Migrate them together before switching this call to the dnsrec API.
+    // NOLINTNEXTLINE(facebook-hte-Deprecated)
+    ares_search(channel_,
+                name.c_str(),
+                1 /* ns_c_in */,
+                static_cast<int>(type),
+                cb,
+                cb_data);
+  } else {
+    // NOLINTNEXTLINE(facebook-hte-Deprecated)
+    ares_query(channel_,
+               name.c_str(),
+               1 /* ns_c_in */,
+               static_cast<int>(type),
+               cb,
+               cb_data);
+  }
   updateAresTimeout();
 }
 

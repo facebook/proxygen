@@ -46,11 +46,9 @@ using AresCallbackBuffer = unsigned char;
  *    reentrant in all cases. Specifially, a call to ares_destroy() cannot run
  *    while ares_process_fd() is executing higher up the stack.
  *
- *  . Search domains in /etc/resolv.conf are not honored. This is because
- *    we have to use the ares_query() API to get TTL information, and it does
- *    not use the search domains. We can work around this if we need to by
- *    parsing /etc/resolv.conf ourselves, or by adding an API method to Ares to
- *    expose this.
+ *  . Search domains in /etc/resolv.conf are disabled by default because
+ *    ares_query() does not use them. Call setSearchDomainsEnabled(true) before
+ *    starting resolutions to use ares_search() instead.
  */
 namespace detail {
 struct ParseError {
@@ -215,6 +213,27 @@ class CAresResolver : public DNSResolver {
    */
   virtual void init();
 
+  /**
+   * Configure a callback that c-ares invokes for each DNS socket before it is
+   * connected.
+   *
+   * Must be called after init() and before starting any resolutions. The
+   * caller is responsible for ensuring that callback data remains valid for
+   * the lifetime of the resolver. Returns false if the resolver was not
+   * initialized.
+   */
+  [[nodiscard]] bool setSocketConfigureCallback(
+      ares_sock_config_callback callback, void* data);
+
+  /**
+   * Configure hostname queries to honor resolver search domains.
+   *
+   * Must be called before starting any resolutions.
+   */
+  void setSearchDomainsEnabled(bool enabled) {
+    searchDomainsEnabled_ = enabled;
+  }
+
   // DNSResolver API
   void resolveAddress(ResolutionCallback* cb,
                       const folly::SocketAddress& address,
@@ -259,6 +278,7 @@ class CAresResolver : public DNSResolver {
   TimeUtil timeUtil_;
   bool resolveSRVRecord_{false};
   bool caresStateSamplingEnabled_{false};
+  bool searchDomainsEnabled_{false};
   ChannelInitOptions channelInitOptions_;
 
   // Tracks the number of queries still owned by c-ares. This intentionally
