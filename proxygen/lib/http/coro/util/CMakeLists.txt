@@ -80,3 +80,12 @@ proxygen_add_library(proxygen_http_coro_util_CoroWtSession
     proxygen_http_webtransport_wt_util
     mvfst::mvfst_priority_http_priority_queue
 )
+
+proxygen_add_library(proxygen_http_coro_util_H3CoroWtSession
+  SRCS
+    H3CoroWtSession.cpp
+  EXPORTED_DEPS
+    proxygen_coro_source
+    proxygen_http_coro_util_CoroWtSession
+    proxygen_http_webtransport_quic_wt_session
+)
