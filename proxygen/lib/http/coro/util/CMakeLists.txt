@@ -84,8 +84,11 @@ proxygen_add_library(proxygen_http_coro_util_CoroWtSession
 proxygen_add_library(proxygen_http_coro_util_H3CoroWtSession
   SRCS
     H3CoroWtSession.cpp
+  DEPS
+    Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_coro_source
+    proxygen_http_codec_webtransport_webtransport_capsule_codec
     proxygen_http_coro_util_CoroWtSession
     proxygen_http_webtransport_quic_wt_session
 )

@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/webtransport/WebTransportCapsuleCodec.h>
 #include <proxygen/lib/http/coro/util/CoroWtSession.h>
+#include <proxygen/lib/http/coro/util/H3CoroWtSession.h>
 #include <proxygen/lib/http/webtransport/WtStreamManager.h>
 #include <proxygen/lib/http/webtransport/test/Mocks.h>
 
@@ -814,6 +815,84 @@ INSTANTIATE_TEST_SUITE_P(
     WtTest,
     Values(TestParams({.codecProtocol = CodecProtocol::HTTP_2})),
     paramsToTestName);
+
+class H3CoroWtSessionTest : public Test {
+ protected:
+  detail::EgressSourcePtr makeEgressSource() {
+    detail::EgressSourcePtr egressSource{new detail::EgressSource(&evb_)};
+    egressSource_ = egressSource.get();
+
+    HTTPMessage headers;
+    headers.setURL("/");
+    egressSource->validateHeadersAndSkip(headers);
+    return egressSource;
+  }
+
+  void startSession(std::unique_ptr<WebTransportHandler> handler) {
+    session_ = detail::H3CoroWtSession::make(&evb_,
+                                             socketDriver_.getSocket(),
+                                             std::move(handler),
+                                             WtStreamManager::WtConfig{},
+                                             /*connectStreamId=*/0);
+
+    session_->start(
+        session_, HTTPSourceHolder(&ingressSource_), makeEgressSource());
+  }
+
+  void TearDown() override {
+    if (handlerCtx_) {
+      handlerCtx_->wtSession.reset();
+    }
+    session_.reset();
+    socketDriver_.closeImpl({});
+  }
+
+  folly::EventBase evb_;
+  quic::MockQuicSocketDriver socketDriver_{
+      &evb_,
+      nullptr,
+      nullptr,
+      quic::MockQuicSocketDriver::TransportEnum::CLIENT,
+      "h3"};
+  NiceMock<MockHTTPSource> ingressSource_;
+  HTTPStreamSource* egressSource_{nullptr};
+  std::shared_ptr<DummyWtHandler::Ctx> handlerCtx_;
+  detail::H3CoroWtSession::Ptr session_;
+};
+
+CO_TEST_F(H3CoroWtSessionTest, SendsDatagramOverQuic) {
+  constexpr std::string_view kPayload = "datagram";
+  EXPECT_CALL(ingressSource_, readBodyEvent(_))
+      .WillOnce(Return(folly::coro::makeTask<HTTPBodyEvent>(
+          HTTPBodyEvent{nullptr, /*inEOM=*/true})));
+
+  auto handler = DummyWtHandler::make();
+  handlerCtx_ = handler->ctx;
+  startSession(std::move(handler));
+
+  CO_ASSERT_NE(handlerCtx_->wtSession, nullptr);
+  auto result =
+      handlerCtx_->wtSession->sendDatagram(folly::IOBuf::copyBuffer(kPayload));
+  EXPECT_TRUE(result.hasValue());
+
+  CO_ASSERT_EQ(socketDriver_.outDatagrams_.size(), 1);
+  auto datagram = socketDriver_.outDatagrams_.front().move();
+  folly::io::Cursor cursor(datagram.get());
+  auto quarterStreamId = quic::follyutils::decodeQuicInteger(cursor);
+  CO_ASSERT_TRUE(quarterStreamId.has_value());
+  EXPECT_EQ(quarterStreamId->first, 0);
+  EXPECT_EQ(cursor.readFixedString(cursor.totalLength()), kPayload);
+
+  evb_.loop();
+  auto egressResult =
+      co_await folly::coro::co_awaitTry(egressSource_->readBodyEvent());
+  CO_ASSERT_TRUE(egressResult.hasValue());
+  EXPECT_TRUE(egressResult->eom);
+  auto* body = asBodyEv(*egressResult);
+  CO_ASSERT_TRUE(body && !body->empty());
+
+  egressSource_ = nullptr;
+}
 
 class HttpStreamTransport : public Test {
  public:
