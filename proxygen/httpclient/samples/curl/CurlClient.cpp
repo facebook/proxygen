@@ -306,14 +306,6 @@ void CurlClient::onEgressResumed() noexcept {
   }
 }
 
-void CurlClient::onPushedTransaction(
-    proxygen::HTTPTransaction* pushedTxn) noexcept {
-  //
-  pushTxnHandlers_.emplace_back(std::make_unique<CurlPushHandler>(this));
-  pushedTxn->setHandler(pushTxnHandlers_.back().get());
-  // Add implementation of the push transaction reception here
-}
-
 const string& CurlClient::getServerName() const {
   const string& res = request_.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST);
   if (res.empty()) {

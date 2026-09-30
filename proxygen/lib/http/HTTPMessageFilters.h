@@ -99,10 +99,6 @@ class HTTPMessageFilter
   void onEgressResumed() noexcept final {
     nextTransactionHandler_->onEgressResumed();
   }
-  void onPushedTransaction(HTTPTransaction* txn) noexcept final {
-    nextTransactionHandler_->onPushedTransaction(txn);
-  }
-
   [[nodiscard]] virtual std::string_view getFilterName() const noexcept {
     return kMessageFilterDefaultName_;
   }

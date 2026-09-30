@@ -46,8 +46,6 @@ class NoopTxnHandler : public HTTPTransactionHandler {
   }
   void onEgressResumed() noexcept override {
   }
-  void onPushedTransaction(HTTPTransaction*) noexcept override {
-  }
   void onGoaway(ErrorCode) noexcept override {
   }
   void onDatagram(std::unique_ptr<folly::IOBuf>) noexcept override {

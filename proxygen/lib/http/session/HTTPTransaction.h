@@ -367,10 +367,6 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
   void onUpgrade(UpgradeProtocol) noexcept final {
     LOG(FATAL) << "push txn received upgrade";
   }
-
-  void onPushedTransaction(HTTPTransaction*) noexcept final {
-    LOG(FATAL) << "push txn received push txn";
-  }
 };
 
 /**

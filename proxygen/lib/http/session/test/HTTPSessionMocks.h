@@ -280,11 +280,6 @@ class MockHTTPHandler
   }
   MOCK_METHOD(void, _onEgressResumed, ());
 
-  void onPushedTransaction(HTTPTransaction* txn) noexcept override {
-    _onPushedTransaction(txn);
-  }
-  MOCK_METHOD(void, _onPushedTransaction, (HTTPTransaction*));
-
   void expectTransaction(std::function<void(HTTPTransaction* txn)> callback) {
     EXPECT_CALL(*this, _setTransaction(testing::_))
         .WillOnce(testing::Invoke(callback))
@@ -294,15 +289,6 @@ class MockHTTPHandler
   void expectTransaction(HTTPTransaction** pTxn = nullptr) {
     EXPECT_CALL(*this, _setTransaction(testing::_))
         .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &txn_));
-  }
-
-  void expectPushedTransaction(HTTPTransactionHandler* handler = nullptr) {
-    EXPECT_CALL(*this, _onPushedTransaction(testing::_))
-        .WillOnce(testing::Invoke([handler](HTTPTransaction* txn) {
-          if (handler) {
-            txn->setHandler(handler);
-          }
-        }));
   }
 
   void expectHeaders(std::function<void()> callback = std::function<void()>()) {

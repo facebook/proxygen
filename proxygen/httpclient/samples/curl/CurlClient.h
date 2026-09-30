@@ -106,9 +106,6 @@ class CurlClient
   void onError(const proxygen::HTTPException& error) noexcept override;
   void onEgressPaused() noexcept override;
   void onEgressResumed() noexcept override;
-  void onPushedTransaction(
-      proxygen::HTTPTransaction* /* pushedTxn */) noexcept override;
-
   void sendRequest(proxygen::HTTPTransaction* txn);
 
   // Getters
