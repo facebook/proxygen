@@ -364,20 +364,17 @@ class HTTPCoroSession
       HTTPSourceHolder bodySource) noexcept;
 
   /**
-   * verifies a WebTransport request is valid; yields an
-   * HTTPError(INTERNAL_ERROR) if invalid
-   *
-   * returns an asynchronous result containing the server's response and a
-   * WebTransport handle
+   * Validates the WebTransport request, runs the CONNECT exchange, and on a
+   * 2xx response constructs the codec-specific WebTransport.
    */
   struct WtReqResult {
     std::unique_ptr<HTTPMessage> resp;
     std::shared_ptr<WebTransport> wt;
   };
-  virtual folly::coro::Task<WtReqResult> sendWtReq(
+  folly::coro::Task<WtReqResult> sendWtReq(
       RequestReservation reservation,
       const HTTPMessage& msg,
-      std::unique_ptr<WebTransportHandler>) noexcept;
+      std::unique_ptr<WebTransportHandler> wtHandler) noexcept;
 
   void describe(std::ostream& os) const override;
 
@@ -551,6 +548,12 @@ class HTTPCoroSession
    private:
     HTTPCoroSession& session_;
   };
+
+  virtual std::shared_ptr<WebTransport> createWebTransport(
+      HTTPCodec::StreamID connectStreamId,
+      HTTPSource* egressSource,
+      HTTPSourceHolder ingressSource,
+      std::unique_ptr<WebTransportHandler> wtHandler) noexcept;
 
  protected:
   struct WtHelper;
@@ -865,11 +868,6 @@ class HTTPUniplexTransportSession final : public HTTPCoroSession {
 
   void setConnectionFlowControl(uint32_t connFlowControl) override;
 
-  folly::coro::Task<WtReqResult> sendWtReq(
-      RequestReservation reservation,
-      const HTTPMessage& msg,
-      std::unique_ptr<WebTransportHandler>) noexcept final;
-
  private:
   folly::coro::Task<void> runImpl();
   void handleIngressLimitExceeded(HTTPCodec::StreamID streamID) override;
@@ -881,6 +879,12 @@ class HTTPUniplexTransportSession final : public HTTPCoroSession {
   void detachEvb() override;
   void attachEvb(folly::EventBase* evb) override;
   bool isDetachable() const override;
+
+  std::shared_ptr<WebTransport> createWebTransport(
+      HTTPCodec::StreamID /*connectStreamId*/,
+      HTTPSource* egressSource,
+      HTTPSourceHolder ingressSource,
+      std::unique_ptr<WebTransportHandler> wtHandler) noexcept override;
 
   AsyncSocketByteEventObserver byteEventObserver_;
   std::unique_ptr<folly::coro::TransportIf> coroTransport_;
@@ -1047,6 +1051,12 @@ class HTTPQuicCoroSession final
     return streamReadTimeout_;
   }
 
+  std::shared_ptr<WebTransport> createWebTransport(
+      HTTPCodec::StreamID connectStreamId,
+      HTTPSource* egressSource,
+      HTTPSourceHolder ingressSource,
+      std::unique_ptr<WebTransportHandler> wtHandler) noexcept override;
+
   void rejectStream(quic::StreamId id) override;
 
   folly::Optional<hq::UnidirectionalStreamType> parseUniStreamPreface(
@@ -1070,12 +1080,21 @@ class HTTPQuicCoroSession final
   void dispatchRequestStream(quic::StreamId id) override;
 
   void dispatchUniWTStream(quic::StreamId streamId,
-                           quic::StreamId /*sessionId*/,
-                           size_t /*toConsume*/) override;
+                           quic::StreamId sessionId,
+                           size_t toConsume) override {
+    dispatchWTStream(streamId, sessionId, toConsume);
+  }
 
   void dispatchBidiWTStream(quic::StreamId streamId,
                             quic::StreamId sessionId,
-                            size_t toConsume) override;
+                            size_t toConsume) override {
+    dispatchWTStream(streamId, sessionId, toConsume);
+  }
+
+  // direction-agnostic, as H3WtSession derives stream type from the id
+  void dispatchWTStream(quic::StreamId streamId,
+                        quic::StreamId sessionId,
+                        size_t toConsume);
 
   std::shared_ptr<quic::QuicSocket> quicSocket_;
   std::unique_ptr<H3EarlyDataHandler> earlyDataHandler_;
@@ -1245,7 +1264,7 @@ class HTTPQuicCoroSession final
                    bool eom);
   void dispatchPushStream(quic::StreamId id, uint64_t pushID);
   bool isDatagramEnabled() const {
-    SettingsId setting = *hq::hqToHttpSettingsId(hq::SettingId::H3_DATAGRAM);
+    constexpr auto setting = SettingsId::_HQ_DATAGRAM_RFC;
     return multiCodec_->getEgressSettings()->getSetting(setting) &&
            (!multiCodec_->receivedSettings() ||
             codec_.getIngressSettings()->getSetting(setting));

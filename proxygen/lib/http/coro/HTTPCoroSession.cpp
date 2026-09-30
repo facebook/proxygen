@@ -15,6 +15,7 @@
 #include <proxygen/lib/http/codec/HTTPParallelCodec.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <proxygen/lib/http/webtransport/HTTPWebTransport.h>
+#include <proxygen/lib/http/webtransport/QuicWtSession.h>
 
 #include <functional>
 
@@ -25,6 +26,7 @@
 #include <wangle/acceptor/ConnectionManager.h>
 
 #include <proxygen/lib/http/coro/util/CoroWtSession.h>
+#include <proxygen/lib/http/coro/util/H3CoroWtSession.h>
 
 namespace {
 
@@ -93,10 +95,8 @@ class CoroWtSessionImpl : public CoroWtSession {
 constexpr std::string_view kWtNotSupported = "WebTransport not supported";
 constexpr std::string_view kInvalidWtReq = "Invalid WebTransport request";
 
-using WtReqResult = HTTPCoroSession::WtReqResult;
-folly::coro::Task<WtReqResult> makeInternalEx(std::string_view err) {
-  return folly::coro::makeErrorTask<WtReqResult>(
-      HTTPError{HTTPErrorCode::INTERNAL_ERROR, std::string(err)});
+folly::exception_wrapper makeInternalEx(std::string_view err) {
+  return HTTPError{HTTPErrorCode::INTERNAL_ERROR, std::string(err)};
 }
 
 } // namespace
@@ -180,6 +180,8 @@ struct HTTPCoroSession::StreamState {
   struct {
     folly::CancellationSource ingress, egress;
   } cs;
+
+  std::shared_ptr<detail::H3CoroWtSession> wtSession;
 
   // handlers can only egress this status code on some ingress errors
   uint16_t errorStatusCode{0};
@@ -639,6 +641,8 @@ void HTTPQuicCoroSession::start() {
     quicSocket_->setDatagramCallback(this);
   }
 
+  ::proxygen::detail::setEgressWtH3Settings(
+      *codec_.getChainEndPtr()->getEgressSettings());
   sendPreface();
   codec_.setCallback(this);
 }
@@ -2115,6 +2119,15 @@ void HTTPQuicCoroSession::onDatagramsAvailable() noexcept {
     auto streamId = quarterStreamId->first * 4;
     auto stream = findStream(streamId);
 
+    // a WebTransport datagram belongs to the wt session rather than to the
+    // CONNECT stream's HTTPSource
+    if (auto* wtSession = stream ? stream->wtSession.get() : nullptr) {
+      XLOG(DBG5) << "Received wt datagram for streamId=" << streamId
+                 << " len=" << datagramQ.chainLength() << " sess=" << *this;
+      wtSession->wtSession().onDatagram(datagramQ.move());
+      continue;
+    }
+
     if (!stream || stream->streamSource.isUnprocessed()) {
       XLOG(DBG5) << "Stream cannot receive datagrams. streamId=" << streamId
                  << " len=" << datagramQ.chainLength() << " sess=" << *this;
@@ -2232,8 +2245,7 @@ folly::coro::Task<HTTPSourceHolder> HTTPCoroSession::sendRequest(
     HTTPSourceHolder requestSource, RequestReservation reservation) {
   if (!reservation.fromSession(this)) {
     XLOG(DFATAL) << "Invalid reservation sess=" << *this;
-    co_yield co_error(
-        HTTPError(HTTPErrorCode::INTERNAL_ERROR, "Invalid reservation"));
+    co_yield co_error(makeInternalEx("Invalid reservation"));
   }
   // TODO: do we want to throttle reading request headers on buffer space
   auto headerEvent = co_await co_awaitTry(requestSource.readHeaderEvent());
@@ -2655,10 +2667,17 @@ folly::coro::Task<void> HTTPUniplexTransportSession::readLoop() noexcept {
 void HTTPQuicCoroSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
   XLOG(DBG4) << "New bidi stream=" << id << " sess=" << *this;
   resetIdleTimeout();
-  // TODO: downstream only, for now
   if (isUpstream()) {
-    XLOG(DBG4) << "Refusing server-init bidi id=" << id << " sess=" << *this;
-    egressResetStream(id, nullptr, HTTPErrorCode::STREAM_CREATION_ERROR);
+    auto* codec = codec_.getChainEndPtr();
+    if (::proxygen::detail::supportsH3Wt(codec->getTransportDirection(),
+                                         codec->getIngressSettings(),
+                                         codec->getEgressSettings())) {
+      bidiStreamDispatcher_.takeTemporaryOwnership(id);
+      quicSocket_->setPeekCallback(id, &bidiStreamDispatcher_);
+    } else {
+      XLOG(DBG4) << "Refusing server-init bidi id=" << id << " sess=" << *this;
+      egressResetStream(id, nullptr, HTTPErrorCode::STREAM_CREATION_ERROR);
+    }
     return;
   }
   if (!multiCodec_->isStreamIngressEgressAllowed(id)) {
@@ -2666,7 +2685,6 @@ void HTTPQuicCoroSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
     egressResetStream(id, nullptr, HTTPErrorCode::REQUEST_REJECTED);
     return;
   }
-
   onMessageBegin(id, nullptr);
   auto& stream = *CHECK_NOTNULL(findStream(id));
   multiCodec_->addCodec(id);
@@ -2934,20 +2952,32 @@ folly::coro::Task<void> HTTPQuicCoroSession::readControlStream(
   XLOG(DBG4) << __func__ << " complete, id=" << id << " sess=" << *this;
 }
 
-void HTTPQuicCoroSession::dispatchUniWTStream(quic::StreamId streamId,
-                                              quic::StreamId /*sessionId*/,
-                                              size_t /*toConsume*/) {
-  rejectStream(streamId);
-}
-
-void HTTPQuicCoroSession::dispatchBidiWTStream(quic::StreamId streamId,
-                                               quic::StreamId /*sessionId*/,
-                                               size_t /*toConsume*/) {
-  rejectStream(streamId);
+void HTTPQuicCoroSession::dispatchWTStream(quic::StreamId streamId,
+                                           quic::StreamId sessionId,
+                                           size_t toConsume) {
+  XLOG(DBG4) << __func__ << " id=" << streamId << " wt-sess-id=" << sessionId
+             << " sess=" << *this;
+  quicSocket_->setPeekCallback(streamId, nullptr);
+  // the dispatcher decoded the wt stream preface & session id but left the
+  // bytes on the stream
+  auto consumeRes = quicSocket_->consume(streamId, toConsume);
+  if (consumeRes.hasError()) {
+    XLOG(ERR) << "Error consuming wt stream preface id=" << streamId
+              << " sess=" << *this;
+    rejectStream(streamId);
+    return;
+  }
+  auto* connectStream = findStream(sessionId);
+  auto* wtSession = connectStream ? connectStream->wtSession.get() : nullptr;
+  if (!wtSession || !wtSession->wtSession().acquireIngressStream(streamId)) {
+    XLOG(DBG4) << "Rejected wtSess=" << wtSession << "; sessId=" << sessionId
+               << "; streamId=" << streamId << " sess=" << *this;
+    rejectStream(streamId);
+  }
 }
 
 void HTTPQuicCoroSession::dispatchRequestStream(quic::StreamId id) {
-  onNewBidirectionalStream(id);
+  return isUpstream() ? rejectStream(id) : onNewBidirectionalStream(id);
 }
 
 void HTTPQuicCoroSession::StreamRCB::readAvailable(quic::StreamId id) noexcept {
@@ -3856,75 +3886,100 @@ std::ostream& operator<<(std::ostream& os, const HTTPCoroSession& session) {
   return os;
 }
 
-/**
- * Common logic that can be used by derived classes to validate both that
- * WebTransport is supported and request is valid. Although this function is a
- * Task (for derived classes to override as those will have asynchrony), it is
- * sychronously resolved and should only be checked for errors via co_awaitTry()
- */
-folly::coro::Task<WtReqResult> HTTPCoroSession::sendWtReq(
+std::shared_ptr<WebTransport> HTTPCoroSession::createWebTransport(
+    HTTPCodec::StreamID,
+    HTTPSource*,
+    HTTPSourceHolder,
+    std::unique_ptr<WebTransportHandler>) noexcept {
+  XLOG(FATAL) << "unimplemented";
+}
+
+folly::coro::Task<HTTPCoroSession::WtReqResult> HTTPCoroSession::sendWtReq(
     RequestReservation reservation,
     const HTTPMessage& msg,
-    std::unique_ptr<WebTransportHandler>) noexcept {
-  // XLOG_IF(FATAL, !folly::kIsDebug) << "wt wip"; // crash in non-debug modes
+    std::unique_ptr<WebTransportHandler> wtHandler) noexcept {
   if (!reservation.fromSession(this)) {
-    return makeInternalEx("Invalid reservation");
+    co_yield co_error(makeInternalEx("Invalid reservation"));
   }
 
   const auto* ingress = codec_.getIngressSettings();
   const auto* egress = codec_.getEgressSettings();
   const bool wtEnabled =
       isHQCodecProtocol(getCodecProtocol())
-          ? ::proxygen::detail::supportsH3Wt(
-                codec_.getTransportDirection(), ingress, egress)
+          ? ::proxygen::detail::supportsH3Wt(direction_, ingress, egress)
           : ::proxygen::detail::supportsH2Wt(direction_, ingress, egress);
   const bool validWtReq = HTTPWebTransport::isConnectMessage(msg);
   if (!(wtEnabled && validWtReq)) {
     auto err = !validWtReq ? kInvalidWtReq : kWtNotSupported;
     XLOG(DBG6) << __func__ << " err=" << err << "; sess=" << *this;
-    return makeInternalEx(err);
+    co_yield co_error(makeInternalEx(err));
   }
 
-  // valid wt req
-  return folly::coro::makeTask<WtReqResult>({});
-}
-
-folly::coro::Task<WtReqResult> HTTPUniplexTransportSession::sendWtReq(
-    RequestReservation reservation,
-    const HTTPMessage& msg,
-    std::unique_ptr<WebTransportHandler> wtHandler) noexcept {
-  auto valid = co_await co_awaitTry(
-      HTTPCoroSession::sendWtReq(std::move(reservation), msg, nullptr));
-  if (valid.hasException()) {
-    co_return valid;
-  }
-
-  // valid wt req
-  WtHelper wtHelper{*this};
-  auto egressSource = wtHelper.createEgressSource();
+  auto egressSource = WtHelper{*this}.createEgressSource();
   egressSource->validateHeadersAndSkip(msg);
 
+  // for quic, the stream creation below may fail due to unavailable stream
+  // credit
   auto res = sendRequestImpl(/*headers=*/msg,
                              /*egressHeadersFn=*/nullptr,
                              /*byteEventRegistrations=*/{},
                              /*bodySource=*/egressSource.get());
-  XCHECK(res.hasValue()); // http/2 should always succeed here
+  if (res.hasError()) {
+    co_yield co_error(std::move(res.error()));
+  }
+  reservation.consume();
+  HTTPSourceHolder ingressSource = std::move(*res);
+  auto connectStreamId = ingressSource.getStreamID();
+  XCHECK(connectStreamId);
 
-  WtReqResult ret;
+  WtReqResult result;
   do {
-    auto ev = co_await co_nothrow(res->readHeaderEvent());
-    ret.resp = std::move(ev.headers);
-  } while (!ret.resp->isFinal());
+    auto event = co_await co_nothrow(ingressSource.readHeaderEvent());
+    result.resp = std::move(event.headers);
+  } while (!result.resp->isFinal());
 
-  if (!ret.resp->is2xxResponse()) {
-    co_return ret; // failed upgrade => ret.wt == nullptr
+  if (!result.resp->is2xxResponse()) {
+    co_return result;
   }
 
-  // wt upgrade successful
-  auto transport = wtHelper.createHttpSourceTransport(std::move(egressSource),
-                                                      std::move(*res));
-  ret.wt = wtHelper.createWtSession(std::move(transport), std::move(wtHandler));
-  co_return ret;
+  result.wt = createWebTransport(*connectStreamId,
+                                 egressSource.release(),
+                                 std::move(ingressSource),
+                                 std::move(wtHandler));
+  co_return result;
+}
+
+std::shared_ptr<WebTransport> HTTPUniplexTransportSession::createWebTransport(
+    HTTPCodec::StreamID /*connectStreamId*/,
+    HTTPSource* egressSource,
+    HTTPSourceHolder ingressSource,
+    std::unique_ptr<WebTransportHandler> wtHandler) noexcept {
+  WtHelper wtHelper{*this};
+  detail::EgressSourcePtr egress{
+      static_cast<detail::EgressSource*>(egressSource)};
+  auto transport = wtHelper.createHttpSourceTransport(std::move(egress),
+                                                      std::move(ingressSource));
+  return wtHelper.createWtSession(std::move(transport), std::move(wtHandler));
+}
+
+std::shared_ptr<WebTransport> HTTPQuicCoroSession::createWebTransport(
+    HTTPCodec::StreamID connectStreamId,
+    HTTPSource* egressSource,
+    HTTPSourceHolder ingressSource,
+    std::unique_ptr<WebTransportHandler> wtHandler) noexcept {
+  detail::EgressSourcePtr egress{
+      static_cast<detail::EgressSource*>(egressSource)};
+  auto* codec = codec_.getChainEndPtr();
+  const auto wtConfig = proxygen::detail::getH3WtConfig(
+      codec->getIngressSettings(), codec->getEgressSettings());
+  auto* stream = CHECK_NOTNULL(findStream(connectStreamId));
+  auto h3Wt = detail::H3CoroWtSession::make(eventBase_.get(),
+                                            quicSocket_,
+                                            std::move(wtHandler),
+                                            wtConfig,
+                                            connectStreamId);
+  stream->wtSession = h3Wt;
+  return h3Wt->start(h3Wt, std::move(ingressSource), std::move(egress));
 }
 
 } // namespace proxygen::coro

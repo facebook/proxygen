@@ -62,11 +62,12 @@ std::shared_ptr<WebTransport> H3CoroWtSession::start(
 
 folly::coro::Task<void> H3CoroWtSession::readLoop(
     Ptr /*self*/, HTTPSourceHolder ingressSource) {
+  // only the read loop parses capsules, so the codec lives on its stack
   proxygen::H3WtCapsuleCallback capsuleCb{h3Wt_};
   proxygen::WebTransportCapsuleCodec codec{&capsuleCb,
                                            proxygen::CodecVersion::H3};
 
-  bool done = false;
+  bool done = !bool(ingressSource);
   while (!done) {
     auto bodyEv =
         co_await folly::coro::co_awaitTry(ingressSource.readBodyEvent());

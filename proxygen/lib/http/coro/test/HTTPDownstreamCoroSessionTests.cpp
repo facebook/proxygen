@@ -43,7 +43,7 @@ class HTTPDownstreamSessionTest : public HTTPCoroSessionTest {
 
   void SetUp() override {
     SettingsId datagramSetting =
-        *hq::hqToHttpSettingsId(hq::SettingId::H3_DATAGRAM);
+        *hq::hqToHttpSettingsId(hq::SettingId::H3_DATAGRAM_RFC);
     bool enableDatagrams = isHQ() && GetParam().enableDatagrams;
     setTestCodecSetting(
         clientCodec_->getEgressSettings(), datagramSetting, enableDatagrams);
@@ -4186,7 +4186,7 @@ TEST_P(HQDownstreamSessionTest, DatagramNotSupportedTransport) {
   // rx datagram settings
   auto peerCodec = std::make_unique<hq::HQMultiCodec>(oppositeDirection());
   setTestCodecSetting(
-      peerCodec->getEgressSettings(), SettingsId::_HQ_DATAGRAM, 1);
+      peerCodec->getEgressSettings(), SettingsId::_HQ_DATAGRAM_RFC, 1);
   peerCodec->generateSettings(writeBuf_);
   muxTransport.addReadEvent(writeBuf_.move(), false);
   loopN(4);

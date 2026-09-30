@@ -11,12 +11,14 @@
 #include "proxygen/lib/http/coro/test/HTTPCoroSessionTests.h"
 #include "proxygen/lib/http/coro/test/Mocks.h"
 #include "proxygen/lib/http/coro/util/test/TestHelpers.h"
+#include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/webtransport/WebTransportCapsuleCodec.h>
 #include <proxygen/lib/http/coro/util/CoroWtSession.h>
 #include <proxygen/lib/http/coro/util/H3CoroWtSession.h>
 #include <proxygen/lib/http/webtransport/WtStreamManager.h>
 #include <proxygen/lib/http/webtransport/test/Mocks.h>
+#include <quic/folly_utils/Utils.h>
 
 using namespace proxygen;
 using namespace proxygen::test;
@@ -261,7 +263,6 @@ CO_TEST_P_X(H2WtUpstreamSessionTest, SendInvalidWtReq) {
   }
 }
 
-// only http/2 WebTransport tests for now
 INSTANTIATE_TEST_SUITE_P(
     HttpWtUpstreamSessionTest,
     H2WtUpstreamSessionTest,
@@ -893,6 +894,185 @@ CO_TEST_F(H3CoroWtSessionTest, SendsDatagramOverQuic) {
 
   egressSource_ = nullptr;
 }
+
+/**
+ * H3 variant of WtTest. Stream data flows through native QUIC streams (via
+ * MockQuicSocketDriver), while the CONNECT stream carries only session-level
+ * capsules (MaxData, MaxStreams, Drain, Close).
+ */
+class H3WtTest : public HttpWtUpstreamSessionTest {
+ public:
+  void SetUp() override {
+    initSelfCodec_ = enableH3CodecWtSettings;
+    HTTPCoroSessionTest::setUp();
+    constexpr auto kTimeout = std::chrono::milliseconds(50);
+    session_->setConnectionReadTimeout(kTimeout);
+    session_->setWriteTimeout(kTimeout);
+    loopN(2);
+
+    muxTp = CHECK_NOTNULL(muxTransport_.get());
+  }
+
+  void TearDown() override {
+    if (wt) {
+      wt->closeSession(folly::none);
+    }
+    HTTPCoroSessionTest::TearDown();
+  }
+
+ protected:
+  void deliverRespHeaders(HTTPCodec::StreamID id,
+                          const HTTPMessage& resp,
+                          bool eom = true) {
+    multiCodec_->addCodec(id);
+    serverCodec_->generateHeader(writeBuf_, id, resp, eom);
+    flushQPACKEncoder();
+    transport_->addReadEvent(id, writeBuf_.move(), isHQ() && eom);
+  }
+
+  folly::coro::Task<void> establishWtSession() {
+    HTTPMessage msg;
+    msg.setMethod(HTTPMethod::CONNECT);
+    msg.setUpgradeProtocol("webtransport");
+
+    auto handler = DummyWtHandler::make();
+    wtHandlerCtx = handler->ctx;
+
+    auto reservation = session_->reserveRequest();
+    auto fut =
+        co_withExecutor(&evb_,
+                        session_->sendWtReq(
+                            std::move(*reservation), msg, std::move(handler)))
+            .start();
+    co_await rescheduleN(1);
+
+    // eom=false: CONNECT stream stays open for capsules
+    connectStreamId_ = 0;
+    deliverRespHeaders(connectStreamId_, makeResponse(200), /*eom=*/false);
+    auto res = co_await co_awaitTry(std::move(fut));
+    XCHECK(res.hasValue());
+    wt = std::move(res->wt);
+    EXPECT_EQ(session_->numOutgoingStreams(), 1);
+  }
+
+  /**
+   * Create a peer-initiated WT stream by writing the WT stream preface on a
+   * new QUIC stream. This triggers HQ(Uni|Bidi)StreamDispatcher ->
+   * dispatch(Uni|Bidi)WTStream -> H3WtSession::acquireIngressStream.
+   */
+  quic::StreamId openPeerUniStream(quic::StreamId connectStreamId) {
+    auto id = muxTp->nextUnidirectionalStreamId_;
+    muxTp->nextUnidirectionalStreamId_ += 4;
+    folly::IOBufQueue prefaceBuf{folly::IOBufQueue::cacheChainLength()};
+    hq::writeWTStreamPreface(
+        prefaceBuf, hq::WebTransportStreamType::UNI, connectStreamId);
+    muxTp->socketDriver_.addReadEvent(id, prefaceBuf.move());
+    return id;
+  }
+
+  void deliverStreamData(quic::StreamId id,
+                         std::unique_ptr<folly::IOBuf> data,
+                         bool eof = false) {
+    muxTp->socketDriver_.addReadEvent(id, std::move(data), eof);
+  }
+
+  // bounded, so a regression fails the test rather than hanging the suite
+  folly::coro::Task<void> waitFor(folly::Function<bool()> pred,
+                                  size_t maxLoops = 100) {
+    for (size_t i = 0; i < maxLoops && !pred(); i++) {
+      co_await rescheduleN(1);
+    }
+    EXPECT_TRUE(pred());
+  }
+
+  std::unique_ptr<folly::IOBuf> makeQuicDatagram(quic::StreamId connectStreamId,
+                                                 std::string_view payload) {
+    folly::IOBufQueue queue{folly::IOBufQueue::cacheChainLength()};
+    folly::io::QueueAppender appender(&queue, /*growth=*/8);
+    auto res = quic::encodeQuicInteger(
+        connectStreamId / 4, [&appender](auto val) { appender.writeBE(val); });
+    XCHECK(res);
+    queue.append(folly::IOBuf::copyBuffer(payload));
+    return queue.move();
+  }
+
+  void deliverQuicDatagram(quic::StreamId connectStreamId,
+                           std::string_view payload) {
+    muxTp->socketDriver_.addDatagram(
+        makeQuicDatagram(connectStreamId, payload));
+    muxTp->socketDriver_.addDatagramsAvailableReadEvent();
+  }
+
+  std::shared_ptr<WebTransport> wt;
+  std::shared_ptr<const DummyWtHandler::Ctx> wtHandlerCtx;
+  TestCoroMultiplexTransport* muxTp{nullptr};
+  quic::StreamId connectStreamId_{0};
+};
+
+CO_TEST_P_X(H3WtTest, RoutesPeerStreams) {
+  co_await establishWtSession();
+  XCHECK_NE(wt, nullptr);
+
+  auto invalidBidiId = muxTp->nextBidirectionalStreamId_;
+  muxTp->nextBidirectionalStreamId_ += 4;
+  folly::IOBufQueue prefaceBuf{folly::IOBufQueue::cacheChainLength()};
+  hq::writeWTStreamPreface(prefaceBuf,
+                           hq::WebTransportStreamType::BIDI,
+                           /*wtSessionId=*/9999);
+  muxTp->socketDriver_.addReadEvent(invalidBidiId, prefaceBuf.move());
+  co_await rescheduleN(2);
+
+  EXPECT_TRUE(wtHandlerCtx->peerStreams.empty());
+  EXPECT_EQ(muxTp->socketDriver_.streams_[invalidBidiId].writeState,
+            quic::MockQuicSocketDriver::StateEnum::ERROR);
+
+  constexpr uint16_t kBufLen = 100;
+  auto peerUniId = openPeerUniStream(connectStreamId_);
+  deliverStreamData(peerUniId, makeBuf(kBufLen), /*eof=*/false);
+
+  co_await waitFor([&] { return !wtHandlerCtx->peerStreams.empty(); });
+  XCHECK(!wtHandlerCtx->peerStreams.empty());
+
+  // ingress only => writeHandle == nullptr
+  auto handle = wtHandlerCtx->peerStreams.at(0);
+  EXPECT_FALSE(handle.writeHandle);
+  EXPECT_TRUE(handle.readHandle);
+
+  auto read = wt->readStreamData(handle.readHandle->getID());
+  EXPECT_TRUE(read->isReady());
+  EXPECT_EQ(read->value().fin, false);
+  EXPECT_EQ(read->value().data->computeChainDataLength(), kBufLen);
+}
+
+CO_TEST_P_X(H3WtTest, Datagrams) {
+  co_await establishWtSession();
+  XCHECK_NE(wt, nullptr);
+  auto& socketDriver = muxTp->socketDriver_;
+
+  // tx datagram => quic datagram prefixed with the quarter stream id
+  wt->sendDatagram(folly::IOBuf::copyBuffer("datagram1"));
+  co_await rescheduleN(2);
+
+  XCHECK_EQ(socketDriver.outDatagrams_.size(), 1u);
+  auto egressDatagram = socketDriver.outDatagrams_.front().move();
+  folly::io::Cursor cursor(egressDatagram.get());
+  auto quarterStreamId = quic::follyutils::decodeQuicInteger(cursor);
+  XCHECK(quarterStreamId.has_value());
+  EXPECT_EQ(quarterStreamId->first, connectStreamId_ / 4);
+  EXPECT_EQ(cursor.readFixedString(cursor.totalLength()), "datagram1");
+
+  // rx quic datagram destined for this connect stream
+  deliverQuicDatagram(connectStreamId_, "datagram2");
+  co_await waitFor([&] { return !wtHandlerCtx->dgrams.empty(); });
+  XCHECK_EQ(wtHandlerCtx->dgrams.size(), 1u);
+  EXPECT_EQ(wtHandlerCtx->dgrams.back()->toString(), "datagram2");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    H3WtTest,
+    H3WtTest,
+    Values(TestParams({.codecProtocol = CodecProtocol::HQ})),
+    paramsToTestName);
 
 class HttpStreamTransport : public Test {
  public:

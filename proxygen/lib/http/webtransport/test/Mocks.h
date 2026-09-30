@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <array>
 #include <folly/portability/GMock.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
@@ -206,6 +207,20 @@ inline void setCodecWtSettings(HTTPCodec& codec, bool enabled) noexcept {
 
 inline void enableCodecWtSettings(HTTPCodec& codec) noexcept {
   setCodecWtSettings(codec, /*enabled=*/true);
+}
+
+inline void enableH3CodecWtSettings(HTTPCodec& codec) noexcept {
+  static constexpr std::array<SettingsId, 4> kSettings{
+      SettingsId::ENABLE_CONNECT_PROTOCOL,
+      SettingsId::H3_WT_MAX_SESSIONS,
+      SettingsId::H3_WT_ENABLED,
+      SettingsId::_HQ_DATAGRAM_RFC};
+  for (auto* settings : {const_cast<HTTPSettings*>(codec.getIngressSettings()),
+                         codec.getEgressSettings()}) {
+    for (const auto setting : kSettings) {
+      settings->setSetting(setting, 1);
+    }
+  }
 }
 
 } // namespace proxygen::test
