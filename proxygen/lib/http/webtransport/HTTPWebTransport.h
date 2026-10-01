@@ -15,6 +15,9 @@
 #include <folly/Expected.h>
 #include <folly/Optional.h>
 
+#include <string>
+#include <vector>
+
 namespace proxygen {
 
 class HTTPMessage;
@@ -28,6 +31,11 @@ class HTTPWebTransport {
   };
 
   static bool isConnectMessage(const proxygen::HTTPMessage& msg);
+
+  static HTTPMessage makeConnectRequest(
+      const std::string& authority,
+      std::string path,
+      const std::vector<std::string>& protocols = {});
 
   static void setWTAvailableProtocols(
       HTTPMessage& msg, const std::vector<std::string>& protocols);

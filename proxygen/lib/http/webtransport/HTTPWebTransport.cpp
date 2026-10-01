@@ -23,6 +23,23 @@ using WTProtocolError = HTTPWebTransport::WTProtocolError;
          *msg.getUpgradeProtocol() == headers::kWebTransport;
 }
 
+/*static*/ HTTPMessage HTTPWebTransport::makeConnectRequest(
+    const std::string& authority,
+    std::string path,
+    const std::vector<std::string>& protocols) {
+  HTTPMessage request;
+  request.setHTTPVersion(1, 1);
+  request.setSecure(true);
+  request.getHeaders().set(HTTP_HEADER_HOST, authority);
+  request.getHeaders().add(headers::kSecWebTransportHttp3Draft02,
+                           headers::kSecWebTransportHttp3Draft02Value);
+  request.setURL(std::move(path));
+  request.setMethod(HTTPMethod::CONNECT);
+  request.setUpgradeProtocol(std::string{headers::kWebTransport});
+  setWTAvailableProtocols(request, protocols);
+  return request;
+}
+
 /*static*/ void HTTPWebTransport::setWTAvailableProtocols(
     HTTPMessage& msg, const std::vector<std::string>& protocols) {
   std::vector<StructuredHeaders::StructuredHeaderItem> items;
