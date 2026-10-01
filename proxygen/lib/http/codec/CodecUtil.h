@@ -46,6 +46,13 @@ class CodecUtil {
     return proxygen::validateURL(url, mode);
   }
 
+  // The part of a URL before its query or fragment. Anything echoing a URL off
+  // the wire into a log or error message should go through this: those two
+  // components are where URLs carry credentials, such as access tokens.
+  static std::string_view stripQueryAndFragment(std::string_view url) {
+    return url.substr(0, url.find_first_of("?#"));
+  }
+
   static bool validateMethod(folly::ByteRange method) {
     for (auto p = method.begin(); p != method.end(); p++) {
       // '-' is valid except for start and end

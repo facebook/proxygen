@@ -318,6 +318,40 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+// A :path that fails validation is echoed into the stream error and the
+// codec's own log, and the query is where a URL carries its credentials, so
+// neither may carry it.
+TEST_F(HTTP2CodecTest, BadPathOmitsQueryFromErrors) {
+  static const std::string method("GET");
+  static const std::string path("/v1/noise?auth_token=TEST_ONLY_NOT_A_TOKEN x");
+  static const std::string scheme("https");
+  static const std::string authority("foo.com");
+  std::vector<proxygen::compress::Header> reqHeaders = {
+      Header::makeHeaderForTest(headers::kMethod, method),
+      Header::makeHeaderForTest(headers::kPath, path),
+      Header::makeHeaderForTest(headers::kScheme, scheme),
+      Header::makeHeaderForTest(headers::kAuthority, authority),
+  };
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
+  writeHeaders(output_,
+               headerCodec.encode(reqHeaders),
+               1,
+               http2::kNoPadding,
+               true,
+               true);
+  CapturingLogSink logs;
+
+  parse();
+
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  ASSERT_NE(callbacks_.lastParseError, nullptr);
+  EXPECT_THAT(callbacks_.lastParseError->what(),
+              HasSubstr("Invalid url: /v1/noise"));
+  EXPECT_THAT(callbacks_.lastParseError->what(), Not(HasSubstr("TEST_ONLY")));
+  EXPECT_THAT(logs.messages, Contains(HasSubstr("Invalid url: /v1/noise")));
+  EXPECT_THAT(logs.messages, Each(Not(HasSubstr("TEST_ONLY"))));
+}
+
 TEST_F(HTTP2CodecTest, HostAuthority) {
   static const std::string v1("GET");
   static const std::string v2("/");

@@ -196,6 +196,7 @@ proxygen_add_library(proxygen_http_codec_http_binary_codec
   SRCS
     HTTPBinaryCodec.cpp
   DEPS
+    proxygen_http_codec_util
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
   EXPORTED_DEPS

@@ -273,6 +273,29 @@ TEST_F(HttpBinaryUpstreamCodecTest, testParseRequestControlDataFailure) {
       "Failure to parse: invalid URL path 'hello.tx\x1'");
 }
 
+// The path is echoed into the parse error, which ends up in logs, and the query
+// is where a URL carries its credentials, so the error stops short of it.
+TEST_F(HttpBinaryUpstreamCodecTest, testParseRequestControlDataOmitsQuery) {
+  std::string controlData;
+  for (std::string_view field :
+       {"GET",
+        "https",
+        "www.example.com",
+        "/hello.txt?auth_token=TEST_ONLY_NOT_A_TOKEN\x01"}) {
+    // Every field is shorter than 64 bytes, so its varint length is one byte.
+    controlData.push_back(static_cast<char>(field.size()));
+    controlData.append(field);
+  }
+  auto controlDataIOBuf = folly::IOBuf::copyBuffer(controlData);
+  folly::io::Cursor cursor(controlDataIOBuf.get());
+
+  HTTPMessage msg;
+  EXPECT_EQ(binaryCodecKnownLength_
+                ->parseRequestControlData(cursor, controlData.size(), msg)
+                .error_,
+            "Failure to parse: invalid URL path '/hello.txt'");
+}
+
 TEST_F(HttpBinaryUpstreamCodecTest, testParseResponseControlDataSuccess) {
   // Reponse Code 200 OK
   folly::IOBufQueue controlDataIOBuf;

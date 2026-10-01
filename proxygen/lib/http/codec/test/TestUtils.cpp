@@ -288,6 +288,24 @@ void fakeMockCodec(MockHTTPCodec& codec) {
       }));
 }
 
+CapturingLogSink::CapturingLogSink() {
+  google::AddLogSink(this);
+}
+
+CapturingLogSink::~CapturingLogSink() {
+  google::RemoveLogSink(this);
+}
+
+void CapturingLogSink::send(google::LogSeverity /*severity*/,
+                            const char* /*fullFilename*/,
+                            const char* /*baseFilename*/,
+                            int /*line*/,
+                            const struct ::tm* /*tmTime*/,
+                            const char* message,
+                            size_t messageLen) {
+  messages.emplace_back(message, messageLen);
+}
+
 void WtCapsuleCodecCallback::onResetStream(
     WTResetStreamCapsule capsule) noexcept {
   rst.emplace(capsule);

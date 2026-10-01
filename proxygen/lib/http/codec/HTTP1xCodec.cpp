@@ -1075,7 +1075,8 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
     // but unspecified, and backfillPartialRequest() reads url_ on the -1 path.
     url_.clear();
     if (strictValidation_ && !parseUrl.valid()) {
-      LOG(ERROR) << "Invalid URL: " << msg_->getURL();
+      LOG(ERROR) << "Invalid URL: "
+                 << CodecUtil::stripQueryAndFragment(msg_->getURL());
       return setErrorContext("invalid-url");
     }
 

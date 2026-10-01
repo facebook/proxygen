@@ -57,7 +57,8 @@ class HTTPRequestVerifier {
                                     ? URLValidateMode::STRICT
                                     : URLValidateMode::STRICT_COMPAT)) {
       hasValidationError_ = true;
-      error = folly::to<std::string>("Invalid url: ", path);
+      error = folly::to<std::string>("Invalid url: ",
+                                     CodecUtil::stripQueryAndFragment(path));
       return false;
     }
     hasPath_ = true;
@@ -66,7 +67,8 @@ class HTTPRequestVerifier {
     strictValidation &= !(allowEmptyPath && path.empty());
     auto parseUrl = msg_->setURL(path.str(), strictValidation);
     if (strictValidation && !parseUrl.valid()) {
-      error = folly::to<std::string>("Invalid url: ", path);
+      error = folly::to<std::string>("Invalid url: ",
+                                     CodecUtil::stripQueryAndFragment(path));
       return false;
     }
     return !strictValidation || parseUrl.valid();

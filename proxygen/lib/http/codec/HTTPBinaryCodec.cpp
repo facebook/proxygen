@@ -8,6 +8,8 @@
 
 #include <proxygen/lib/http/codec/HTTPBinaryCodec.h>
 
+#include <proxygen/lib/http/codec/CodecUtil.h>
+
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 
@@ -188,8 +190,8 @@ ParseResult HTTPBinaryCodec::parseRequestControlData(folly::io::Cursor& cursor,
   // Set relative path to msg URL
   auto parseUrl = msg.setURL(path);
   if (!parseUrl.valid()) {
-    return ParseResult(
-        fmt::format("Failure to parse: invalid URL path '{}'", path));
+    return ParseResult(fmt::format("Failure to parse: invalid URL path '{}'",
+                                   CodecUtil::stripQueryAndFragment(path)));
   }
   parsed += pathRes.bytesParsed_;
   remaining -= pathRes.bytesParsed_;

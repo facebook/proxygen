@@ -11,6 +11,7 @@
 #include <folly/futures/Future.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/portability/GTest.h>
+#include <glog/logging.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/webtransport/WebTransportCapsuleCodec.h>
 #include <proxygen/lib/utils/TestUtils.h>
@@ -443,6 +444,25 @@ makeResponse(uint16_t statusCode, size_t len);
 
 // Takes a MockHTTPCodec and fakes out its interface
 void fakeMockCodec(MockHTTPCodec& codec);
+
+// Collects the text of every glog message logged while it is alive.
+class CapturingLogSink : public google::LogSink {
+ public:
+  CapturingLogSink();
+  ~CapturingLogSink() override;
+  CapturingLogSink(const CapturingLogSink&) = delete;
+  CapturingLogSink& operator=(const CapturingLogSink&) = delete;
+
+  void send(google::LogSeverity severity,
+            const char* fullFilename,
+            const char* baseFilename,
+            int line,
+            const struct ::tm* tmTime,
+            const char* message,
+            size_t messageLen) override;
+
+  std::vector<std::string> messages;
+};
 
 // webtransport helpers
 HTTPMessage getWtReq();

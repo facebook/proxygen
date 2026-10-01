@@ -359,6 +359,26 @@ TEST(HTTP1xCodecTest, TestBadURL) {
   codec.onIngress(*buffer);
 }
 
+// A URL that fails strict parsing is logged, and the query is where a URL
+// carries its credentials, so the log has to stop short of it.
+TEST(HTTP1xCodecTest, TestInvalidURLLogOmitsQuery) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/true);
+  FakeHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  CapturingLogSink logs;
+
+  // A fragment ahead of the query passes http_parser but fails ParseURL.
+  auto buffer = folly::IOBuf::copyBuffer(
+      "GET /v1/noise#frag?auth_token=TEST_ONLY_NOT_A_TOKEN HTTP/1.1\r\n\r\n");
+  codec.onIngress(*buffer);
+
+  EXPECT_EQ(callbacks.streamErrors, 1);
+  EXPECT_THAT(logs.messages, Contains(HasSubstr("Invalid URL: /v1/noise")));
+  EXPECT_THAT(logs.messages, Each(Not(HasSubstr("TEST_ONLY"))));
+}
+
 TEST(HTTP1xCodecTest, TestUnderscoreAllowedInHost) {
   // The strict mode of http_parser used to couple strict URL parsing with
   // disallowing _ in hostnames.  We decoupled those behaviors so this should
