@@ -193,15 +193,20 @@ bool supportsH3Wt(TransportDirection dir,
                   const HTTPSettings* egress) noexcept {
   const HTTPSettings* server = isUpstream(dir) ? ingress : egress;
   const HTTPSettings* client = isUpstream(dir) ? egress : ingress;
-  bool serverOk = server &&
-                  server->getSetting(SettingsId::H3_WT_ENABLED,
-                                     /*defaultVal=*/0) &&
-                  server->getSetting(SettingsId::ENABLE_CONNECT_PROTOCOL,
-                                     /*defaultVal=*/0) &&
-                  server->getSetting(SettingsId::_HQ_DATAGRAM_RFC,
-                                     /*defaultVal=*/0);
-  bool clientOk = client && client->getSetting(SettingsId::_HQ_DATAGRAM_RFC,
-                                               /*defaultVal=*/0);
+  const bool clientOk =
+      client &&
+      client->getSetting(SettingsId::_HQ_DATAGRAM_RFC, /*defaultVal=*/0) &&
+      (isDownstream(dir) ||
+       client->getSetting(SettingsId::WT_ENABLED, /*defaultVal=*/0));
+  // TODO: Also inspect the peer server settings after their availability can
+  // be guaranteed before an upstream CONNECT.
+  const bool serverOk =
+      isUpstream(dir) ||
+      (server &&
+       server->getSetting(SettingsId::H3_WT_ENABLED, /*defaultVal=*/0) &&
+       server->getSetting(SettingsId::ENABLE_CONNECT_PROTOCOL,
+                          /*defaultVal=*/0) &&
+       server->getSetting(SettingsId::_HQ_DATAGRAM_RFC, /*defaultVal=*/0));
   return serverOk && clientOk;
 }
 

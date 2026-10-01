@@ -210,6 +210,7 @@ inline void enableCodecWtSettings(HTTPCodec& codec) noexcept {
 }
 
 inline void enableH3CodecWtSettings(HTTPCodec& codec) noexcept {
+  codec.getEgressSettings()->setSetting(SettingsId::WT_ENABLED, 1);
   static constexpr std::array<SettingsId, 4> kSettings{
       SettingsId::ENABLE_CONNECT_PROTOCOL,
       SettingsId::H3_WT_MAX_SESSIONS,

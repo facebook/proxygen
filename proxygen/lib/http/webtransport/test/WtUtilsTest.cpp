@@ -10,6 +10,7 @@
 
 #include <folly/io/IOBufQueue.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/http/codec/webtransport/WebTransportFramer.h>
 
 using namespace proxygen;
@@ -24,6 +25,55 @@ std::string coalesceToString(folly::IOBufQueue& queue) {
 }
 
 } // namespace
+
+TEST(WtUtilsTest, SupportsH3WtUpstreamUsesLocalSettings) {
+  HTTPSettings local;
+  local.setSetting(SettingsId::WT_ENABLED, 1);
+  local.setSetting(SettingsId::_HQ_DATAGRAM_RFC, 1);
+
+  EXPECT_TRUE(detail::supportsH3Wt(
+      TransportDirection::UPSTREAM, /*ingress=*/nullptr, &local));
+
+  local.unsetSetting(SettingsId::WT_ENABLED);
+  EXPECT_FALSE(detail::supportsH3Wt(
+      TransportDirection::UPSTREAM, /*ingress=*/nullptr, &local));
+
+  local.setSetting(SettingsId::WT_ENABLED, 1);
+  local.unsetSetting(SettingsId::_HQ_DATAGRAM_RFC);
+  EXPECT_FALSE(detail::supportsH3Wt(
+      TransportDirection::UPSTREAM, /*ingress=*/nullptr, &local));
+}
+
+TEST(WtUtilsTest, SupportsH3WtDownstreamUsesLocalAndPeerSettings) {
+  HTTPSettings client;
+  client.setSetting(SettingsId::_HQ_DATAGRAM_RFC, 1);
+  HTTPSettings server;
+  server.setSetting(SettingsId::H3_WT_ENABLED, 1);
+  server.setSetting(SettingsId::ENABLE_CONNECT_PROTOCOL, 1);
+  server.setSetting(SettingsId::_HQ_DATAGRAM_RFC, 1);
+
+  EXPECT_TRUE(
+      detail::supportsH3Wt(TransportDirection::DOWNSTREAM, &client, &server));
+
+  client.unsetSetting(SettingsId::_HQ_DATAGRAM_RFC);
+  EXPECT_FALSE(
+      detail::supportsH3Wt(TransportDirection::DOWNSTREAM, &client, &server));
+
+  client.setSetting(SettingsId::_HQ_DATAGRAM_RFC, 1);
+  server.unsetSetting(SettingsId::H3_WT_ENABLED);
+  EXPECT_FALSE(
+      detail::supportsH3Wt(TransportDirection::DOWNSTREAM, &client, &server));
+
+  server.setSetting(SettingsId::H3_WT_ENABLED, 1);
+  server.unsetSetting(SettingsId::ENABLE_CONNECT_PROTOCOL);
+  EXPECT_FALSE(
+      detail::supportsH3Wt(TransportDirection::DOWNSTREAM, &client, &server));
+
+  server.setSetting(SettingsId::ENABLE_CONNECT_PROTOCOL, 1);
+  server.unsetSetting(SettingsId::_HQ_DATAGRAM_RFC);
+  EXPECT_FALSE(
+      detail::supportsH3Wt(TransportDirection::DOWNSTREAM, &client, &server));
+}
 
 // 1) With the default protocol unset, WtEventVisitor's serialization for a
 //    ResetStream event must match what writeWTResetStream produces with the

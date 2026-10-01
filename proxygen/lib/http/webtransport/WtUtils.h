@@ -65,6 +65,10 @@ bool supportsH2Wt(TransportDirection dir,
  *
  * Clients supporting WebTransport over HTTP/3 send:
  *   - A SETTINGS_H3_DATAGRAM setting with a value of 1
+ *
+ * An application enables wt on an upstream session by setting WT_ENABLED on
+ * the egress settings. The upstream session does not inspect the peer server's
+ * settings because CONNECT may be sent before they arrive.
  */
 bool supportsH3Wt(TransportDirection dir,
                   const HTTPSettings* ingress,
