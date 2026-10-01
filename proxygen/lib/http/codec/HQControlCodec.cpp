@@ -111,6 +111,8 @@ ParseResult HQControlCodec::parseSettings(Cursor& cursor,
       case hq::SettingId::QPACK_BLOCKED_STREAMS:
       case hq::SettingId::H3_WT_MAX_SESSIONS:
       case hq::SettingId::WT_INITIAL_MAX_DATA:
+      case hq::SettingId::WT_INITIAL_MAX_STREAMS_UNI:
+      case hq::SettingId::WT_INITIAL_MAX_STREAMS_BIDI:
         break;
       case hq::SettingId::ENABLE_CONNECT_PROTOCOL:
       case hq::SettingId::H3_DATAGRAM:

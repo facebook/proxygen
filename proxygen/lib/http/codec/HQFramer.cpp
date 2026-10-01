@@ -107,6 +107,8 @@ decodeSettingValue(folly::io::Cursor& cursor,
     case SettingId::ENABLE_WEBTRANSPORT:
     case SettingId::H3_WT_MAX_SESSIONS:
     case SettingId::WT_INITIAL_MAX_DATA:
+    case SettingId::WT_INITIAL_MAX_STREAMS_UNI:
+    case SettingId::WT_INITIAL_MAX_STREAMS_BIDI:
     case SettingId::WT_ENABLED:
       return value;
   }

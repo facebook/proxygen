@@ -552,6 +552,30 @@ TEST_F(HQCodecTest, ZeroLengthSettings) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+TEST_F(HQCodecTest, WebTransportStreamLimitSettings) {
+  HTTPSettings egressSettings{{SettingsId::WT_INITIAL_MAX_STREAMS_UNI, 6},
+                              {SettingsId::WT_INITIAL_MAX_STREAMS_BIDI, 7}};
+  HQControlCodec egressCodec{0x2223,
+                             TransportDirection::DOWNSTREAM,
+                             StreamDirection::EGRESS,
+                             egressSettings,
+                             hq::UnidirectionalStreamType::CONTROL};
+
+  egressCodec.generateSettings(queueCtrl_);
+  parseControl(CodecType::CONTROL_UPSTREAM);
+
+  ASSERT_EQ(callbacks_.settings, 1);
+  ASSERT_EQ(callbacks_.ingressSettings.size(), 2);
+  auto* uni =
+      ingressSettings_.getSetting(SettingsId::WT_INITIAL_MAX_STREAMS_UNI);
+  ASSERT_NE(uni, nullptr);
+  EXPECT_EQ(uni->value, 6);
+  auto* bidi =
+      ingressSettings_.getSetting(SettingsId::WT_INITIAL_MAX_STREAMS_BIDI);
+  ASSERT_NE(bidi, nullptr);
+  EXPECT_EQ(bidi->value, 7);
+}
+
 TEST_F(HQCodecTest, InvalidSettings) {
   std::deque<hq::SettingPair> settings{
       {hq::SettingId::ENABLE_WEBTRANSPORT, 37}};

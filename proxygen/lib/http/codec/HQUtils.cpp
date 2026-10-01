@@ -97,6 +97,10 @@ folly::Optional<hq::SettingId> httpToHqSettingsId(proxygen::SettingsId id) {
       return hq::SettingId::H3_WT_MAX_SESSIONS;
     case proxygen::SettingsId::WT_INITIAL_MAX_DATA:
       return hq::SettingId::WT_INITIAL_MAX_DATA;
+    case proxygen::SettingsId::WT_INITIAL_MAX_STREAMS_UNI:
+      return hq::SettingId::WT_INITIAL_MAX_STREAMS_UNI;
+    case proxygen::SettingsId::WT_INITIAL_MAX_STREAMS_BIDI:
+      return hq::SettingId::WT_INITIAL_MAX_STREAMS_BIDI;
     case proxygen::SettingsId::H3_WT_ENABLED:
       return hq::SettingId::WT_ENABLED;
     default:
@@ -124,6 +128,10 @@ folly::Optional<proxygen::SettingsId> hqToHttpSettingsId(hq::SettingId id) {
       return proxygen::SettingsId::H3_WT_MAX_SESSIONS;
     case hq::SettingId::WT_INITIAL_MAX_DATA:
       return proxygen::SettingsId::WT_INITIAL_MAX_DATA;
+    case hq::SettingId::WT_INITIAL_MAX_STREAMS_UNI:
+      return proxygen::SettingsId::WT_INITIAL_MAX_STREAMS_UNI;
+    case hq::SettingId::WT_INITIAL_MAX_STREAMS_BIDI:
+      return proxygen::SettingsId::WT_INITIAL_MAX_STREAMS_BIDI;
     case hq::SettingId::WT_ENABLED:
       return proxygen::SettingsId::H3_WT_ENABLED;
   }

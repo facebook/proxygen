@@ -45,6 +45,8 @@ bool isLimitSetting(hq::SettingId id) {
     case hq::SettingId::MAX_HEADER_LIST_SIZE:
     case hq::SettingId::H3_WT_MAX_SESSIONS:
     case hq::SettingId::WT_INITIAL_MAX_DATA:
+    case hq::SettingId::WT_INITIAL_MAX_STREAMS_UNI:
+    case hq::SettingId::WT_INITIAL_MAX_STREAMS_BIDI:
       return true;
     case hq::SettingId::ENABLE_CONNECT_PROTOCOL:
     case hq::SettingId::H3_DATAGRAM:

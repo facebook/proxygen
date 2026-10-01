@@ -79,6 +79,19 @@ TEST_F(H3EarlyDataHandlerTest, ValidateRejectsCachedBlockedStreamsTooLarge) {
   EXPECT_FALSE(handler_.validate(std::string("h3"), buf));
 }
 
+TEST_F(H3EarlyDataHandlerTest, ValidateRejectsCachedWtStreamLimitsTooLarge) {
+  for (auto id : {SettingsId::WT_INITIAL_MAX_STREAMS_UNI,
+                  SettingsId::WT_INITIAL_MAX_STREAMS_BIDI}) {
+    H3EarlyDataHandler handler;
+    handler.setCurrentSettings(makeSettings({{id, 100}}));
+    auto buf = handler.get();
+    ASSERT_NE(buf, nullptr);
+
+    handler.setCurrentSettings(makeSettings({{id, 50}}));
+    EXPECT_FALSE(handler.validate(std::string("h3"), buf));
+  }
+}
+
 TEST_F(H3EarlyDataHandlerTest, ValidateRejectsCachedMaxHeaderListSizeTooLarge) {
   auto settings = makeSettings({{SettingsId::MAX_HEADER_LIST_SIZE, 262144}});
   handler_.setCurrentSettings(settings);

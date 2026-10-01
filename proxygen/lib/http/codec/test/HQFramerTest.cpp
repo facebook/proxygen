@@ -314,6 +314,8 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_F(HQFramerTest, SettingsFrameOK) {
   deque<hq::SettingPair> settings = {
       {hq::SettingId::MAX_HEADER_LIST_SIZE, (SettingValue)4},
+      {hq::SettingId::WT_INITIAL_MAX_STREAMS_UNI, (SettingValue)6},
+      {hq::SettingId::WT_INITIAL_MAX_STREAMS_BIDI, (SettingValue)7},
       // Unknown IDs get ignored, and identifiers of the format
       // "0x1f * N + 0x21" are reserved exactly for this
       {(hq::SettingId)*getGreaseId(kMaxGreaseIdIndex), (SettingValue)5}};
