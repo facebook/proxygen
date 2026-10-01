@@ -127,24 +127,12 @@ CompressionInfo PassThroughHTTPCodecFilter::getCompressionInfo() const {
   return call_->getCompressionInfo();
 }
 
-CodecProtocol PassThroughHTTPCodecFilter::getProtocol() const {
-  return call_->getProtocol();
+HTTPCodecTraits PassThroughHTTPCodecFilter::getTraits() const {
+  return call_->getTraits();
 }
 
 const std::string& PassThroughHTTPCodecFilter::getUserAgent() const {
   return call_->getUserAgent();
-}
-
-TransportDirection PassThroughHTTPCodecFilter::getTransportDirection() const {
-  return call_->getTransportDirection();
-}
-
-bool PassThroughHTTPCodecFilter::supportsStreamFlowControl() const {
-  return call_->supportsStreamFlowControl();
-}
-
-bool PassThroughHTTPCodecFilter::supportsSessionFlowControl() const {
-  return call_->supportsSessionFlowControl();
 }
 
 HTTPCodec::StreamID PassThroughHTTPCodecFilter::createStream() {
@@ -185,10 +173,6 @@ bool PassThroughHTTPCodecFilter::isWaitingToDrain() const {
 
 bool PassThroughHTTPCodecFilter::closeOnEgressComplete() const {
   return call_->closeOnEgressComplete();
-}
-
-bool PassThroughHTTPCodecFilter::supportsParallelRequests() const {
-  return call_->supportsParallelRequests();
 }
 
 bool PassThroughHTTPCodecFilter::supportsPushTransactions() const {

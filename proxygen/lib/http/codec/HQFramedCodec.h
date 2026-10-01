@@ -37,19 +37,9 @@ class HQFramedCodec : public HTTPCodec {
   // HTTPCodec API
 
   // Only implemented in the Stream Codec
-  CodecProtocol getProtocol() const override {
-    LOG(FATAL) << __func__ << " not supported on this codec";
-    folly::assume_unreachable();
-  }
-
-  // Only implemented in the Stream Codec
   const std::string& getUserAgent() const override {
     LOG(FATAL) << __func__ << " not supported on this codec";
     folly::assume_unreachable();
-  }
-
-  TransportDirection getTransportDirection() const override {
-    return transportDirection_;
   }
 
   // Stream multiplexing handled at the transport
@@ -90,10 +80,6 @@ class HQFramedCodec : public HTTPCodec {
   }
 
   bool closeOnEgressComplete() const override {
-    return false;
-  }
-
-  bool supportsParallelRequests() const override {
     return false;
   }
 

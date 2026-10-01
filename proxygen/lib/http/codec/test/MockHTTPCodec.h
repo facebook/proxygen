@@ -22,11 +22,14 @@ namespace proxygen {
 
 class MockHTTPCodec : public HTTPCodec {
  public:
-  MOCK_METHOD(CodecProtocol, getProtocol, (), (const));
+  explicit MockHTTPCodec(HTTPCodecTraits traits = {}) : traits_(traits) {
+  }
+
+  HTTPCodecTraits getTraits() const override {
+    return traits_;
+  }
+
   MOCK_METHOD(const std::string&, getUserAgent, (), (const));
-  MOCK_METHOD(TransportDirection, getTransportDirection, (), (const));
-  MOCK_METHOD(bool, supportsStreamFlowControl, (), (const));
-  MOCK_METHOD(bool, supportsSessionFlowControl, (), (const));
   MOCK_METHOD(HTTPCodec::StreamID, createStream, ());
   MOCK_METHOD(void, setCallback, (Callback*));
   MOCK_METHOD(bool, isBusy, (), (const));
@@ -38,7 +41,6 @@ class MockHTTPCodec : public HTTPCodec {
   MOCK_METHOD(bool, isReusable, (), (const));
   MOCK_METHOD(bool, isWaitingToDrain, (), (const));
   MOCK_METHOD(bool, closeOnEgressComplete, (), (const));
-  MOCK_METHOD(bool, supportsParallelRequests, (), (const));
   MOCK_METHOD(bool, supportsPushTransactions, (), (const));
   MOCK_METHOD(void,
               generateHeader,
@@ -124,6 +126,9 @@ class MockHTTPCodec : public HTTPCodec {
               addPriorityNodes,
               (PriorityQueue&, folly::IOBufQueue&, uint8_t));
   MOCK_METHOD(HTTPCodec::StreamID, mapPriorityToDependency, (uint8_t), (const));
+
+ private:
+  HTTPCodecTraits traits_{};
 };
 
 class MockHTTPCodecCallback : public HTTPCodec::Callback {

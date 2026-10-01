@@ -40,14 +40,11 @@ std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
 
 std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeMockParallelCodec(
     TransportDirection dir) {
-  auto codec = std::make_unique<testing::NiceMock<MockHTTPCodec>>();
-  EXPECT_CALL(*codec, supportsParallelRequests())
-      .WillRepeatedly(testing::Return(true));
-  EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(testing::Return(CodecProtocol::HTTP_2));
+  auto codec = std::make_unique<testing::NiceMock<MockHTTPCodec>>(
+      HTTPCodecTraits{.protocol = CodecProtocol::HTTP_2,
+                      .direction = dir,
+                      .supportsParallelRequests = true});
   EXPECT_CALL(*codec, isReusable()).WillRepeatedly(testing::Return(true));
-  EXPECT_CALL(*codec, getTransportDirection())
-      .WillRepeatedly(testing::Return(dir));
   EXPECT_CALL(*codec, getIngressSettings())
       .WillRepeatedly(testing::Return(&kDefaultIngressSettings));
   return codec;

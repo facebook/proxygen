@@ -96,7 +96,12 @@ class SessionBenchmarkHelper {
 
  private:
   void setup() {
-    codec_ = new NiceMock<MockHTTPCodec>();
+    codec_ = new NiceMock<MockHTTPCodec>(
+        HTTPCodecTraits{.protocol = CodecProtocol::HTTP_2,
+                        .direction = TransportDirection::DOWNSTREAM,
+                        .supportsParallelRequests = true,
+                        .supportsSessionFlowControl = true,
+                        .supportsStreamFlowControl = true});
     transport_ = new NiceMock<folly::test::MockAsyncTransport>();
     transactionTimeouts_ = makeTimeoutSet(&eventBase_);
 
@@ -116,14 +121,7 @@ class SessionBenchmarkHelper {
     EXPECT_CALL(mockController_, onTransportReady(_)).Times(1);
 
     ON_CALL(*codec_, setCallback(_)).WillByDefault(SaveArg<0>(&codecCallback_));
-    ON_CALL(*codec_, supportsParallelRequests()).WillByDefault(Return(true));
     ON_CALL(*codec_, supportsPushTransactions()).WillByDefault(Return(true));
-    ON_CALL(*codec_, getTransportDirection())
-        .WillByDefault(Return(TransportDirection::DOWNSTREAM));
-    ON_CALL(*codec_, supportsStreamFlowControl()).WillByDefault(Return(true));
-    ON_CALL(*codec_, getProtocol())
-        .WillByDefault(Return(CodecProtocol::HTTP_2));
-    ON_CALL(*codec_, supportsSessionFlowControl()).WillByDefault(Return(true));
     ON_CALL(*codec_, getIngressSettings())
         .WillByDefault(Return(&ingressSettings_));
     ON_CALL(*codec_, isReusable()).WillByDefault(Return(true));

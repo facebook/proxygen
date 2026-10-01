@@ -35,7 +35,12 @@ class MockCodecDownstreamTest : public testing::Test {
  public:
   MockCodecDownstreamTest()
       : eventBase_(),
-        codec_(new StrictMock<MockHTTPCodec>()),
+        codec_(new StrictMock<MockHTTPCodec>(
+            HTTPCodecTraits{.protocol = CodecProtocol::HTTP_2,
+                            .direction = TransportDirection::DOWNSTREAM,
+                            .supportsParallelRequests = true,
+                            .supportsSessionFlowControl = true,
+                            .supportsStreamFlowControl = true})),
         transport_(new NiceMock<MockAsyncTransport>()),
         transactionTimeouts_(makeTimeoutSet(&eventBase_)) {
 
@@ -58,21 +63,11 @@ class MockCodecDownstreamTest : public testing::Test {
     EXPECT_CALL(mockController_, onTransportReady(_));
     EXPECT_CALL(*codec_, setCallback(_))
         .WillRepeatedly(SaveArg<0>(&codecCallback_));
-    EXPECT_CALL(*codec_, supportsParallelRequests())
-        .WillRepeatedly(Return(true));
     EXPECT_CALL(*codec_, supportsPushTransactions())
         .WillRepeatedly(Return(true));
-    EXPECT_CALL(*codec_, getTransportDirection())
-        .WillRepeatedly(Return(TransportDirection::DOWNSTREAM));
     EXPECT_CALL(*codec_, getEgressSettings()).Times(AtLeast(1));
-    EXPECT_CALL(*codec_, supportsStreamFlowControl())
-        .WillRepeatedly(Return(true));
-    EXPECT_CALL(*codec_, getProtocol())
-        .WillRepeatedly(Return(CodecProtocol::HTTP_2));
     EXPECT_CALL(*codec_, getUserAgent()).WillRepeatedly(ReturnRef(userAgent_));
     EXPECT_CALL(*codec_, setParserPaused(_)).WillRepeatedly(Return());
-    EXPECT_CALL(*codec_, supportsSessionFlowControl())
-        .WillRepeatedly(Return(true));
     EXPECT_CALL(*codec_, getIngressSettings())
         .WillRepeatedly(Return(&kDefaultIngressSettings));
     EXPECT_CALL(*codec_, isReusable())

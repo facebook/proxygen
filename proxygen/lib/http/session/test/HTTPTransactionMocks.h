@@ -14,6 +14,9 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/transport/test/MockAsyncTransportCertificate.h>
 
+#include <memory>
+#include <utility>
+
 namespace proxygen {
 
 #if defined(__clang__) && __clang_major__ >= 3 && __clang_minor__ >= 6
@@ -25,7 +28,7 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
  public:
   MockHTTPTransactionTransport() {
     EXPECT_CALL(*this, getCodecNonConst())
-        .WillRepeatedly(testing::ReturnRef(mockCodec_));
+        .WillRepeatedly(testing::ReturnRef(*mockCodec_));
   }
 
   MOCK_METHOD((void), pauseIngress, (HTTPTransaction*), (noexcept));
@@ -196,7 +199,7 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
 
   void setConnectionToken(HTTPTransaction::ConnectionToken token) {
     EXPECT_CALL(*this, getConnectionTokenNonConst())
-        .WillRepeatedly(testing::Return(token));
+        .WillRepeatedly(testing::Return(std::move(token)));
   }
 
   MOCK_METHOD((folly::Expected<folly::Unit, WebTransport::ErrorCode>),
@@ -281,7 +284,7 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
 
   MOCK_METHOD(void, trackEgressBodyOffset, (uint64_t, ByteEvent::EventFlags));
 
-  MockHTTPCodec mockCodec_;
+  std::unique_ptr<MockHTTPCodec> mockCodec_{std::make_unique<MockHTTPCodec>()};
 };
 
 class MockHTTPTransaction : public HTTPTransaction {
@@ -320,7 +323,7 @@ class MockHTTPTransaction : public HTTPTransaction {
     EXPECT_CALL(mockTransport_, getPeerAddressNonConst())
         .WillRepeatedly(testing::ReturnRef(defaultAddress_));
     EXPECT_CALL(mockTransport_, getCodecNonConst())
-        .WillRepeatedly(testing::ReturnRef(mockTransport_.mockCodec_));
+        .WillRepeatedly(testing::ReturnRef(*mockTransport_.mockCodec_));
     EXPECT_CALL(mockTransport_, getSetupTransportInfoNonConst())
         .WillRepeatedly(testing::ReturnRef(setupTransportInfo_));
     EXPECT_CALL(mockTransport_, getUnderlyingTransportNonConst())
@@ -425,13 +428,15 @@ class MockHTTPTransaction : public HTTPTransaction {
               (folly::AsyncTransport::ReplaySafetyCallback*));
   MOCK_METHOD(void, updateAndSendPriority, (HTTPPriority));
   void enablePush() {
-    EXPECT_CALL(mockTransport_.mockCodec_, supportsPushTransactions())
+    EXPECT_CALL(*mockTransport_.mockCodec_, supportsPushTransactions())
         .WillRepeatedly(testing::Return(true));
   }
 
   void setupCodec(CodecProtocol protocol) {
-    EXPECT_CALL(mockTransport_.mockCodec_, getProtocol())
-        .WillRepeatedly(testing::Return(protocol));
+    mockTransport_.mockCodec_ =
+        std::make_unique<MockHTTPCodec>(HTTPCodecTraits{.protocol = protocol});
+    EXPECT_CALL(mockTransport_, getCodecNonConst())
+        .WillRepeatedly(testing::ReturnRef(*mockTransport_.mockCodec_));
   }
   testing::NiceMock<MockHTTPTransactionTransport> mockTransport_;
   testing::NiceMock<folly::test::MockAsyncTransport> mockAsyncTransport_;
