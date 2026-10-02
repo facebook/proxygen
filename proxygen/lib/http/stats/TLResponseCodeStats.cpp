@@ -14,8 +14,7 @@ namespace proxygen {
 
 TLResponseCodeStats::TLResponseCodeStats(const std::string& name,
                                          uint8_t verbosity)
-    : statusNone(name + "nostatus", SUM),
-      statusOther(name + "other", SUM),
+    : statusOther(name + "other", SUM),
       status1xx(name + "1xx", SUM),
       status2xx(name + "2xx", SUM),
       status3xx(name + "3xx", SUM),
@@ -164,9 +163,7 @@ void TLResponseCodeStats::addStatus(int status) {
       break;
   }
 
-  if (status < 0) {
-    statusNone.add(1);
-  } else if (status < 100) {
+  if (status < 100) {
     statusOther.add(1);
   } else if (status < 200) {
     status1xx.add(1);

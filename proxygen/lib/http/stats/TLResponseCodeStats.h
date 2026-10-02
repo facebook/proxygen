@@ -23,7 +23,6 @@ struct TLResponseCodeStats {
 
   void addStatus(int status);
 
-  StatsWrapper::TLTimeseries statusNone;
   StatsWrapper::TLTimeseries statusOther;
   StatsWrapper::TLTimeseries status1xx;
   StatsWrapper::TLTimeseries status2xx;
