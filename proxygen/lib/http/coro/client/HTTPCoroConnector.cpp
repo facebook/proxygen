@@ -761,6 +761,19 @@ folly::coro::Task<CoroSessionHandle> HTTPCoroConnector::connect(
   return connectQuic(evb, serverAddr, timeout, connParams, sessionParams);
 }
 
+using ClientCertKey = HTTPCoroConnector::TLSParams::ClientCertKey;
+
+/*static*/ ClientCertKey ClientCertKey::fromFile(std::string certPath,
+                                                 std::string keyPath) noexcept {
+  return ClientCertKey(FilePath{}, std::move(certPath), std::move(keyPath));
+}
+
+ClientCertKey::ClientCertKey(FilePath,
+                             std::string&& cert,
+                             std::string&& key) noexcept
+    : type_(Type::FilePath), cert_(std::move(cert)), key_(std::move(key)) {
+}
+
 std::shared_ptr<folly::SSLContext> HTTPCoroConnector::makeSSLContext(
     const TLSParams& params) {
   auto sslContext = std::make_shared<folly::SSLContext>();
@@ -773,9 +786,11 @@ std::shared_ptr<folly::SSLContext> HTTPCoroConnector::makeSSLContext(
         folly::SSLContext::VerifyServerCertificate::IF_PRESENTED};
     sslContext->setVerificationOption(verify);
   }
-  if (!params.clientCertPath.empty() && !params.clientKeyPath.empty()) {
-    sslContext->loadCertKeyPairFromFiles(params.clientCertPath.c_str(),
-                                         params.clientKeyPath.c_str());
+  const auto& cert = params.clientCertKey.cert();
+  const auto& key = params.clientCertKey.key();
+  if (params.clientCertKey.getType() == ClientCertKey::Type::FilePath &&
+      !cert.empty() && !key.empty()) {
+    sslContext->loadCertKeyPairFromFiles(cert.c_str(), key.c_str());
   }
   if (!params.nextProtocols.empty()) {
     sslContext->setAdvertisedNextProtocols(params.nextProtocols);
@@ -786,15 +801,20 @@ std::shared_ptr<folly::SSLContext> HTTPCoroConnector::makeSSLContext(
 std::shared_ptr<const fizz::client::FizzClientContext>
 HTTPCoroConnector::makeFizzClientContext(const TLSParams& params) {
   auto fizzContext = std::make_shared<fizz::client::FizzClientContext>();
+  const auto& cert = params.clientCertKey.cert();
+  const auto& key = params.clientCertKey.key();
 
   std::string certData;
-  if (!params.clientCertPath.empty()) {
-    folly::readFile(params.clientCertPath.c_str(), certData);
-  }
   std::string keyData;
-  if (!params.clientKeyPath.empty()) {
-    folly::readFile(params.clientKeyPath.c_str(), keyData);
+  if (params.clientCertKey.getType() == ClientCertKey::Type::FilePath) {
+    if (!cert.empty()) {
+      folly::readFile(cert.c_str(), certData);
+    }
+    if (!key.empty()) {
+      folly::readFile(key.c_str(), keyData);
+    }
   }
+
   if (!certData.empty() && !keyData.empty()) {
     std::unique_ptr<fizz::SelfCert> cert;
     fizz::Error err;

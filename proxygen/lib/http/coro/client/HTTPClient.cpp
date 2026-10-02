@@ -33,8 +33,9 @@ HTTPCoroConnector::TLSParams makeTLSParams(
     std::list<std::string> nextProtocols) {
   HTTPCoroConnector::TLSParams tlsParams(std::move(nextProtocols));
   tlsParams.caPaths = HTTPClient::getDefaultCAPaths();
-  tlsParams.clientCertPath = clientCertPath;
-  tlsParams.clientKeyPath = clientKeyPath;
+  tlsParams.clientCertKey =
+      HTTPCoroConnector::TLSParams::ClientCertKey::fromFile(
+          std::string{clientCertPath}, std::string{clientKeyPath});
   return tlsParams;
 }
 

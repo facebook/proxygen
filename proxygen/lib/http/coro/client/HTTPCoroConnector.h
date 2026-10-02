@@ -72,9 +72,37 @@ class HTTPCoroConnector {
     explicit TLSParams(std::list<std::string> inNextProtos = {"h2", "http/1.1"})
         : nextProtocols(std::move(inNextProtos)) {
     }
+
     std::vector<std::string> caPaths;
-    std::string clientCertPath;
-    std::string clientKeyPath;
+
+    struct ClientCertKey {
+      enum class Type : uint8_t { None, InMemory, FilePath };
+
+      ClientCertKey() = default;
+      ClientCertKey(const ClientCertKey&) = default;
+      ClientCertKey(ClientCertKey&&) noexcept = default;
+      ClientCertKey& operator=(ClientCertKey&&) noexcept = default;
+
+      static ClientCertKey fromFile(std::string certPath,
+                                    std::string keyPath) noexcept;
+
+      [[nodiscard]] Type getType() const {
+        return type_;
+      }
+      [[nodiscard]] const std::string& cert() const {
+        return cert_;
+      }
+      [[nodiscard]] const std::string& key() const {
+        return key_;
+      }
+
+     private:
+      struct FilePath {};
+      ClientCertKey(FilePath, std::string&& cert, std::string&& key) noexcept;
+      Type type_{Type::None};
+      std::string cert_;
+      std::string key_;
+    } clientCertKey;
     // TODO: other fancy TLS stuff
     bool earlyData{false}; // Support for TCP?
     std::list<std::string> nextProtocols;

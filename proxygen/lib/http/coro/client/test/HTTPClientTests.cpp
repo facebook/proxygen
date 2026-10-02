@@ -42,6 +42,7 @@ using folly::coro::blockingWait;
 
 namespace {
 using proxygen::coro::test::TransportType;
+using TLSParams = proxygen::coro::HTTPCoroConnector::TLSParams;
 
 HTTPClient::SecureTransportImpl transportImpl(TransportType transportType) {
   switch (transportType) {
@@ -223,7 +224,7 @@ CO_TEST_P_X(HTTPClientTests, IdentityVerificationE2E) {
   auto serverAddr = *server->address();
 
   auto connectWithSni = [&](const std::string& sni) {
-    HTTPCoroConnector::TLSParams tlsParams;
+    TLSParams tlsParams;
     tlsParams.caPaths = {caPath};
     tlsParams.nextProtocols = {"h2", "http/1.1"};
     HTTPCoroConnector::ConnectionParams connParams;
@@ -1793,10 +1794,9 @@ CO_TEST_P_X(CertReloadSessionPoolTests, TimerCallback) {
       [certPath, keyPath, transportType, baseConnParams, baseQuicConnParams](
           HTTPCoroSessionPool& p) {
         // Build TLS context from cert paths
-        HTTPCoroConnector::TLSParams tlsParams;
-        tlsParams.clientCertPath = certPath;
-        tlsParams.clientKeyPath = keyPath;
-
+        TLSParams tlsParams;
+        tlsParams.clientCertKey =
+            TLSParams::ClientCertKey::fromFile(certPath, keyPath);
         if (transportType == TransportType::QUIC) {
           tlsParams.nextProtocols = {"h3"};
           auto quicParams =

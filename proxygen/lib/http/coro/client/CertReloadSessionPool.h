@@ -35,8 +35,8 @@ namespace proxygen::coro {
  *   pool->setTimerCallback(
  *       [](HTTPCoroSessionPool& p) {
  *         TLSParams tlsParams;
- *         tlsParams.clientCertPath = "/path/to/cert";
- *         tlsParams.clientKeyPath = "/path/to/key";
+ *         tlsParams.clientCertKey = TLSParams::ClientCertKey::fromFile(
+ *             "/path/to/cert", "/path/to/key");
  *         auto connParams = HTTPCoroConnector::ConnectionParams{};
  *         connParams.fizzContextAndVerifier.fizzContext =
  *             HTTPCoroConnector::makeFizzClientContext(tlsParams);
