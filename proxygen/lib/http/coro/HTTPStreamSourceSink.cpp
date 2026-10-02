@@ -189,7 +189,7 @@ folly::coro::Task<void> HTTPStreamSourceUpstreamSink::transact(
   if (egressHeaders_.msg == nullptr) {
     gate_.set(Event::IngressComplete);
     sourceComplete(/*id=*/HTTPCodec::MaxStreamID, folly::none);
-    co_return;
+    return folly::coro::makeTask();
   }
   auto responseSource = upstreamSession->sendRequest(
       std::move(reservation),
@@ -205,7 +205,7 @@ folly::coro::Task<void> HTTPStreamSourceUpstreamSink::transact(
     handler_->onError(
         HTTPException(HTTPException::Direction::INGRESS_AND_EGRESS, err));
     gate_.set(Event::IngressComplete);
-    co_return;
+    return folly::coro::makeTask();
   }
 
   // respSource must have streamID
@@ -213,8 +213,8 @@ folly::coro::Task<void> HTTPStreamSourceUpstreamSink::transact(
   XCHECK(id_);
   egressSource_.setStreamID(id_.value());
 
-  co_await folly::coro::co_withCancellation(cancellationSource_.getToken(),
-                                            read(std::move(*responseSource)));
+  return folly::coro::co_withCancellation(cancellationSource_.getToken(),
+                                          read(std::move(*responseSource)));
 }
 
 folly::coro::Task<void> HTTPStreamSourceUpstreamSink::read(
