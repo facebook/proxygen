@@ -10,6 +10,7 @@
 
 #include "proxygen/lib/http/coro/filters/ServerFilterFactory.h"
 #include "proxygen/lib/http/coro/server/HTTPCoroAcceptor.h"
+#include <folly/IPAddress.h>
 #include <folly/container/F14Map.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/io/async/AsyncSignalHandler.h>
@@ -76,6 +77,10 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
     // socketConfig.bindAddress, this is preferred
     // TODO(T198199559): Right now supported for TCP server only
     std::optional<int> preboundSocket;
+    // Addresses to bind, all on socketConfig.bindAddress's port. Empty binds
+    // socketConfig.bindAddress alone.
+    // TODO(T198199559): Right now supported for TCP server only
+    std::vector<folly::IPAddress> bindAddresses;
     std::string plaintextProtocol;
     SessionConfig sessionConfig;
     size_t numIOThreads{1};

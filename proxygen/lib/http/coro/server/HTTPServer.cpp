@@ -219,6 +219,10 @@ void HTTPServer::startTcp(const KeepAliveEventBaseVec& keepAliveEvbs) {
       if (config_.preboundSocket.has_value()) {
         serverSocket->useExistingSocket(
             folly::NetworkSocket::fromFd(config_.preboundSocket.value()));
+      } else if (!config_.bindAddresses.empty()) {
+        serverSocket->bind(config_.bindAddresses,
+                           config_.socketConfig.bindAddress.getPort(),
+                           config_.socketConfig.getSocketOptions());
       } else {
         serverSocket->bind(config_.socketConfig.bindAddress,
                            config_.socketConfig.getSocketOptions());

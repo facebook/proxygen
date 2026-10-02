@@ -298,6 +298,31 @@ TEST_F(HTTPServerTests, SocketConfigAppliesTcpMaxSegmentBeforeListen) {
   stopServer();
 }
 
+TEST_F(HTTPServerTests, BindAddressesBindsEveryAddressOnOnePort) {
+  // Port 0 would give each socket its own, defeating the point.
+  folly::SocketAddress probeAddress;
+  {
+    AsyncServerSocket::UniquePtr probe(new folly::AsyncServerSocket());
+    probe->bind(folly::SocketAddress("::1", 0));
+    probe->getAddress(&probeAddress);
+  }
+  const auto port = probeAddress.getPort();
+
+  serverConfig_.socketConfig.bindAddress.setFromIpPort("::1", port);
+  serverConfig_.bindAddresses = {folly::IPAddress("::1"),
+                                 folly::IPAddress("127.0.0.1")};
+  server_ =
+      ScopedHTTPServer::start(std::move(serverConfig_), handler_, nullptr);
+
+  const std::vector<folly::SocketAddress> expected{
+      folly::SocketAddress("::1", port),
+      folly::SocketAddress("127.0.0.1", port)};
+  ASSERT_EQ(getServerSockets().size(), 1);
+  EXPECT_EQ(getServerSockets().front()->getAddresses(), expected);
+
+  stopServer();
+}
+
 TEST_P(HTTPServerTests, TestStopMultipleTimes) {
   MockServerObserver mockObserver;
   serverConfig_.numIOThreads = 4;
