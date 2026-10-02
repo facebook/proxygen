@@ -592,25 +592,26 @@ TEST(HTTP1xCodecTest, TestMultipleIdenticalContentLengthHeaders) {
   EXPECT_EQ(callbacks.headersComplete, 1);
 }
 
-TEST(HTTP1xCodecTest, TestMultipleDistinctContentLengthHeaders) {
-  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
-  FakeHTTPCodecCallback callbacks;
-  codec.setCallback(&callbacks);
-  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+TEST(HTTP1xCodecTest, TestInvalidContentLengthHeaders) {
+  for (auto contentLength : {"5\r\nContent-Length: 6", "1 2", "1\r\n 2"}) {
+    SCOPED_TRACE(contentLength);
+    HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+    FakeHTTPCodecCallback callbacks;
+    codec.setCallback(&callbacks);
+    auto reqBuf = folly::IOBuf::copyBuffer(folly::to<std::string>(
+        "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
+        "Content-Length: ",
+        contentLength,
+        "\r\n\r\n"));
+    codec.onIngress(*reqBuf);
 
-  // Generate a POST request with two distinct Content-Length headers
-  auto reqBuf = folly::IOBuf::copyBuffer(
-      "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
-      "Content-Length: 5\r\nContent-Length: 6\r\n\r\n");
-  codec.onIngress(*reqBuf);
-
-  // Check that the request fails before the codec finishes parsing the headers
-  EXPECT_EQ(callbacks.streamErrors, 1);
-  EXPECT_EQ(callbacks.messageBegin, 1);
-  EXPECT_EQ(callbacks.headersComplete, 0);
-  EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
-  EXPECT_THAT(callbacks.lastParseError->what(),
-              HasSubstr("[Context]=invalid-content-length"));
+    EXPECT_EQ(callbacks.streamErrors, 1);
+    EXPECT_EQ(callbacks.messageBegin, 1);
+    EXPECT_EQ(callbacks.headersComplete, 0);
+    EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
+    EXPECT_THAT(callbacks.lastParseError->what(),
+                HasSubstr("[Context]=invalid-content-length"));
+  }
 }
 
 TEST(HTTP1xCodecTest, TestCorrectTransferEncodingHeader) {

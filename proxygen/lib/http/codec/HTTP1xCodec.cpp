@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 
+#include <folly/Conv.h>
 #include <folly/Random.h>
 #include <folly/base64.h>
 #include <folly/io/Cursor.h>
@@ -77,13 +78,17 @@ bool validateContentLen(const HTTPHeaders& hdrs) noexcept {
   const std::string* contentLen{nullptr};
   bool ok = !hdrs.forEachValueOfHeader(
       HTTP_HEADER_CONTENT_LENGTH, [&](const std::string& value) -> bool {
+        if (folly::tryTo<uint64_t>(value).hasError()) {
+          return true;
+        }
         if (!contentLen) {
           contentLen = &value;
           return false; // continue
         }
         return *contentLen != value; // stop if different
       });
-  LOG_IF(ERROR, !ok) << "Invalid message, multiple Content-Length headers";
+  LOG_IF(ERROR, !ok)
+      << "Invalid message, malformed or multiple Content-Length headers";
   return ok;
 }
 
