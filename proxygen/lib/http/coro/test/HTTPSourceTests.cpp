@@ -224,6 +224,28 @@ TEST_F(HTTPStreamSourceTest, Body) {
   EXPECT_EQ(bodyEvents_[4].eom, true);
 }
 
+// A body event larger than the read limit is split, and the rest goes back to
+// the front of the queue with its length.
+TEST_F(HTTPStreamSourceTest, SplitBodyKeepsTheRemainderLength) {
+  auto resp = std::make_unique<HTTPMessage>();
+  resp->setStatusCode(200);
+  stream_.headers(std::move(resp));
+  stream_.body(BufQueue(folly::IOBuf::copyBuffer("abcdef")), 0);
+  stream_.eom();
+
+  co_withExecutor(&evb_, drainSource(&stream_, 4)).start();
+  evb_.loopOnce();
+
+  EXPECT_FALSE(error_.hasValue());
+  ASSERT_GE(bodyEvents_.size(), 2);
+  EXPECT_EQ(bodyEvents_[0].event.body.chainLength(), 4);
+  EXPECT_FALSE(bodyEvents_[0].eom);
+  EXPECT_EQ(bodyEvents_[1].event.body.chainLength(), 2);
+  auto rest = bodyEvents_[1].event.body.move();
+  rest->coalesce();
+  EXPECT_EQ(rest->moveToFbString(), std::string("ef"));
+}
+
 TEST_F(HTTPStreamSourceTest, PushPromiseBeforeResponseHeaders) {
   auto promiseSource = HTTPFixedSource::makeFixedResponse(
       200, folly::IOBuf::copyBuffer("push body"));

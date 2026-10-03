@@ -267,7 +267,7 @@ folly::coro::Task<HTTPBodyEvent> HTTPStreamSource::readBodyEvent(uint32_t max) {
       // the queue. If this happens, EOM must be false.
       BufQueue bodyBuf(std::move(res.event.body));
       res.event.body = bodyBuf.splitAtMost(max);
-      bodyQueue_.emplace_front(bodyBuf.move(), res.eom);
+      bodyQueue_.emplace_front(std::move(bodyBuf), res.eom);
       res.eom = false;
       length = max;
     }
