@@ -142,6 +142,7 @@ const proxygen::SettingsList kH3EgressSettings = {
     {proxygen::SettingsId::_HQ_DATAGRAM, 1},
     {proxygen::SettingsId::_HQ_DATAGRAM_RFC, 1},
     {proxygen::SettingsId::ENABLE_WEBTRANSPORT, 1},
+    {proxygen::SettingsId::H3_WT_ENABLED, 1},
     {proxygen::SettingsId::H3_WT_MAX_SESSIONS, 1},
 };
 
