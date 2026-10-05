@@ -816,13 +816,14 @@ HTTPCoroConnector::makeFizzClientContext(const TLSParams& params) {
   }
 
   if (!certData.empty() && !keyData.empty()) {
-    std::unique_ptr<fizz::SelfCert> cert;
+    std::unique_ptr<fizz::SelfCert> selfCert;
     fizz::Error err;
-    FIZZ_THROW_ON_ERROR(fizz::openssl::CertUtils::makeSelfCert(
-                            cert, err, std::move(certData), std::move(keyData)),
-                        err);
+    FIZZ_THROW_ON_ERROR(
+        fizz::openssl::CertUtils::makeSelfCert(
+            selfCert, err, std::move(certData), std::move(keyData)),
+        err);
     auto certMgr = std::make_shared<fizz::client::CertManager>();
-    certMgr->addCert(std::move(cert));
+    certMgr->addCert(std::move(selfCert));
     fizzContext->setClientCertManager(std::move(certMgr));
   }
   fizzContext->setSupportedAlpns(
