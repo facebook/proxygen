@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/utils/CryptUtil.h>
 
+#include <array>
 #include <folly/portability/OpenSSL.h>
 #include <iomanip>
 #include <openssl/buffer.h>
@@ -59,8 +60,8 @@ std::string base64Encode(folly::ByteRange text) {
 std::string md5Encode(folly::ByteRange text) {
   static_assert(MD5_DIGEST_LENGTH == 16);
 
-  unsigned char digest[MD5_DIGEST_LENGTH];
-  MD5(text.begin(), text.size(), digest);
+  std::array<unsigned char, MD5_DIGEST_LENGTH> digest{};
+  MD5(text.begin(), text.size(), digest.data());
 
   // convert digest to hex string
   std::ostringstream ss;
