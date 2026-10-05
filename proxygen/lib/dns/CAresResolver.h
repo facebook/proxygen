@@ -24,7 +24,7 @@
 #include "proxygen/lib/dns/DNSResolver.h"
 
 namespace proxygen {
-#if ARES_VERSION >= 0x012207
+#if ARES_VERSION == 0x012207
 using AresCallbackBuffer = const unsigned char;
 #else
 using AresCallbackBuffer = unsigned char;
