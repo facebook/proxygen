@@ -8,10 +8,14 @@
 
 #include "proxygen/lib/http/coro/server/handlers/ExpectContinueWrapperHandler.h"
 #include "proxygen/lib/http/coro/HTTPFixedSource.h"
-#include <proxygen/lib/http/HTTPCommonHeaders.h>
 
 #include <folly/logging/xlog.h>
 #include <string_view>
+
+namespace {
+// Not in the common header list, so addressed by name.
+constexpr std::string_view kExpect{"Expect"};
+} // namespace
 
 namespace proxygen::coro {
 
@@ -72,15 +76,15 @@ folly::coro::Task<HTTPSourceHolder> ExpectContinueWrapperHandler::handleRequest(
   auto headerEvent = co_await requestSource.readHeaderEvent();
   XCHECK(headerEvent.headers);
   auto headers = headerEvent.headers->getHeaders();
-  if (headers.exists(HTTP_HEADER_EXPECT)) {
-    auto& expectVal = headers.getSingleOrEmpty(HTTP_HEADER_EXPECT);
+  if (headers.exists(kExpect)) {
+    auto& expectVal = headers.getSingleOrEmpty(kExpect);
     if (k100ContinueExpectation.equals(expectVal,
                                        folly::AsciiCaseInsensitive{})) {
       // Request has an expectation with the value 100-continue
       // We need to wrap the next handler in an ExpectContinueWrapperResponse
       // to inject the 100 Continue response
       XLOG(DBG8) << "ExpectContinueWrapper found 100-continue expectation";
-      headerEvent.headers->getHeaders().remove(HTTP_HEADER_EXPECT);
+      headerEvent.headers->getHeaders().remove(kExpect);
       auto expectWrapperResponse =
           new ExpectContinueWrapperResponse(evb,
                                             ctx,

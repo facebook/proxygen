@@ -372,8 +372,7 @@ class ContinueHandler : public EchoHandler {
     proxygen::HTTPMessage resp;
     VLOG(10) << "Setting http-version to " << getHttpVersion();
     resp.setVersionString(getHttpVersion());
-    if (msg->getHeaders().getSingleOrEmpty(proxygen::HTTP_HEADER_EXPECT) ==
-        "100-continue") {
+    if (msg->getHeaders().getSingleOrEmpty("Expect") == "100-continue") {
       resp.setStatusCode(100);
       resp.setStatusMessage("Continue");
       maybeAddAltSvcHeader(resp);

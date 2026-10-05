@@ -13,6 +13,13 @@
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 
+#include <string_view>
+
+namespace {
+// Not in the common header list, so addressed by name.
+constexpr std::string_view kExpect{"Expect"};
+} // namespace
+
 namespace proxygen {
 
 RequestHandlerAdaptor::RequestHandlerAdaptor(RequestHandler* requestHandler)
@@ -47,9 +54,8 @@ void RequestHandlerAdaptor::onHeadersComplete(
   if (!upstream_) {
     return;
   }
-  if (msg->getHeaders().exists(HTTP_HEADER_EXPECT) &&
-      !upstream_->canHandleExpect()) {
-    auto expectation = msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_EXPECT);
+  if (msg->getHeaders().exists(kExpect) && !upstream_->canHandleExpect()) {
+    auto expectation = msg->getHeaders().getSingleOrEmpty(kExpect);
     if (!k100Continue.equals(expectation, folly::AsciiCaseInsensitive())) {
       setError(kErrorUnsupportedExpectation);
 

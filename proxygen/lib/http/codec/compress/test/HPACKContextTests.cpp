@@ -75,6 +75,9 @@ TEST_F(HPACKContextTests, StaticTable) {
 
 TEST_F(HPACKContextTests, StaticTableHeaderNamesAreCommon) {
   auto& table = StaticHeaderTable::get();
+  // Static table entries that are not in the common header list. A header
+  // dropped from that list keeps working here, it just loses the O(1)
+  // lookup, so the trade is worth it once the header is rare enough.
   std::set<std::string> uncommonStaticEntries{"allow",
                                               "content-location",
                                               "from",
@@ -82,7 +85,12 @@ TEST_F(HPACKContextTests, StaticTableHeaderNamesAreCommon) {
                                               "if-unmodified-since",
                                               "max-forwards",
                                               "if-range",
-                                              "refresh"};
+                                              "refresh",
+                                              "accept-charset",
+                                              "expect",
+                                              "link",
+                                              "retry-after",
+                                              "www-authenticate"};
   for (const auto& [header, _] : table.names()) {
     EXPECT_TRUE(header.isCommonHeader() ||
                 uncommonStaticEntries.find(header.get()) !=

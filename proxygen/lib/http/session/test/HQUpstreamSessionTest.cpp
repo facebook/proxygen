@@ -28,6 +28,14 @@
 #include <quic/api/test/MockQuicSocket.h>
 #include <quic/priority/HTTPPriorityQueue.h>
 
+#include <string_view>
+#include <utility>
+
+namespace {
+// Not in the common header list, so addressed by name.
+constexpr std::string_view kExpect{"Expect"};
+} // namespace
+
 using namespace proxygen;
 using namespace proxygen::test;
 using namespace proxygen::hq;
@@ -552,7 +560,7 @@ TEST_P(HQUpstreamSessionTest, Test100Continue) {
   InSequence enforceOrder;
   auto handler = openTransaction();
   auto req = getPostRequest(10);
-  req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  req.getHeaders().add(kExpect, "100-continue");
   handler->txn_->sendHeaders(req);
   handler->txn_->sendEOM();
   handler->expectHeaders();

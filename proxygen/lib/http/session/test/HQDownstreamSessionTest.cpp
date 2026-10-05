@@ -28,6 +28,15 @@
 #include <folly/futures/Future.h>
 #include <folly/portability/GTest.h>
 
+#include <cstddef>
+#include <string_view>
+#include <utility>
+
+namespace {
+// Not in the common header list, so addressed by name.
+constexpr std::string_view kExpect{"Expect"};
+} // namespace
+
 using namespace proxygen;
 using namespace proxygen::hq;
 using namespace quic;
@@ -1618,7 +1627,7 @@ TEST_P(HQDownstreamSessionTest, SendOnFlowControlPaused) {
 
 TEST_P(HQDownstreamSessionTest, Http_100Continue) {
   auto req = getPostRequest(100);
-  req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  req.getHeaders().add(kExpect, "100-continue");
   auto id = sendRequest(req, false);
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] {

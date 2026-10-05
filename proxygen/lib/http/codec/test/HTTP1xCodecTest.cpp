@@ -17,6 +17,13 @@
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 
+#include <string_view>
+
+namespace {
+// Not in the common header list, so addressed by name.
+constexpr std::string_view kExpect{"Expect"};
+} // namespace
+
 using namespace proxygen;
 using namespace std;
 using namespace testing;
@@ -1764,7 +1771,7 @@ TEST(HTTP1xCodecTest, Chunkify100) {
   req.setHTTPVersion(1, 1);
   req.setURL("/");
   req.setMethod(HTTPMethod::GET);
-  req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  req.getHeaders().add(kExpect, "100-continue");
   HTTPCodec::StreamID id = upCodec.createStream();
   upCodec.generateHeader(buf, id, req, false);
 

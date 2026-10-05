@@ -27,6 +27,14 @@
 #include <proxygen/lib/test/TestAsyncTransport.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
+#include <string_view>
+#include <utility>
+
+namespace {
+// Not in the common header list, so addressed by name.
+constexpr std::string_view kExpect{"Expect"};
+} // namespace
+
 using folly::test::MockAsyncTransport;
 
 using namespace proxygen;
@@ -1239,7 +1247,7 @@ TEST_F(HTTPUpstreamSessionTest, 100ContinueKeepalive) {
   // Test a request with 100 continue on a keepalive connection. Then make
   // another request.
   HTTPMessage req = getGetRequest();
-  req.getHeaders().set(HTTP_HEADER_EXPECT, "100-continue");
+  req.getHeaders().set(kExpect, "100-continue");
 
   InSequence enforceOrder;
 
@@ -1274,7 +1282,7 @@ TEST_F(HTTPUpstreamSessionTest, 417Keepalive) {
   // Test a request with 100 continue on a keepalive connection. Then make
   // another request after the expectation fails.
   HTTPMessage req = getGetRequest();
-  req.getHeaders().set(HTTP_HEADER_EXPECT, "100-continue");
+  req.getHeaders().set(kExpect, "100-continue");
 
   InSequence enforceOrder;
 

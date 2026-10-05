@@ -13,6 +13,13 @@
 #include <proxygen/lib/http/coro/HTTPFixedSource.h>
 #include <proxygen/lib/http/coro/test/Mocks.h>
 
+#include <string_view>
+
+namespace {
+// Not in the common header list, so addressed by name.
+constexpr std::string_view kExpect{"Expect"};
+} // namespace
+
 using namespace testing;
 using namespace proxygen;
 using namespace proxygen::coro;
@@ -41,7 +48,7 @@ CO_TEST_F(ExpectContinueWrapperHandlerTest, SendContinueResponse) {
   auto request = std::make_unique<HTTPMessage>();
   request->setMethod("POST");
   request->setURL("https://test.facebook.com/continue");
-  request->getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  request->getHeaders().add(kExpect, "100-continue");
   request->getHeaders().add(HTTP_HEADER_HOST, "test.facebook.com");
   auto requestSource = std::make_unique<HTTPFixedSource>(std::move(request));
   HTTPSourceHolder requestSourceHolder(requestSource.get());
@@ -71,7 +78,7 @@ CO_TEST_F(ExpectContinueWrapperHandlerTest, SendContinueResponse) {
             auto propagatedHeader =
                 co_await requestSourceHolder.readHeaderEvent();
             EXPECT_EQ(propagatedHeader.headers->getHeaders().getSingleOrEmpty(
-                          HTTP_HEADER_EXPECT),
+                          kExpect),
                       "");
             EXPECT_EQ(propagatedHeader.headers->getHeaders().getSingleOrEmpty(
                           HTTP_HEADER_HOST),
@@ -130,7 +137,7 @@ CO_TEST_F(ExpectContinueWrapperHandlerTest, InvalidExpectation) {
   auto request = std::make_unique<HTTPMessage>();
   request->setMethod("POST");
   request->setURL("https://test.facebook.com/continue");
-  request->getHeaders().add(HTTP_HEADER_EXPECT, "blah");
+  request->getHeaders().add(kExpect, "blah");
   auto requestSource = std::make_unique<HTTPFixedSource>(std::move(request));
   HTTPSourceHolder requestSourceHolder(requestSource.get());
 
@@ -162,7 +169,7 @@ CO_TEST_F(ExpectContinueWrapperHandlerTest,
   auto request = std::make_unique<HTTPMessage>();
   request->setMethod("POST");
   request->setURL("https://test.facebook.com/continue");
-  request->getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  request->getHeaders().add(kExpect, "100-continue");
   auto requestSource = std::make_unique<HTTPFixedSource>(std::move(request));
   HTTPSourceHolder requestSourceHolder(requestSource.get());
 
@@ -191,7 +198,7 @@ CO_TEST_F(ExpectContinueWrapperHandlerTest,
   auto request = std::make_unique<HTTPMessage>();
   request->setMethod("POST");
   request->setURL("https://test.facebook.com/continue");
-  request->getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  request->getHeaders().add(kExpect, "100-continue");
   auto body = folly::IOBuf::copyBuffer("REQUEST BODY");
   auto requestSource =
       std::make_unique<HTTPFixedSource>(std::move(request), std::move(body));
@@ -221,7 +228,7 @@ CO_TEST_F(ExpectContinueWrapperHandlerTest, StopReadingAfterInvoke) {
   auto request = std::make_unique<HTTPMessage>();
   request->setMethod("POST");
   request->setURL("https://test.facebook.com/continue");
-  request->getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  request->getHeaders().add(kExpect, "100-continue");
   auto requestSource = std::make_unique<HTTPFixedSource>(std::move(request));
   HTTPSourceHolder requestSourceHolder(requestSource.get());
 
