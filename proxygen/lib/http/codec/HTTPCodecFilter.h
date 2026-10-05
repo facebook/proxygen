@@ -8,15 +8,26 @@
 
 #pragma once
 
+#include <concepts>
+#include <memory>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/utils/FilterChain.h>
 
 namespace proxygen {
 
-using HTTPCodecFilter = GenericFilter<HTTPCodec,
-                                      HTTPCodec::Callback,
-                                      &HTTPCodec::setCallback,
-                                      true>;
+class HTTPCodecFilter
+    : public GenericFilter<HTTPCodec,
+                           HTTPCodec::Callback,
+                           &HTTPCodec::setCallback,
+                           true> {
+ public:
+  using GenericFilter::GenericFilter;
+
+  // Filters are not allowed to change this: HTTPCodecFilterChain sends it
+  // straight to the codec at the end of the chain.
+  void setParserPaused(bool /* paused */) final {
+  }
+};
 
 /**
  * An implementation of HTTPCodecFilter that passes through all calls. This is
@@ -106,8 +117,6 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
   void setCallback(HTTPCodec::Callback* callback) override;
 
   [[nodiscard]] bool isBusy() const override;
-
-  void setParserPaused(bool paused) override;
 
   [[nodiscard]] bool isParserPaused() const override;
 
@@ -252,7 +261,7 @@ class HTTPCodecFilterChain {
   }
 
   void setParserPaused(bool paused) {
-    chain_->setParserPaused(paused);
+    chain_.getChainEndPtr()->setParserPaused(paused);
   }
 
   [[nodiscard]] const std::string& getUserAgent() const {
@@ -434,19 +443,20 @@ class HTTPCodecFilterChain {
     chain_.setCallback(callback);
   }
 
-  template <typename Filter, typename... Args>
+  template <std::derived_from<HTTPCodecFilter> Filter, typename... Args>
   void add(Args&&... args) {
     chain_.add<Filter>(std::forward<Args>(args)...);
   }
 
-  template <typename... Filters>
-  void addFilters(Filters&&... filters) {
-    chain_.addFilters(std::forward<Filters>(filters)...);
+  template <std::derived_from<HTTPCodecFilter>... Filters>
+  void addFilters(std::unique_ptr<Filters>... filters) {
+    chain_.addFilters(std::move(filters)...);
   }
 
   template <typename Fn>
   void foreach (Fn&& fn) {
-    chain_.foreach (std::forward<Fn>(fn));
+    chain_.foreach (
+        [&fn](auto* filter) { fn(static_cast<HTTPCodecFilter*>(filter)); });
   }
 
   std::unique_ptr<HTTPCodec> setDestination(std::unique_ptr<HTTPCodec> dest) {

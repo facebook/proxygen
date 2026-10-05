@@ -265,6 +265,15 @@ TEST_F(HTTPChecksTest, RecvTraceBody) {
   callbackStart_->onHeadersComplete(0, std::move(msg));
 }
 
+TEST_F(HTTPChecksTest, SetParserPausedReachesChainEnd) {
+  auto* newCodec = new MockHTTPCodec();
+  auto oldCodec = chain_.setDestination(std::unique_ptr<HTTPCodec>(newCodec));
+  EXPECT_CALL(*codec_, setParserPaused(_)).Times(0);
+  EXPECT_CALL(*newCodec, setParserPaused(true));
+
+  chain_.setParserPaused(true);
+}
+
 TEST_F(DebugFilterTest, NoError) {
   chain_.onIngress(*makeIOBuf("foo"));
   chain_.onIngressEOF();

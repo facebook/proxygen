@@ -147,10 +147,6 @@ bool PassThroughHTTPCodecFilter::isBusy() const {
   return call_->isBusy();
 }
 
-void PassThroughHTTPCodecFilter::setParserPaused(bool paused) {
-  call_->setParserPaused(paused);
-}
-
 bool PassThroughHTTPCodecFilter::isParserPaused() const {
   return call_->isParserPaused();
 }
