@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/HTTPMessage.h>
 
+#include <array>
 #include <folly/Format.h>
 #include <folly/Range.h>
 #include <folly/SingletonThreadLocal.h>
@@ -332,12 +333,13 @@ struct FormattedDate {
         std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
     if (now != lastTime) {
-      char buff[1024];
+      std::array<char, 1024> buff{};
       tm timeTupple;
       gmtime_r(&now, &timeTupple);
 
-      strftime(buff, 1024, "%a, %d %b %Y %H:%M:%S %Z", &timeTupple);
-      date = std::string(buff);
+      strftime(
+          buff.data(), buff.size(), "%a, %d %b %Y %H:%M:%S %Z", &timeTupple);
+      date = std::string(buff.data());
       lastTime = now;
     }
     return date;
