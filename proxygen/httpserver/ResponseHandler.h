@@ -75,7 +75,9 @@ class ResponseHandler {
   virtual void resumeIngress() noexcept = 0;
 
   virtual folly::Expected<ResponseHandler*, ProxygenError> newPushedResponse(
-      PushHandler* pushHandler) noexcept = 0;
+      PushHandler*) noexcept {
+    return folly::makeUnexpected(kErrorUnknown);
+  }
 
   // Accessors for Transport/Connection information
   [[nodiscard]] virtual const wangle::TransportInfo& getSetupTransportInfo()

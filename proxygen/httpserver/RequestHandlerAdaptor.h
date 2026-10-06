@@ -63,8 +63,6 @@ class RequestHandlerAdaptor
   void refreshTimeout() noexcept override;
   void pauseIngress() noexcept override;
   void resumeIngress() noexcept override;
-  folly::Expected<ResponseHandler*, ProxygenError> newPushedResponse(
-      PushHandler* pushHandler) noexcept override;
   [[nodiscard]] const wangle::TransportInfo& getSetupTransportInfo()
       const noexcept override;
   void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override;

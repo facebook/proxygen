@@ -121,11 +121,6 @@ class Filter
     downstream_->resumeIngress();
   }
 
-  folly::Expected<ResponseHandler*, ProxygenError> newPushedResponse(
-      PushHandler* handler) noexcept override {
-    return downstream_->newPushedResponse(handler);
-  }
-
   [[nodiscard]] const wangle::TransportInfo& getSetupTransportInfo()
       const noexcept override {
     return downstream_->getSetupTransportInfo();

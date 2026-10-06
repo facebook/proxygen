@@ -202,25 +202,6 @@ void RequestHandlerAdaptor::resumeIngress() noexcept {
   txn_->resumeIngress();
 }
 
-folly::Expected<ResponseHandler*, ProxygenError>
-RequestHandlerAdaptor::newPushedResponse(PushHandler* pushHandler) noexcept {
-  ProxygenError error = kErrorUnknown;
-  auto pushTxn = txn_->newPushedTransaction(pushHandler->getHandler(), &error);
-  if (!pushTxn) {
-    // Codec doesn't support push
-    VLOG(4) << "Failed to create newPushedResponse: "
-            << static_cast<uint8_t>(error) << " " << getErrorString(error);
-    return folly::makeUnexpected(error);
-  }
-  auto pushHandlerAdaptor = new RequestHandlerAdaptor(pushHandler);
-  if (!pushHandlerAdaptor) {
-    VLOG(4) << "Failed to create RequestHandlerAdaptor!";
-    return folly::makeUnexpected(kErrorUnknown);
-  }
-  pushHandlerAdaptor->setTransaction(pushTxn);
-  return pushHandlerAdaptor;
-}
-
 const wangle::TransportInfo& RequestHandlerAdaptor::getSetupTransportInfo()
     const noexcept {
   return txn_->getSetupTransportInfo();

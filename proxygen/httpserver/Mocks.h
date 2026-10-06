@@ -43,10 +43,6 @@ class MockResponseHandler : public ResponseHandler {
   MOCK_METHOD((void), sendEOM, (), (noexcept));
   MOCK_METHOD((void), sendHeaders, (HTTPMessage&), (noexcept));
   MOCK_METHOD((void), sendTrailers, (const HTTPHeaders&), (noexcept));
-  MOCK_METHOD((folly::Expected<ResponseHandler*, ProxygenError>),
-              newPushedResponse,
-              (PushHandler*),
-              (noexcept));
   MOCK_METHOD(void, getCurrentTransportInfo, (wangle::TransportInfo*), (const));
 
 #ifdef __clang__
