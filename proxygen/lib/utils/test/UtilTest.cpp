@@ -10,6 +10,8 @@
 #include <proxygen/lib/utils/UtilInl.h>
 
 #include <cctype>
+#include <string>
+#include <string_view>
 
 using namespace proxygen;
 
@@ -38,6 +40,26 @@ TEST(UtilTest, findLastOf) {
 TEST(UtilTest, validateURL) {
   EXPECT_TRUE(validateURL("/foo\xff", URLValidateMode::STRICT_COMPAT));
   EXPECT_FALSE(validateURL("/foo\xff", URLValidateMode::STRICT));
+}
+
+TEST(UtilTest, validateURLEveryByte) {
+  for (int b = 0; b < 256; ++b) {
+    const bool printable = b > 0x20 && b < 0x7f;
+    for (size_t pos = 0; pos < 100; ++pos) {
+      std::string url(100, 'a');
+      url[pos] = static_cast<char>(b);
+      for (size_t len : {pos + 1, url.size()}) {
+        std::string_view view(url.data(), len);
+        EXPECT_EQ(validateURL(view, URLValidateMode::STRICT), printable)
+            << b << " at " << pos << " of " << len;
+        EXPECT_EQ(validateURL(view, URLValidateMode::STRICT_COMPAT),
+                  printable || b > 0x7f)
+            << b << " at " << pos << " of " << len;
+      }
+    }
+  }
+  EXPECT_TRUE(validateURL("", URLValidateMode::STRICT));
+  EXPECT_TRUE(validateURL("", URLValidateMode::STRICT_COMPAT));
 }
 
 TEST(UtilTest, clamped) {

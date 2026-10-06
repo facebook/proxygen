@@ -44,17 +44,24 @@ inline bool caseUnderscoreInsensitiveEqual(folly::StringPiece s,
   return s.equals(t, AsciiCaseUnderscoreInsensitive{});
 }
 
-enum class URLValidateMode { STRICT_COMPAT, STRICT };
+enum class URLValidateMode : uint8_t { STRICT_COMPAT, STRICT };
 inline bool validateURL(std::string_view url,
                         URLValidateMode mode = URLValidateMode::STRICT) {
-  for (uint8_t p : url) {
-    if (p <= 0x20 || p == 0x7f ||
-        (p > 0x7f && mode != URLValidateMode::STRICT_COMPAT)) {
-      // no controls or unescaped spaces
-      return false;
+  // No controls or unescaped spaces. Each loop has no early return and no
+  // short-circuit operators, so the compiler can vectorize it. Each mode keeps
+  // its own result: one shared across both loops leaves the first one scalar.
+  if (mode == URLValidateMode::STRICT_COMPAT) {
+    bool valid = true;
+    for (uint8_t p : url) {
+      valid &= (p > 0x20) & (p != 0x7f);
     }
+    return valid;
   }
-  return true;
+  bool valid = true;
+  for (uint8_t p : url) {
+    valid &= (p > 0x20) & (p < 0x7f);
+  }
+  return valid;
 }
 
 inline size_t findLastOf(folly::StringPiece sp, char c) {
