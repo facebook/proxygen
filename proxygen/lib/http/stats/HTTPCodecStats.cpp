@@ -8,6 +8,10 @@
 
 #include <proxygen/lib/http/stats/HTTPCodecStats.h>
 
+#include <folly/Conv.h>
+#include <folly/Range.h>
+#include <folly/logging/xlog.h>
+
 using facebook::fb303::RATE;
 using facebook::fb303::SUM;
 
@@ -33,47 +37,97 @@ static std::array<const char*, 14> kErrorStrings{
 
 namespace proxygen {
 
+namespace {
+
+// TLHTTPCodecStats only skips counters that a session of its protocol and
+// direction can never record, so recording one anyway means that reasoning no
+// longer holds.
+void addOrLogSkipped(folly::Optional<StatsWrapper::TLTimeseries>& counter,
+                     const std::string& prefix,
+                     folly::StringPiece name,
+                     folly::StringPiece code = "") {
+  if (counter) {
+    counter->add(1);
+    return;
+  }
+  XLOG_EVERY_N(ERR, 1000) << "Recorded " << prefix << "_" << name << code
+                          << ", which TLHTTPCodecStats skipped as impossible "
+                             "for this protocol and direction";
+}
+
+} // namespace
+
 // TLHTTPCodecStats
 
-TLHTTPCodecStats::TLHTTPCodecStats(const std::string& prefix)
-    : openConn_(prefix + "_conn.sum"),
+TLHTTPCodecStats::TLHTTPCodecStats(
+    const std::string& prefix,
+    folly::Optional<CodecProtocol> protocol,
+    folly::Optional<TransportDirection> direction)
+    : prefix_(prefix),
+      openConn_(prefix + "_conn.sum"),
       ingressSynStream_(prefix + "_ingress_syn_stream", SUM, RATE),
-      ingressSynReply_(prefix + "_ingress_syn_reply", SUM, RATE),
-      ingressPushPromise_(prefix + "_ingress_push_promise", SUM, RATE),
-      ingressExStream_(prefix + "_ingress_ex_stream", SUM, RATE),
       ingressData_(prefix + "_ingress_data", SUM, RATE),
-      ingressRst_(prefix + "_ingress_rst", SUM, RATE),
       ingressSettings_(prefix + "_ingress_settings", SUM, RATE),
-      ingressPingRequest_(prefix + "_ingress_ping_request", SUM, RATE),
-      ingressPingReply_(prefix + "_ingress_ping_reply", SUM, RATE),
       ingressGoaway_(prefix + "_ingress_goaway", SUM, RATE),
       ingressGoawayDrain_(prefix + "_ingress_goaway_drain", SUM, RATE),
-      ingressWindowUpdate_(prefix + "_ingress_window_update", SUM, RATE),
-      ingressPriority_(prefix + "_ingress_priority", SUM, RATE),
-      egressSynStream_(prefix + "_egress_syn_stream", SUM, RATE),
-      egressSynReply_(prefix + "_egress_syn_reply", SUM, RATE),
-      egressPushPromise_(prefix + "_egress_push_promise", SUM, RATE),
-      egressExStream_(prefix + "_egress_ex_stream", SUM, RATE),
       egressData_(prefix + "_egress_data", SUM, RATE),
-      egressRst_(prefix + "_egress_rst", SUM, RATE),
       egressSettings_(prefix + "_egress_settings", SUM, RATE),
-      egressPingRequest_(prefix + "_egress_ping_request", SUM, RATE),
-      egressPingReply_(prefix + "_egress_ping_reply", SUM, RATE),
       egressGoaway_(prefix + "_egress_goaway", SUM, RATE),
       egressGoawayDrain_(prefix + "_egress_goaway_drain", SUM, RATE),
-      egressWindowUpdate_(prefix + "_egress_window_update", SUM, RATE),
       egressPriority_(prefix + "_egress_priority", SUM, RATE) {
-  ingressRstStatus_.reserve(kErrorStrings.size());
-  egressRstStatus_.reserve(kErrorStrings.size());
-  ingressGoawayStatus_.reserve(kErrorStrings.size());
-  egressGoawayStatus_.reserve(kErrorStrings.size());
-  for (auto errString : kErrorStrings) {
-    ingressRstStatus_.emplace_back(prefix + "_ingress_rst_" + errString, SUM);
-    egressRstStatus_.emplace_back(prefix + "_egress_rst_" + errString, SUM);
-    ingressGoawayStatus_.emplace_back(prefix + "_ingress_goaway_" + errString,
-                                      SUM);
-    egressGoawayStatus_.emplace_back(prefix + "_egress_goaway_" + errString,
-                                     SUM);
+  // HQ leaves RST_STREAM, PING and WINDOW_UPDATE to the QUIC transport, and
+  // its GOAWAY carries no error code: HQ codecs report every ingress GOAWAY as
+  // NO_ERROR, sessions only send NO_ERROR or (coro) PROTOCOL_ERROR, and only
+  // clients send PRIORITY_UPDATE.
+  const bool hq = protocol && isHQCodecProtocol(*protocol);
+  // Downstream codecs reject PUSH_PROMISE and only ever parse requests and
+  // send responses; upstream sessions only send requests and never push.
+  const bool downstream = direction == TransportDirection::DOWNSTREAM;
+  const bool upstream = direction == TransportDirection::UPSTREAM;
+  if (!downstream) {
+    ingressSynReply_.emplace(prefix + "_ingress_syn_reply", SUM, RATE);
+    ingressPushPromise_.emplace(prefix + "_ingress_push_promise", SUM, RATE);
+    egressSynStream_.emplace(prefix + "_egress_syn_stream", SUM, RATE);
+  }
+  if (!upstream) {
+    egressSynReply_.emplace(prefix + "_egress_syn_reply", SUM, RATE);
+    egressPushPromise_.emplace(prefix + "_egress_push_promise", SUM, RATE);
+  }
+  if (!(hq && upstream)) {
+    ingressPriority_.emplace(prefix + "_ingress_priority", SUM, RATE);
+  }
+  if (!hq) {
+    ingressRst_.emplace(prefix + "_ingress_rst", SUM, RATE);
+    ingressPingRequest_.emplace(prefix + "_ingress_ping_request", SUM, RATE);
+    ingressPingReply_.emplace(prefix + "_ingress_ping_reply", SUM, RATE);
+    ingressWindowUpdate_.emplace(prefix + "_ingress_window_update", SUM, RATE);
+    egressRst_.emplace(prefix + "_egress_rst", SUM, RATE);
+    egressPingRequest_.emplace(prefix + "_egress_ping_request", SUM, RATE);
+    egressPingReply_.emplace(prefix + "_egress_ping_reply", SUM, RATE);
+    egressWindowUpdate_.emplace(prefix + "_egress_window_update", SUM, RATE);
+  }
+  ingressRstStatus_.resize(kErrorStrings.size());
+  egressRstStatus_.resize(kErrorStrings.size());
+  ingressGoawayStatus_.resize(kErrorStrings.size());
+  egressGoawayStatus_.resize(kErrorStrings.size());
+  for (size_t i = 0; i < kErrorStrings.size(); ++i) {
+    const std::string errString = kErrorStrings[i];
+    const auto code = ErrorCode(i);
+    if (!hq) {
+      ingressRstStatus_[i].emplace(
+          folly::to<std::string>(prefix, "_ingress_rst_", errString), SUM);
+      egressRstStatus_[i].emplace(
+          folly::to<std::string>(prefix, "_egress_rst_", errString), SUM);
+    }
+    if (!hq || code == ErrorCode::NO_ERROR) {
+      ingressGoawayStatus_[i].emplace(
+          folly::to<std::string>(prefix, "_ingress_goaway_", errString), SUM);
+    }
+    if (!hq || code == ErrorCode::NO_ERROR ||
+        code == ErrorCode::PROTOCOL_ERROR) {
+      egressGoawayStatus_[i].emplace(
+          folly::to<std::string>(prefix, "_egress_goaway_", errString), SUM);
+    }
   }
 }
 
@@ -84,34 +138,32 @@ void TLHTTPCodecStats::recordIngressSynStream() {
   ingressSynStream_.add(1);
 }
 void TLHTTPCodecStats::recordIngressSynReply() {
-  ingressSynReply_.add(1);
+  addOrLogSkipped(ingressSynReply_, prefix_, "ingress_syn_reply");
 }
 void TLHTTPCodecStats::recordIngressPushPromise() {
-  ingressPushPromise_.add(1);
-}
-void TLHTTPCodecStats::recordIngressExStream() {
-  ingressExStream_.add(1);
+  addOrLogSkipped(ingressPushPromise_, prefix_, "ingress_push_promise");
 }
 void TLHTTPCodecStats::recordIngressData() {
   ingressData_.add(1);
 }
 void TLHTTPCodecStats::recordIngressRst(ErrorCode statusCode) {
-  ingressRst_.add(1);
+  addOrLogSkipped(ingressRst_, prefix_, "ingress_rst");
   auto index = uint32_t(statusCode);
   if (index >= kErrorStrings.size()) {
     LOG(ERROR) << "Unknown ingress reset status code=" << index;
     index = (uint32_t)ErrorCode::PROTOCOL_ERROR;
   }
-  ingressRstStatus_[index].add(1);
+  addOrLogSkipped(
+      ingressRstStatus_[index], prefix_, "ingress_rst_", kErrorStrings[index]);
 }
 void TLHTTPCodecStats::recordIngressSettings() {
   ingressSettings_.add(1);
 }
 void TLHTTPCodecStats::recordIngressPingRequest() {
-  ingressPingRequest_.add(1);
+  addOrLogSkipped(ingressPingRequest_, prefix_, "ingress_ping_request");
 }
 void TLHTTPCodecStats::recordIngressPingReply() {
-  ingressPingReply_.add(1);
+  addOrLogSkipped(ingressPingReply_, prefix_, "ingress_ping_reply");
 }
 void TLHTTPCodecStats::recordIngressGoaway(ErrorCode statusCode) {
   ingressGoaway_.add(1);
@@ -120,49 +172,50 @@ void TLHTTPCodecStats::recordIngressGoaway(ErrorCode statusCode) {
     LOG(ERROR) << "Unknown ingress goaway status code=" << index;
     index = (uint32_t)ErrorCode::PROTOCOL_ERROR;
   }
-  ingressGoawayStatus_[index].add(1);
+  addOrLogSkipped(ingressGoawayStatus_[index],
+                  prefix_,
+                  "ingress_goaway_",
+                  kErrorStrings[index]);
 }
 void TLHTTPCodecStats::recordIngressGoawayDrain() {
   ingressGoawayDrain_.add(1);
 }
 void TLHTTPCodecStats::recordIngressWindowUpdate() {
-  ingressWindowUpdate_.add(1);
+  addOrLogSkipped(ingressWindowUpdate_, prefix_, "ingress_window_update");
 }
 void TLHTTPCodecStats::recordIngressPriority() {
-  ingressPriority_.add(1);
+  addOrLogSkipped(ingressPriority_, prefix_, "ingress_priority");
 }
 void TLHTTPCodecStats::recordEgressSynStream() {
-  egressSynStream_.add(1);
+  addOrLogSkipped(egressSynStream_, prefix_, "egress_syn_stream");
 }
 void TLHTTPCodecStats::recordEgressSynReply() {
-  egressSynReply_.add(1);
+  addOrLogSkipped(egressSynReply_, prefix_, "egress_syn_reply");
 }
 void TLHTTPCodecStats::recordEgressPushPromise() {
-  egressPushPromise_.add(1);
-}
-void TLHTTPCodecStats::recordEgressExStream() {
-  egressExStream_.add(1);
+  addOrLogSkipped(egressPushPromise_, prefix_, "egress_push_promise");
 }
 void TLHTTPCodecStats::recordEgressData() {
   egressData_.add(1);
 }
 void TLHTTPCodecStats::recordEgressRst(ErrorCode statusCode) {
-  egressRst_.add(1);
+  addOrLogSkipped(egressRst_, prefix_, "egress_rst");
   auto index = uint32_t(statusCode);
   if (index >= kErrorStrings.size()) {
     LOG(ERROR) << "Unknown egress reset status code=" << index;
     index = (uint32_t)ErrorCode::PROTOCOL_ERROR;
   }
-  egressRstStatus_[index].add(1);
+  addOrLogSkipped(
+      egressRstStatus_[index], prefix_, "egress_rst_", kErrorStrings[index]);
 }
 void TLHTTPCodecStats::recordEgressSettings() {
   egressSettings_.add(1);
 }
 void TLHTTPCodecStats::recordEgressPingRequest() {
-  egressPingRequest_.add(1);
+  addOrLogSkipped(egressPingRequest_, prefix_, "egress_ping_request");
 }
 void TLHTTPCodecStats::recordEgressPingReply() {
-  egressPingReply_.add(1);
+  addOrLogSkipped(egressPingReply_, prefix_, "egress_ping_reply");
 }
 void TLHTTPCodecStats::recordEgressGoaway(ErrorCode statusCode) {
   egressGoaway_.add(1);
@@ -171,13 +224,16 @@ void TLHTTPCodecStats::recordEgressGoaway(ErrorCode statusCode) {
     LOG(ERROR) << "Unknown egress goaway status code=" << index;
     index = (uint32_t)ErrorCode::PROTOCOL_ERROR;
   }
-  egressGoawayStatus_[index].add(1);
+  addOrLogSkipped(egressGoawayStatus_[index],
+                  prefix_,
+                  "egress_goaway_",
+                  kErrorStrings[index]);
 }
 void TLHTTPCodecStats::recordEgressGoawayDrain() {
   egressGoawayDrain_.add(1);
 }
 void TLHTTPCodecStats::recordEgressWindowUpdate() {
-  egressWindowUpdate_.add(1);
+  addOrLogSkipped(egressWindowUpdate_, prefix_, "egress_window_update");
 }
 void TLHTTPCodecStats::recordEgressPriority() {
   egressPriority_.add(1);

@@ -8,7 +8,10 @@
 
 #pragma once
 
+#include <folly/Optional.h>
+#include <proxygen/lib/http/codec/CodecProtocol.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
+#include <proxygen/lib/http/codec/TransportDirection.h>
 #include <proxygen/lib/stats/StatsWrapper.h>
 #include <string>
 
@@ -27,7 +30,6 @@ class HTTPCodecStats {
   virtual void recordIngressSynStream() = 0;
   virtual void recordIngressSynReply() = 0;
   virtual void recordIngressPushPromise() = 0;
-  virtual void recordIngressExStream() = 0;
   virtual void recordIngressData() = 0;
   virtual void recordIngressRst(ErrorCode statusCode) = 0;
   virtual void recordIngressSettings() = 0;
@@ -41,7 +43,6 @@ class HTTPCodecStats {
   virtual void recordEgressSynStream() = 0;
   virtual void recordEgressSynReply() = 0;
   virtual void recordEgressPushPromise() = 0;
-  virtual void recordEgressExStream() = 0;
   virtual void recordEgressData() = 0;
   virtual void recordEgressRst(ErrorCode statusCode) = 0;
   virtual void recordEgressSettings() = 0;
@@ -58,7 +59,12 @@ class HTTPCodecStats {
  */
 class TLHTTPCodecStats : public HTTPCodecStats {
  public:
-  explicit TLHTTPCodecStats(const std::string& prefix);
+  // Given the session's protocol and direction, skips the counters such a
+  // session can never record.
+  explicit TLHTTPCodecStats(
+      const std::string& prefix,
+      folly::Optional<CodecProtocol> protocol = folly::none,
+      folly::Optional<TransportDirection> direction = folly::none);
   explicit TLHTTPCodecStats(const TLHTTPCodecStats&) = delete;
   TLHTTPCodecStats& operator=(const TLHTTPCodecStats&) = delete;
   ~TLHTTPCodecStats() override = default;
@@ -68,7 +74,6 @@ class TLHTTPCodecStats : public HTTPCodecStats {
   void recordIngressSynStream() override;
   void recordIngressSynReply() override;
   void recordIngressPushPromise() override;
-  void recordIngressExStream() override;
   void recordIngressData() override;
   void recordIngressRst(ErrorCode statusCode) override;
   void recordIngressSettings() override;
@@ -82,7 +87,6 @@ class TLHTTPCodecStats : public HTTPCodecStats {
   void recordEgressSynStream() override;
   void recordEgressSynReply() override;
   void recordEgressPushPromise() override;
-  void recordEgressExStream() override;
   void recordEgressData() override;
   void recordEgressRst(ErrorCode statusCode) override;
   void recordEgressSettings() override;
@@ -94,37 +98,36 @@ class TLHTTPCodecStats : public HTTPCodecStats {
   void recordEgressPriority() override;
 
  private:
+  std::string prefix_;
   StatsWrapper::TLCounter openConn_;
   StatsWrapper::TLTimeseries ingressSynStream_;
-  StatsWrapper::TLTimeseries ingressSynReply_;
-  StatsWrapper::TLTimeseries ingressPushPromise_;
-  StatsWrapper::TLTimeseries ingressExStream_;
+  folly::Optional<StatsWrapper::TLTimeseries> ingressSynReply_;
+  folly::Optional<StatsWrapper::TLTimeseries> ingressPushPromise_;
   StatsWrapper::TLTimeseries ingressData_;
-  StatsWrapper::TLTimeseries ingressRst_;
-  std::vector<StatsWrapper::TLTimeseries> ingressRstStatus_;
+  folly::Optional<StatsWrapper::TLTimeseries> ingressRst_;
+  std::vector<folly::Optional<StatsWrapper::TLTimeseries>> ingressRstStatus_;
   StatsWrapper::TLTimeseries ingressSettings_;
-  StatsWrapper::TLTimeseries ingressPingRequest_;
-  StatsWrapper::TLTimeseries ingressPingReply_;
+  folly::Optional<StatsWrapper::TLTimeseries> ingressPingRequest_;
+  folly::Optional<StatsWrapper::TLTimeseries> ingressPingReply_;
   StatsWrapper::TLTimeseries ingressGoaway_;
   StatsWrapper::TLTimeseries ingressGoawayDrain_;
-  std::vector<StatsWrapper::TLTimeseries> ingressGoawayStatus_;
-  StatsWrapper::TLTimeseries ingressWindowUpdate_;
-  StatsWrapper::TLTimeseries ingressPriority_;
+  std::vector<folly::Optional<StatsWrapper::TLTimeseries>> ingressGoawayStatus_;
+  folly::Optional<StatsWrapper::TLTimeseries> ingressWindowUpdate_;
+  folly::Optional<StatsWrapper::TLTimeseries> ingressPriority_;
 
-  StatsWrapper::TLTimeseries egressSynStream_;
-  StatsWrapper::TLTimeseries egressSynReply_;
-  StatsWrapper::TLTimeseries egressPushPromise_;
-  StatsWrapper::TLTimeseries egressExStream_;
+  folly::Optional<StatsWrapper::TLTimeseries> egressSynStream_;
+  folly::Optional<StatsWrapper::TLTimeseries> egressSynReply_;
+  folly::Optional<StatsWrapper::TLTimeseries> egressPushPromise_;
   StatsWrapper::TLTimeseries egressData_;
-  StatsWrapper::TLTimeseries egressRst_;
-  std::vector<StatsWrapper::TLTimeseries> egressRstStatus_;
+  folly::Optional<StatsWrapper::TLTimeseries> egressRst_;
+  std::vector<folly::Optional<StatsWrapper::TLTimeseries>> egressRstStatus_;
   StatsWrapper::TLTimeseries egressSettings_;
-  StatsWrapper::TLTimeseries egressPingRequest_;
-  StatsWrapper::TLTimeseries egressPingReply_;
+  folly::Optional<StatsWrapper::TLTimeseries> egressPingRequest_;
+  folly::Optional<StatsWrapper::TLTimeseries> egressPingReply_;
   StatsWrapper::TLTimeseries egressGoaway_;
   StatsWrapper::TLTimeseries egressGoawayDrain_;
-  std::vector<StatsWrapper::TLTimeseries> egressGoawayStatus_;
-  StatsWrapper::TLTimeseries egressWindowUpdate_;
+  std::vector<folly::Optional<StatsWrapper::TLTimeseries>> egressGoawayStatus_;
+  folly::Optional<StatsWrapper::TLTimeseries> egressWindowUpdate_;
   StatsWrapper::TLTimeseries egressPriority_;
 };
 
