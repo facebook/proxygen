@@ -255,17 +255,6 @@ class HTTPTransactionHandler : public TraceEventObserver {
   virtual void onEgressResumed() noexcept = 0;
 
   /**
-   * Ask the handler to construct a handler for a pushed transaction associated
-   * with its transaction.
-   *
-   * TODO: Reconsider default implementation here. If the handler
-   * does not implement it, would it be better to set max initiated to 0 in a
-   * settings frame?
-   */
-  virtual void onPushedTransaction(HTTPTransaction* /* txn */) noexcept {
-  }
-
-  /**
    * Inform the handler that a GOAWAY has been received on the
    * transport. This callback will only be invoked if the transport is
    * HTTP/2 or HTTP/3. It may be invoked multiple times.
