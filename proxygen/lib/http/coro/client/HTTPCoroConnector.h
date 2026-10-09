@@ -76,7 +76,7 @@ class HTTPCoroConnector {
     std::vector<std::string> caPaths;
 
     struct ClientCertKey {
-      enum class Type : uint8_t { None, InMemory, FilePath };
+      enum class Type : uint8_t { None, InMemoryPEM, FilePath };
 
       ClientCertKey() = default;
       ClientCertKey(const ClientCertKey&) = default;
@@ -85,6 +85,8 @@ class HTTPCoroConnector {
 
       static ClientCertKey fromFile(std::string certPath,
                                     std::string keyPath) noexcept;
+      static ClientCertKey fromInMemoryPEM(std::string certPem,
+                                           std::string keyPem) noexcept;
 
       [[nodiscard]] Type getType() const {
         return type_;
@@ -95,10 +97,17 @@ class HTTPCoroConnector {
       [[nodiscard]] const std::string& key() const {
         return key_;
       }
+      [[nodiscard]] bool empty() const {
+        return type_ == Type::None || cert_.empty() || key_.empty();
+      }
 
      private:
       struct FilePath {};
+      struct InMemoryPEM {};
       ClientCertKey(FilePath, std::string&& cert, std::string&& key) noexcept;
+      ClientCertKey(InMemoryPEM,
+                    std::string&& cert,
+                    std::string&& key) noexcept;
       Type type_{Type::None};
       std::string cert_;
       std::string key_;

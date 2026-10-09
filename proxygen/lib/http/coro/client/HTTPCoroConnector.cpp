@@ -774,6 +774,17 @@ ClientCertKey::ClientCertKey(FilePath,
     : type_(Type::FilePath), cert_(std::move(cert)), key_(std::move(key)) {
 }
 
+/*static*/ ClientCertKey ClientCertKey::fromInMemoryPEM(
+    std::string certPem, std::string keyPem) noexcept {
+  return ClientCertKey(InMemoryPEM{}, std::move(certPem), std::move(keyPem));
+}
+
+ClientCertKey::ClientCertKey(InMemoryPEM,
+                             std::string&& cert,
+                             std::string&& key) noexcept
+    : type_(Type::InMemoryPEM), cert_(std::move(cert)), key_(std::move(key)) {
+}
+
 std::shared_ptr<folly::SSLContext> HTTPCoroConnector::makeSSLContext(
     const TLSParams& params) {
   auto sslContext = std::make_shared<folly::SSLContext>();
@@ -788,9 +799,13 @@ std::shared_ptr<folly::SSLContext> HTTPCoroConnector::makeSSLContext(
   }
   const auto& cert = params.clientCertKey.cert();
   const auto& key = params.clientCertKey.key();
-  if (params.clientCertKey.getType() == ClientCertKey::Type::FilePath &&
-      !cert.empty() && !key.empty()) {
-    sslContext->loadCertKeyPairFromFiles(cert.c_str(), key.c_str());
+  if (!params.clientCertKey.empty()) {
+    if (params.clientCertKey.getType() == ClientCertKey::Type::FilePath) {
+      sslContext->loadCertKeyPairFromFiles(cert.c_str(), key.c_str());
+    } else if (params.clientCertKey.getType() ==
+               ClientCertKey::Type::InMemoryPEM) {
+      sslContext->loadCertKeyPairFromBufferPEM(cert, key);
+    }
   }
   if (!params.nextProtocols.empty()) {
     sslContext->setAdvertisedNextProtocols(params.nextProtocols);
@@ -806,12 +821,14 @@ HTTPCoroConnector::makeFizzClientContext(const TLSParams& params) {
 
   std::string certData;
   std::string keyData;
-  if (params.clientCertKey.getType() == ClientCertKey::Type::FilePath) {
-    if (!cert.empty()) {
+  if (!params.clientCertKey.empty()) {
+    if (params.clientCertKey.getType() == ClientCertKey::Type::FilePath) {
       folly::readFile(cert.c_str(), certData);
-    }
-    if (!key.empty()) {
       folly::readFile(key.c_str(), keyData);
+    } else if (params.clientCertKey.getType() ==
+               ClientCertKey::Type::InMemoryPEM) {
+      certData = cert;
+      keyData = key;
     }
   }
 

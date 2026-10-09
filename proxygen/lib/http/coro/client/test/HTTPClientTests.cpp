@@ -2250,4 +2250,166 @@ INSTANTIATE_TEST_SUITE_P(HTTPClientConnectionCacheTLSTests,
                          Values(TransportType::TLS, TransportType::TLS_FIZZ),
                          transportTypeToTestName);
 
+using ClientCertKey = HTTPCoroConnector::TLSParams::ClientCertKey;
+
+std::pair<std::string, std::string> makeClientCertKeyPEM() {
+  auto certAndKey = fizz::test::createCert(
+      "test-client", /*ca=*/false, /*issuer=*/nullptr, fizz::KeyType::P256);
+  return {
+      folly::ssl::OpenSSLCertUtils::pemEncode(*certAndKey.cert),
+      folly::ssl::OpenSSLKeyUtils::encodePrivateKeyAsPEM(certAndKey.key.get())};
+}
+
+const std::pair<std::string, std::string>& validClientCertKeyPEM() {
+  static const std::pair<std::string, std::string> kPEM =
+      makeClientCertKeyPEM();
+  return kPEM;
+}
+
+enum class ClientCertOutcome : std::uint8_t { kInstalled, kAbsent, kThrows };
+enum class CertSource : std::uint8_t { kNone, kInMemoryPEM, kFilePath };
+enum class CertContent : std::uint8_t { kValid, kMalformed, kMissingKey };
+
+std::pair<std::string_view, std::string_view> clientCertKeyPEMFor(
+    CertContent content) {
+  const auto& [validCert, validKey] = validClientCertKeyPEM();
+  switch (content) {
+    case CertContent::kValid:
+      return {validCert, validKey};
+    case CertContent::kMalformed:
+      return {"not a valid pem cert", "not a valid pem key"};
+    case CertContent::kMissingKey:
+      return {validCert, ""};
+  }
+  XLOG(FATAL) << "Unknown CertContent";
+}
+
+struct ClientCertTestCase {
+  std::string name;
+  CertSource source{CertSource::kNone};
+  CertContent content{CertContent::kValid};
+  ClientCertOutcome outcome{ClientCertOutcome::kAbsent};
+};
+
+class HTTPCoroConnectorCertTest
+    : public testing::TestWithParam<ClientCertTestCase> {
+ protected:
+  HTTPCoroConnector::TLSParams getTlsParamsForTestCase() {
+    const auto& tc = GetParam();
+    const auto [cert, key] = clientCertKeyPEMFor(tc.content);
+
+    HTTPCoroConnector::TLSParams params;
+    switch (tc.source) {
+      case CertSource::kNone:
+        break;
+      case CertSource::kInMemoryPEM:
+        params.clientCertKey =
+            ClientCertKey::fromInMemoryPEM(std::string(cert), std::string(key));
+        break;
+      case CertSource::kFilePath:
+        params.clientCertKey =
+            ClientCertKey::fromFile(writeTempPEM(cert), writeTempPEM(key));
+        break;
+    }
+    return params;
+  }
+
+ private:
+  std::string writeTempPEM(std::string_view pem) {
+    auto& file = tempFiles_.emplace_back();
+    folly::writeFile(std::string(pem), file.path().string().c_str());
+    return file.path().string();
+  }
+
+  std::vector<folly::test::TemporaryFile> tempFiles_;
+};
+
+TEST_P(HTTPCoroConnectorCertTest, FizzClientContext) {
+  auto params = getTlsParamsForTestCase();
+  if (GetParam().outcome == ClientCertOutcome::kThrows) {
+    EXPECT_ANY_THROW(HTTPCoroConnector::makeFizzClientContext(params));
+    return;
+  }
+  auto ctx = HTTPCoroConnector::makeFizzClientContext(params);
+  ASSERT_NE(ctx, nullptr);
+  if (GetParam().outcome == ClientCertOutcome::kInstalled) {
+    EXPECT_NE(ctx->getCertManager(), nullptr);
+  } else {
+    EXPECT_EQ(ctx->getCertManager(), nullptr);
+  }
+}
+
+TEST_P(HTTPCoroConnectorCertTest, SSLContext) {
+  auto params = getTlsParamsForTestCase();
+  if (GetParam().outcome == ClientCertOutcome::kThrows) {
+    EXPECT_ANY_THROW(HTTPCoroConnector::makeSSLContext(params));
+    return;
+  }
+  auto ctx = HTTPCoroConnector::makeSSLContext(params);
+  ASSERT_NE(ctx, nullptr);
+  if (GetParam().outcome == ClientCertOutcome::kInstalled) {
+    EXPECT_NE(SSL_CTX_get0_certificate(ctx->getSSLCtx()), nullptr);
+  } else {
+    EXPECT_EQ(SSL_CTX_get0_certificate(ctx->getSSLCtx()), nullptr);
+  }
+}
+
+std::vector<ClientCertTestCase> clientCertTestCases() {
+  return {
+      {.name = "NoClientCertKey", .outcome = ClientCertOutcome::kAbsent},
+      {.name = "InMemoryPEM",
+       .source = CertSource::kInMemoryPEM,
+       .outcome = ClientCertOutcome::kInstalled},
+      {.name = "FilePath",
+       .source = CertSource::kFilePath,
+       .outcome = ClientCertOutcome::kInstalled},
+      {.name = "MalformedInMemoryPEM",
+       .source = CertSource::kInMemoryPEM,
+       .content = CertContent::kMalformed,
+       .outcome = ClientCertOutcome::kThrows},
+      {.name = "MalformedFilePath",
+       .source = CertSource::kFilePath,
+       .content = CertContent::kMalformed,
+       .outcome = ClientCertOutcome::kThrows},
+      {.name = "InMemoryPEMMissingKey",
+       .source = CertSource::kInMemoryPEM,
+       .content = CertContent::kMissingKey,
+       .outcome = ClientCertOutcome::kAbsent},
+  };
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ClientCert,
+    HTTPCoroConnectorCertTest,
+    testing::ValuesIn(clientCertTestCases()),
+    [](const testing::TestParamInfo<ClientCertTestCase>& info) {
+      return info.param.name;
+    });
+
+// This test exists to capture the current behavior of OpenSSL throwing when a
+// file doesn't exist but fizz silently ignoring the failure and not attaching a
+// client cert.
+TEST(HTTPCoroConnectorMissingCertFileTest,
+     OpenSSLThrowsButFizzIgnoresNonExistentPath) {
+  HTTPCoroConnector::TLSParams params;
+  params.clientCertKey =
+      ClientCertKey::fromFile("/nonexistent/cert.pem", "/nonexistent/key.pem");
+
+  EXPECT_ANY_THROW(HTTPCoroConnector::makeSSLContext(params));
+
+  auto fizzCtx = HTTPCoroConnector::makeFizzClientContext(params);
+  ASSERT_NE(fizzCtx, nullptr);
+  EXPECT_EQ(fizzCtx->getCertManager(), nullptr);
+}
+
+TEST(HTTPCoroConnectorClientCertKeyTest, Empty) {
+  const auto& [cert, key] = validClientCertKeyPEM();
+
+  EXPECT_TRUE(ClientCertKey().empty());
+  EXPECT_TRUE(ClientCertKey::fromInMemoryPEM(cert, "").empty());
+  EXPECT_TRUE(ClientCertKey::fromFile("", key).empty());
+  EXPECT_FALSE(ClientCertKey::fromInMemoryPEM(cert, key).empty());
+  EXPECT_FALSE(ClientCertKey::fromFile("/cert.pem", "/key.pem").empty());
+}
+
 } // namespace proxygen::coro::test
