@@ -88,17 +88,9 @@ void getConnParamsImpl(HTTPCoroConnector::ConnectionParams* connParams,
   }
 }
 
-std::unique_ptr<folly::IOBuf> stringToIOBuf(std::optional<std::string> str) {
-  std::unique_ptr<folly::IOBuf> strBuf;
-  if (str && !str->empty()) {
-    auto strPtr = std::make_unique<std::string>(std::move(str).value());
-    strBuf = folly::IOBuf::takeOwnership(
-        strPtr->data(),
-        strPtr->size(),
-        [](void*, void* data) { delete static_cast<std::string*>(data); },
-        strPtr.release());
-  }
-  return strBuf;
+std::unique_ptr<folly::IOBuf> strToIoBuf(std::optional<std::string>&& str) {
+  return str && !str->empty() ? folly::IOBuf::fromString(std::move(*str))
+                              : nullptr;
 }
 
 HTTPSource* makeHTTPRequestSource(
@@ -107,8 +99,9 @@ HTTPSource* makeHTTPRequestSource(
     HTTPClient::RequestHeaderMap requestHeaders =
         HTTPClient::RequestHeaderMap(),
     std::optional<std::string> body = std::nullopt) {
-  auto reqSource = HTTPFixedSource::makeFixedRequest(
-      url.makeRelativeURL(), method, stringToIOBuf(body));
+  auto* reqSource = HTTPFixedSource::makeFixedRequest(
+      url.makeRelativeURL(), method, strToIoBuf(std::move(body)));
+
   for (auto& nameValue : requestHeaders) {
     reqSource->msg_->getHeaders().add(nameValue.first,
                                       std::move(nameValue.second));
