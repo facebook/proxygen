@@ -6,11 +6,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/http/coro/client/ValidationPolicy.h"
+#include "proxygen/lib/http/coro/client/CertVerificationHooks.h"
 
 #include <stdexcept>
 
 namespace proxygen::coro {
+
+CertVerifyLogFn getCertVerifyLogFn() noexcept {
+  return nullptr;
+}
 
 std::optional<ValidationPolicy> getValidationPolicy(
     HTTPCoroConnector::IdentityValidation identityValidation) {

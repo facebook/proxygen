@@ -18,4 +18,6 @@ namespace proxygen::coro {
 std::optional<ValidationPolicy> getValidationPolicy(
     HTTPCoroConnector::IdentityValidation identityValidation);
 
+CertVerifyLogFn getCertVerifyLogFn() noexcept;
+
 } // namespace proxygen::coro

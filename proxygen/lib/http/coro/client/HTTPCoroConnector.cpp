@@ -7,8 +7,8 @@
  */
 
 #include "proxygen/lib/http/coro/client/HTTPCoroConnector.h"
+#include "proxygen/lib/http/coro/client/CertVerificationHooks.h"
 #include "proxygen/lib/http/coro/client/TLS.h"
-#include "proxygen/lib/http/coro/client/ValidationPolicy.h"
 #include <folly/logging/xlog.h>
 #include <proxygen/lib/http/codec/H3EarlyDataHandler.h>
 
@@ -272,7 +272,7 @@ folly::coro::Task<std::unique_ptr<CoroTransportIf>> connectFizz(
         makeVerifier(connParams.fizzContextAndVerifier.fizzCertVerifier,
                      std::move(expectedIdentity.value()),
                      *policy,
-                     connParams.certVerifyLogFn);
+                     getCertVerifyLogFn());
   } else {
     proxygenVerifier = connParams.fizzContextAndVerifier.fizzCertVerifier;
   }

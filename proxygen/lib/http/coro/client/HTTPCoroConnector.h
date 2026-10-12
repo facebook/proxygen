@@ -186,8 +186,6 @@ class HTTPCoroConnector {
     std::string plaintextProtocol;
 
     IdentityValidation identityValidation{IdentityValidation::Logging};
-
-    CertVerifyLogFn certVerifyLogFn;
   };
 
   static const ConnectionParams& defaultConnectionParams() {

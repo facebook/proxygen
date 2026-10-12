@@ -193,9 +193,6 @@ proxygen::coro::HTTPCoroSessionPool &HTTPClientConnectionCache::getPool(
         connParams.fizzContextAndVerifier.fizzContext = std::move(newFizzCtx);
       }
     }
-    if (certVerifyLogFn_ && !connParams.certVerifyLogFn) {
-      connParams.certVerifyLogFn = certVerifyLogFn_;
-    }
     auto poolParams =
         poolParams_.value_or(proxygen::coro::HTTPCoroSessionPool::PoolParams{
             kMaxConnections,
