@@ -18,17 +18,13 @@ namespace proxygen {
 
 namespace {
 
-#ifndef CLANG_LAZY_INIT_TEST
-#define CLANG_LAZY_INIT_TEST
-#endif
-
-CLANG_LAZY_INIT_TEST static const std::string http_1_1 = "http/1.1";
-CLANG_LAZY_INIT_TEST static const std::string http_2 = "http/2";
-CLANG_LAZY_INIT_TEST static const std::string hq = "hq";
-CLANG_LAZY_INIT_TEST static const std::string h3 = "h3";
-CLANG_LAZY_INIT_TEST static const std::string http_binary = "bhttp";
-CLANG_LAZY_INIT_TEST static const std::string tunnel_lite = "lite";
-CLANG_LAZY_INIT_TEST static const std::string tunnel_connect = "tunnel_connect";
+static const std::string http_1_1 = "http/1.1";
+static const std::string http_2 = "http/2";
+static const std::string hq = "hq";
+static const std::string h3 = "h3";
+static const std::string http_binary = "bhttp";
+static const std::string tunnel_lite = "lite";
+static const std::string tunnel_connect = "tunnel_connect";
 } // namespace
 
 extern CodecProtocol getCodecProtocolFromStr(folly::StringPiece protocolStr) {
