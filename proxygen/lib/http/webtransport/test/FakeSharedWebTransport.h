@@ -172,7 +172,29 @@ class FakeStreamHandle
 
   folly::Expected<folly::SemiFuture<uint64_t>, WebTransport::ErrorCode>
   awaitWritable() override {
-    return folly::makeFuture<uint64_t>(0);
+    if (writable_) {
+      return folly::makeFuture<uint64_t>(0);
+    }
+    auto [promise, future] = folly::makePromiseContract<uint64_t>();
+    writablePromises_.push_back(std::move(promise));
+    return std::move(future);
+  }
+
+  // While false, awaitWritable() stays pending; writes are still accepted.
+  void setWritable(bool writable) {
+    writable_ = writable;
+    if (!writable_) {
+      return;
+    }
+    auto promises = std::move(writablePromises_);
+    writablePromises_.clear();
+    for (auto& promise : promises) {
+      promise.setValue(0);
+    }
+  }
+
+  size_t pendingWritableWaiters() const {
+    return writablePromises_.size();
   }
 
   GenericApiRet resetStream(uint32_t err) override {
@@ -222,6 +244,8 @@ class FakeStreamHandle
   // If immediateDelivery_ == false, we stash data in inflightBuf_ until
   // deliverInflightData() is called.
   bool immediateDelivery_{true};
+  bool writable_{true};
+  std::vector<folly::Promise<uint64_t>> writablePromises_;
   folly::IOBufQueue inflightBuf_{folly::IOBufQueue::cacheChainLength()};
   folly::F14FastMap<uint64_t, std::vector<WebTransport::ByteEventCallback*>>
       offsetToDeliveryCallback_;
@@ -284,6 +308,8 @@ class FakeSharedWebTransport : public WebTransport {
     auto id = nextUniStreamId_;
     nextUniStreamId_ += 4;
     auto handle = std::make_shared<FakeStreamHandle>(id);
+    handle->setImmediateDelivery(!deferNewStreamData_);
+    handle->setWritable(newStreamsWritable_);
     writeHandles.emplace(id, handle);
     peer_->readHandles.emplace(id, handle);
     localUniStreams_.insert(id);
@@ -305,6 +331,7 @@ class FakeSharedWebTransport : public WebTransport {
     nextBidiStreamId_ += 4;
     auto readH = std::make_shared<FakeStreamHandle>(id);
     auto writeH = std::make_shared<FakeStreamHandle>(id);
+    writeH->setImmediateDelivery(!deferNewStreamData_);
     readHandles.emplace(id, readH);
     writeHandles.emplace(id, writeH);
     peer_->readHandles.emplace(id, writeH);
@@ -319,6 +346,7 @@ class FakeSharedWebTransport : public WebTransport {
   }
   using AwaitStreamCreditRet = folly::SemiFuture<folly::Unit>;
   AwaitStreamCreditRet awaitUniStreamCredit() override {
+    uniCreditWaitCalls_++;
     if (!maxLocalUniStreams_ ||
         localUniStreams_.size() < *maxLocalUniStreams_) {
       return folly::makeFuture(folly::unit);
@@ -349,6 +377,17 @@ class FakeSharedWebTransport : public WebTransport {
   void setNextCreateBidiStreamError(ErrorCode error) {
     nextCreateBidiStreamError_ = error;
   }
+  // Data written on streams this endpoint creates afterwards is held until
+  // the test calls deliverInflightData() on their write handle, so tests can
+  // choose the order in which the peer sees each stream.
+  void setDeferNewStreamData(bool defer) {
+    deferNewStreamData_ = defer;
+  }
+  // Uni streams created afterwards start with awaitWritable() pending until
+  // the test calls setWritable(true) on their write handle.
+  void setNewStreamsWritable(bool writable) {
+    newStreamsWritable_ = writable;
+  }
   void releaseBidiCredit(uint64_t id) {
     if (localBidiStreams_.erase(id)) {
       notifyBidiCreditAvailable();
@@ -365,6 +404,13 @@ class FakeSharedWebTransport : public WebTransport {
     if (localUniStreams_.erase(id)) {
       notifyUniCreditAvailable();
     }
+  }
+  size_t pendingUniCreditWaiters() const {
+    return pendingUniCreditPromises_.size();
+  }
+  // Some transports cannot wait for credit (HTTP/3 WebTransport aborts).
+  size_t uniCreditWaitCalls() const {
+    return uniCreditWaitCalls_;
   }
   // FIN/RST observed on the write half of an outstanding local bidi stream.
   void onLocalBidiWriteTerminal(uint64_t id) {
@@ -568,7 +614,10 @@ class FakeSharedWebTransport : public WebTransport {
   folly::F14FastSet<uint64_t> localUniStreams_;
   std::deque<folly::Promise<folly::Unit>> pendingBidiCreditPromises_;
   std::deque<folly::Promise<folly::Unit>> pendingUniCreditPromises_;
+  size_t uniCreditWaitCalls_{0};
   folly::Optional<ErrorCode> nextCreateBidiStreamError_;
+  bool deferNewStreamData_{false};
+  bool newStreamsWritable_{true};
 };
 
 } // namespace proxygen::test
