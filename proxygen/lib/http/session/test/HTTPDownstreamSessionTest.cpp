@@ -3111,215 +3111,27 @@ TEST_F(HTTP2DownstreamSessionTest, GracefulDrainOnTimeout) {
   httpSession_->timeoutExpired();
 }
 
-/*
- * The sequence of streams are generated in the following order:
- * - [client --> server] request 1st stream (getGetRequest())
- * - [server --> client] respond 1st stream (res with length 100)
- * - [server --> client] request 2nd stream (req)
- * - [server --> client] respond 2nd stream (res with length 200 + EOM)
- * - [client --> server] RST_STREAM on the 1st stream
- */
-TEST_F(HTTP2DownstreamSessionTest, ServerPush) {
-  // Create a dummy request and a dummy response messages
-  HTTPMessage req, res;
-  req.getHeaders().set("HOST", "www.foo.com");
-  req.setURL("https://www.foo.com/");
-  res.setStatusCode(200);
-  res.setStatusMessage("Ohai");
-
-  // enable server push
+TEST_F(HTTP2DownstreamSessionTest, ServerPushUnsupported) {
   clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
   clientCodec_->generateSettings(requests_);
-  // generateHeader() will create a session and a transaction
-  auto assocStreamId = clientCodec_->createStream();
-  clientCodec_->generateHeader(
-      requests_, assocStreamId, getGetRequest(), false, nullptr);
-
+  auto streamId = sendRequest();
   auto handler = addSimpleStrictHandler();
   StrictMock<MockHTTPPushHandler> pushHandler;
-
-  InSequence handlerSequence;
   handler->expectHeaders([&] {
-    // Generate response for the associated stream
-    handler->txn_->sendHeaders(res);
-    handler->txn_->sendBody(makeBuf(100));
-    handler->txn_->pauseIngress();
-
-    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
-    ASSERT_NE(pushTxn, nullptr);
-    // Generate a push request (PUSH_PROMISE)
-    auto outgoingStreams = httpSession_->getNumOutgoingStreams();
-    pushTxn->sendHeaders(req);
-    EXPECT_EQ(httpSession_->getNumOutgoingStreams(), outgoingStreams);
-    // Generate a push response
-    pushTxn->sendHeaders(res);
-    EXPECT_EQ(httpSession_->getNumOutgoingStreams(), outgoingStreams + 1);
-    pushTxn->sendBody(makeBuf(200));
-    pushTxn->sendEOM();
-
-    eventBase_.runAfterDelay([&] { handler->txn_->resumeIngress(); }, 100);
+    EXPECT_EQ(handler->txn_->newPushedTransaction(&pushHandler), nullptr);
+    EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
   });
-  EXPECT_CALL(pushHandler, _setTransaction(_))
-      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, _detachTransaction());
-  handler->expectError();
+  handler->expectEOM([&] { handler->sendReplyWithBody(200, 100); });
   handler->expectDetachTransaction();
+  flushRequestsAndLoop();
 
-  transport_->addReadEvent(requests_, milliseconds(0));
-  clientCodec_->generateRstStream(requests_, assocStreamId, ErrorCode::CANCEL);
-  clientCodec_->generateGoaway(requests_, 2, ErrorCode::NO_ERROR);
-  transport_->addReadEvent(requests_, milliseconds(200));
-  transport_->startReadEvents();
-  HTTPSession::DestructorGuard g(httpSession_);
-  eventBase_.loop();
-
-  EXPECT_CALL(callbacks_, onMessageBegin(1, _));
-  EXPECT_CALL(callbacks_, onHeadersComplete(1, _));
-  EXPECT_CALL(callbacks_, onPushMessageBegin(2, 1, _));
-  EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
-  EXPECT_CALL(callbacks_, onMessageBegin(2, _));
-  EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
-  EXPECT_CALL(callbacks_, onMessageComplete(2, _));
-
+  EXPECT_CALL(callbacks_, onPushMessageBegin(_, _, _)).Times(0);
+  EXPECT_CALL(callbacks_, onMessageBegin(streamId, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(streamId, _));
+  EXPECT_CALL(callbacks_, onBody(streamId, _, _));
+  EXPECT_CALL(callbacks_, onMessageComplete(streamId, _));
   parseOutput(*clientCodec_);
-  expectDetachSession();
-  httpSession_->timeoutExpired();
-}
-
-TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
-  HTTPTransaction::setEgressBufferLimit(500);
-  // Create a dummy request and a dummy response messages
-  HTTPMessage req, res;
-  req.getHeaders().set("HOST", "www.foo.com");
-  req.setURL("https://www.foo.com/");
-  res.setStatusCode(200);
-  res.setStatusMessage("Ohai");
-
-  transport_->pauseWrites();
-
-  // enable server push
-  clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
-  clientCodec_->generateSettings(requests_);
-  // generateHeader() will create a session and a transaction
-  auto assocStreamId = HTTPCodec::StreamID(1);
-  clientCodec_->generateHeader(
-      requests_, assocStreamId, getGetRequest(), false, nullptr);
-
-  auto handler = addSimpleStrictHandler();
-  StrictMock<MockHTTPPushHandler> pushHandler;
-
-  InSequence handlerSequence;
-  HTTPTransaction* pushTxn;
-  handler->expectHeaders([&] {
-    // Generate response for the associated stream
-    handler->txn_->sendHeaders(res);
-    handler->txn_->sendBody(makeBuf(1000));
-    handler->txn_->pauseIngress();
-
-    pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
-    ASSERT_NE(pushTxn, nullptr);
-    // Generate a push request (PUSH_PROMISE)
-    pushTxn->sendHeaders(req);
-    // Send headers and some body
-    pushTxn->sendHeaders(res);
-    pushTxn->sendBody(makeBuf(1000));
-  });
-
-  handler->expectEgressPaused();
-  EXPECT_CALL(pushHandler, _setTransaction(_))
-      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, _onEgressPaused());
-
-  // Expect error on the associated stream.
-  // The push transaction can still push data.
-  handler->expectError([&](const HTTPException&) {
-    pushTxn->sendBody(makeBuf(1000));
-    pushTxn->sendEOM();
-    resumeWritesInLoop();
-    httpSession_->closeWhenIdle();
-  });
-
-  // Associated stream is destroyed.
-  handler->expectDetachTransaction();
-
-  // Push stream finishes on transaction timeout.
-  EXPECT_CALL(pushHandler, _detachTransaction());
-
-  transport_->addReadEvent(requests_, milliseconds(0));
-  // Cancels associated stream
-  clientCodec_->generateRstStream(requests_, assocStreamId, ErrorCode::CANCEL);
-  transport_->addReadEvent(requests_, milliseconds(10));
-  transport_->startReadEvents();
-  HTTPSession::DestructorGuard g(httpSession_);
-
-  expectDetachSession();
-  eventBase_.loop();
-
-  parseOutput(*clientCodec_);
-
-  EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
-  httpSession_->timeoutExpired();
-}
-
-TEST_F(HTTP2DownstreamSessionTest, ServerPushAfterWriteTimeout) {
-  HTTPTransaction::setEgressBufferLimit(500);
-  // Create a dummy request and a dummy response messages
-  HTTPMessage req, res;
-  req.getHeaders().set("HOST", "www.foo.com");
-  req.setURL("https://www.foo.com/");
-  res.setStatusCode(200);
-  res.setStatusMessage("Ohai");
-
-  transport_->pauseWrites();
-
-  // enable server push
-  clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
-  clientCodec_->generateSettings(requests_);
-  // generateHeader() will create a session and a transaction
-  auto assocStreamId = HTTPCodec::StreamID(3);
-  clientCodec_->generateHeader(
-      requests_, assocStreamId, getGetRequest(), true, nullptr);
-
-  auto handler = addSimpleStrictHandler();
-  StrictMock<MockHTTPPushHandler> pushHandler1;
-
-  // InSequence handlerSequence;
-  handler->expectHeaders([&] {
-    // Generate response for the associated stream
-    handler->txn_->sendHeaders(res);
-    handler->txn_->sendBody(makeBuf(1000));
-
-    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler1);
-    ASSERT_NE(pushTxn, nullptr);
-    // Generate a push request (PUSH_PROMISE)
-    pushTxn->sendHeaders(req);
-    // Send headers and some body
-    pushTxn->sendHeaders(res);
-    pushTxn->sendBody(makeBuf(1000));
-  });
-  handler->expectEgressPaused();
-  EXPECT_CALL(pushHandler1, _setTransaction(_))
-      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler1.txn_ = txn; }));
-  handler->expectEOM();
-  EXPECT_CALL(pushHandler1, _onEgressPaused());
-
-  EXPECT_CALL(pushHandler1, _onError(_)).WillOnce(InvokeWithoutArgs([&] {
-    StrictMock<MockHTTPPushHandler> pushHandler2;
-    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler2);
-    EXPECT_EQ(pushTxn, nullptr);
-  }));
-  handler->expectError();
-  handler->expectDetachTransaction();
-  EXPECT_CALL(pushHandler1, _detachTransaction());
-
-  transport_->addReadEvent(requests_, milliseconds(0));
-  transport_->startReadEvents();
-  HTTPSession::DestructorGuard g(httpSession_);
-  eventBase_.loop();
-
-  parseOutput(*clientCodec_);
-  expectDetachSession();
-  EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  cleanup();
 }
 
 #if 0

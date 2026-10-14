@@ -1377,18 +1377,9 @@ class HTTPTransaction
    * @return the new transaction for the push, or nullptr if a new push
    * transaction is impossible right now.
    */
-  virtual HTTPTransaction* newPushedTransaction(
-      HTTPPushTransactionHandler* handler, ProxygenError* error = nullptr) {
-    if (isEgressEOMSeen()) {
-      SET_PROXYGEN_ERROR_IF(error,
-                            ProxygenError::kErrorEgressEOMSeenOnParentStream);
-      return nullptr;
-    }
-    auto txn = transport_.newPushedTransaction(id_, handler, error);
-    if (txn) {
-      pushedTransactions_.insert(txn->getID());
-    }
-    return txn;
+  HTTPTransaction* newPushedTransaction(HTTPPushTransactionHandler*,
+                                        ProxygenError* = nullptr) {
+    return nullptr;
   }
 
   /**
@@ -1412,21 +1403,6 @@ class HTTPTransaction
    */
   folly::Optional<HTTPCodec::StreamID> getAssocTxnId() const {
     return assocStreamId_;
-  }
-
-  /**
-   * Get a set of server-pushed transactions associated with this transaction.
-   */
-  const std::set<HTTPCodec::StreamID>& getPushedTransactions() const {
-    return pushedTransactions_;
-  }
-
-  /**
-   * Remove the pushed txn ID from the set of pushed txns
-   * associated with this txn.
-   */
-  void removePushedTransaction(HTTPCodec::StreamID pushStreamId) {
-    pushedTransactions_.erase(pushStreamId);
   }
 
   /**
@@ -1912,11 +1888,6 @@ class HTTPTransaction
    * ID of request transaction (for pushed txns only)
    */
   folly::Optional<HTTPCodec::StreamID> assocStreamId_;
-
-  /**
-   * Set of all pushed transaction IDs associated with this transaction.
-   */
-  std::set<HTTPCodec::StreamID> pushedTransactions_;
 
   /**
    * Priority of this transaction

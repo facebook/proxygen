@@ -453,58 +453,6 @@ TEST_P(HQDownstreamSessionTest, SetLocalPriorityAfterClientEOM) {
   hqSession_->closeWhenIdle();
 }
 
-TEST_P(HQDownstreamSessionTestPush, PushPriority) {
-  sendRequest("/", 1);
-  HTTPMessage promiseReq, parentResp;
-  promiseReq.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
-  promiseReq.setURL("/");
-  promiseReq.setHTTPPriority(0, false);
-
-  parentResp.setStatusCode(200);
-  parentResp.setStatusMessage("Ohai");
-
-  HTTPMessage pushResp(parentResp);
-  pushResp.setHTTPPriority(1, false);
-
-  auto handler = addSimpleStrictHandler();
-  StrictMock<MockHTTPPushHandler> pushHandler;
-  handler->expectHeaders();
-  HTTPCodec::StreamID pushStreamId = 0;
-  handler->expectEOM([&] {
-    EXPECT_CALL(*socketDriver_->getSocket(),
-                setStreamPriority(handler->txn_->getID(), _))
-        .Times(0);
-    handler->txn_->sendHeaders(parentResp);
-    handler->txn_->sendBody(makeBuf(100));
-
-    auto outgoingStreams = hqSession_->getNumOutgoingStreams();
-    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
-    ASSERT_NE(pushTxn, nullptr);
-    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
-    // PushPromise doesn't update parent streram's priority. It does update push
-    // stream priority
-    EXPECT_CALL(*socketDriver_->getSocket(),
-                setStreamPriority(handler->txn_->getID(), _))
-        .Times(0);
-    socketDriver_->expectSetPriority(pushTxn->getID(), Priority(0, false));
-    pushTxn->sendHeaders(promiseReq);
-    pushStreamId = pushTxn->getID();
-    socketDriver_->expectSetPriority(pushStreamId, Priority(1, false));
-    pushTxn->sendHeaders(pushResp);
-    pushTxn->sendBody(makeBuf(200));
-    pushTxn->sendEOM();
-  });
-  EXPECT_CALL(pushHandler, _setTransaction(_))
-      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, _detachTransaction());
-
-  flushRequestsAndLoopN(1);
-  handler->txn_->sendEOM();
-  handler->expectDetachTransaction();
-  flushRequestsAndLoop();
-  hqSession_->closeWhenIdle();
-}
-
 TEST_P(HQDownstreamSessionTest, OnPriorityCallback) {
   // Simulate priority arriving too early, connection still valid
   // this is going to be stored and applied when receiving headers
@@ -3124,160 +3072,23 @@ INSTANTIATE_TEST_SUITE_P(HQDownstreamSessionBeforeTransportReadyTest,
                          }()),
                          paramsToTestName);
 
-TEST_P(HQDownstreamSessionTestPush, SimplePush) {
+TEST_P(HQDownstreamSessionTestPush, ServerPushUnsupported) {
   auto id = sendRequest("/", 1);
-  HTTPMessage promiseReq, res;
-  promiseReq.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
-  promiseReq.setURL("/");
-  res.setStatusCode(200);
-  res.setStatusMessage("Ohai");
-
   auto handler = addSimpleStrictHandler();
   StrictMock<MockHTTPPushHandler> pushHandler;
   handler->expectHeaders();
-  HTTPCodec::StreamID pushStreamId = 0;
   handler->expectEOM([&] {
-    // Generate response for the associated stream
-    handler->txn_->sendHeaders(res);
-    handler->txn_->sendBody(makeBuf(100));
-
-    // Different from H2, this counts as an outgoing stream as soon as the
-    // txn is created.
-    // TODO: maybe create the stream lazily when trying to send the real
-    // headers instead?
     auto outgoingStreams = hqSession_->getNumOutgoingStreams();
-    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
-    ASSERT_NE(pushTxn, nullptr);
-    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
-    // Generate a push request (PUSH_PROMISE)
-    pushTxn->sendHeaders(promiseReq);
-    pushStreamId = pushTxn->getID();
-    LOG(INFO) << "pushStreamId=" << pushStreamId;
-    pushTxn->sendHeaders(res);
-    pushTxn->sendBody(makeBuf(200));
-    pushTxn->sendEOM();
+    EXPECT_EQ(handler->txn_->newPushedTransaction(&pushHandler), nullptr);
+    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams);
+    handler->sendReplyWithBody(200, 100);
   });
-  EXPECT_CALL(pushHandler, _setTransaction(_))
-      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, _detachTransaction());
-
-  flushRequestsAndLoopN(1);
-  handler->txn_->sendEOM();
   handler->expectDetachTransaction();
   flushRequestsAndLoop();
-  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
+
+  EXPECT_TRUE(pushes_.empty());
+  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 100);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
-  auto pushIt = pushes_.find(pushStreamId);
-  ASSERT_TRUE(pushIt != pushes_.end());
-  EXPECT_GT(socketDriver_->streams_[pushIt->first].writeBuf.chainLength(), 110);
-  EXPECT_TRUE(socketDriver_->streams_[pushIt->first].writeEOF);
-  hqSession_->closeWhenIdle();
-}
-
-TEST_P(HQDownstreamSessionTestPush, PushPriorityCallback) {
-  auto id = sendRequest("/", 1);
-  HTTPMessage promiseReq, res;
-  promiseReq.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
-  promiseReq.setURL("/");
-  res.setStatusCode(200);
-  res.setStatusMessage("Ohai");
-
-  auto handler = addSimpleStrictHandler();
-  StrictMock<MockHTTPPushHandler> pushHandler;
-  handler->expectHeaders();
-  HTTPCodec::StreamID pushStreamId = 0;
-  handler->expectEOM([&] {
-    handler->txn_->sendHeaders(res);
-    handler->txn_->sendBody(makeBuf(100));
-
-    auto outgoingStreams = hqSession_->getNumOutgoingStreams();
-    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
-    ASSERT_NE(pushTxn, nullptr);
-    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
-    // Generate a push request (PUSH_PROMISE)
-    pushTxn->sendHeaders(promiseReq);
-    pushStreamId = pushTxn->getID();
-    pushTxn->sendHeaders(res);
-    pushTxn->sendBody(makeBuf(200));
-    pushTxn->sendEOM();
-  });
-  EXPECT_CALL(pushHandler, _setTransaction(_))
-      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, _detachTransaction());
-
-  flushRequestsAndLoopN(1);
-
-  // Push stream's priority can be updated either with stream id or push id:
-  auto pushId = pushes_.find(pushStreamId)->second;
-  socketDriver_->expectSetPriority(pushStreamId, Priority(6, true));
-  hqSession_->onPushPriority(pushId, HTTPPriority(6, true));
-  socketDriver_->expectSetPriority(pushStreamId, Priority(5, true));
-  hqSession_->onPriority(pushStreamId, HTTPPriority(5, true));
-
-  handler->txn_->sendEOM();
-  handler->expectDetachTransaction();
-  flushRequestsAndLoop();
-  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
-  EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
-  auto pushIt = pushes_.find(pushStreamId);
-  ASSERT_TRUE(pushIt != pushes_.end());
-  EXPECT_GT(socketDriver_->streams_[pushIt->first].writeBuf.chainLength(), 110);
-  EXPECT_TRUE(socketDriver_->streams_[pushIt->first].writeEOF);
-  hqSession_->closeWhenIdle();
-}
-
-TEST_P(HQDownstreamSessionTestPush, StopSending) {
-  auto id = sendRequest("/", 1);
-  HTTPMessage req, res;
-  req.getHeaders().set("HOST", "www.foo.com");
-  req.setURL("https://www.foo.com/");
-  res.setStatusCode(200);
-  res.setStatusMessage("Ohai");
-
-  auto handler = addSimpleStrictHandler();
-  StrictMock<MockHTTPPushHandler> pushHandler;
-  handler->expectHeaders();
-  HTTPCodec::StreamID pushStreamId = 0;
-  handler->expectEOM([&] {
-    // Generate response for the associated stream
-    handler->txn_->sendHeaders(res);
-    handler->txn_->sendBody(makeBuf(100));
-
-    // Different from H2, this counts as an outgoing stream as soon as the
-    // txn is created.
-    // TODO: maybe create the stream lazily when trying to send the real
-    // headers instead?
-    auto outgoingStreams = hqSession_->getNumOutgoingStreams();
-    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
-    ASSERT_NE(pushTxn, nullptr);
-    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
-    // Generate a push request (PUSH_PROMISE)
-    pushTxn->sendHeaders(req);
-    pushStreamId = pushTxn->getID();
-    LOG(INFO) << "pushStreamId=" << pushStreamId;
-    pushTxn->sendHeaders(res);
-    pushTxn->sendBody(makeBuf(200));
-    // NO EOM
-  });
-  EXPECT_CALL(pushHandler, _setTransaction(_))
-      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, _onError(_));
-  EXPECT_CALL(pushHandler, _detachTransaction());
-
-  flushRequestsAndLoopN(1);
-  handler->txn_->sendEOM();
-  handler->expectDetachTransaction();
-  flushRequestsAndLoop();
-  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
-  EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
-  auto pushIt = pushes_.find(pushStreamId);
-  ASSERT_TRUE(pushIt != pushes_.end());
-  EXPECT_GT(socketDriver_->streams_[pushIt->first].writeBuf.chainLength(), 110);
-  EXPECT_FALSE(socketDriver_->streams_[pushIt->first].writeEOF);
-  // Cancel the push with stop sending
-  socketDriver_->addStopSending(pushIt->first,
-                                HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED);
-  flushRequestsAndLoop();
   hqSession_->closeWhenIdle();
 }
 

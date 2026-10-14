@@ -91,12 +91,6 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                HTTPTransaction::PushHandler* handler,
                ProxygenError* error),
               (noexcept));
-  MOCK_METHOD((HTTPTransaction*),
-              newExTransaction,
-              (HTTPTransaction::Handler * handler,
-               HTTPCodec::StreamID controlStream,
-               bool unidirectional),
-              (noexcept));
 
   const folly::SocketAddress& getLocalAddress() const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)

@@ -930,16 +930,6 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID, ErrorCode code) {
   ex.setCodecStatusCode(code);
   DestructorGuard dg(this);
 
-  if (abortPushesOnRST_ && isDownstream() && !txn->getAssocTxnId() &&
-      code == ErrorCode::CANCEL) {
-    VLOG(4) << "Cancel all push txns because assoc txn has been cancelled.";
-    for (auto assocPushId : txn->getPushedTransactions()) {
-      auto* pushTxn = findTransaction(assocPushId);
-      DCHECK(pushTxn != nullptr);
-      pushTxn->onError(ex);
-    }
-  }
-
   txn->onError(ex);
 }
 
@@ -1524,13 +1514,6 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
           << ", liveTransactions was " << liveTransactions_;
   CHECK_GT(liveTransactions_, 0);
   liveTransactions_--;
-
-  if (txn->isPushed()) {
-    auto assocTxn = findTransaction(*txn->getAssocTxnId());
-    if (assocTxn) {
-      assocTxn->removePushedTransaction(streamID);
-    }
-  }
 
   auto oldStreamCount = getPipelineStreamCount();
   decrementTransactionCount(txn, true, true);
