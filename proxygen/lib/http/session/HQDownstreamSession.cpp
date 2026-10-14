@@ -139,60 +139,6 @@ HQDownstreamSession::createEgressPushStream(hq::PushId pushId,
   return &matchPair.first->second;
 }
 
-// this is the creation of outgoing pushed transaction
-HTTPTransaction* FOLLY_NULLABLE HQDownstreamSession::newPushedTransaction(
-    HTTPCodec::StreamID parentRequestStreamId,
-    HTTPTransaction::PushHandler* handler,
-    ProxygenError* error) {
-
-  if (isClosing()) {
-    VLOG(3) << __func__ << " Not creating transaction - draining ";
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorTransportIsDraining);
-    return nullptr;
-  }
-
-  auto parentRequestStream = findNonDetachedStream(parentRequestStreamId);
-  if (!parentRequestStream) {
-    VLOG(3) << __func__
-            << " Not creating transaction - request stream StreamID="
-            << parentRequestStreamId << " not found";
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorParentStreamNotExist);
-    return nullptr;
-  }
-
-  // Allocate a new egress unidirectional stream from the socket
-  // this method will throw exception on failure
-  auto pushStreamId = sock_->createUnidirectionalStream();
-
-  // Record the newly created push transaction in the session
-  // NOTE: should be stored in the transaction
-  // NOTE: should be cleaned up when the transaction is closed
-  if (!pushStreamId) {
-    VLOG(2) << __func__ << " failed to create new unidirectional stream";
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
-    return nullptr;
-  }
-
-  auto pushId = createNewPushId();
-
-  // Create the actual outgoing Egress Push stream.
-  auto pushStream = createEgressPushStream(
-      pushId, pushStreamId.value(), parentRequestStreamId);
-
-  if (!pushStream) {
-    LOG(ERROR) << "Creation of the push stream failed, pushID=" << pushId;
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
-    return nullptr;
-  }
-
-  VLOG(4) << "New pushed transaction: pushId=" << pushId
-          << "; pushStreamId=" << pushStreamId.value()
-          << "; assocStreamId=" << parentRequestStreamId;
-
-  pushStream->txn_.setHandler(handler);
-  return &pushStream->txn_;
-}
-
 HQSession::HQStreamTransportBase* HQDownstreamSession::findPushStream(
     quic::StreamId streamId) {
   return findEgressPushStream(streamId);

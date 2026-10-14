@@ -461,10 +461,6 @@ class HTTPSession
   void notifyPendingEgress() noexcept override;
   void notifyIngressBodyProcessed(uint32_t bytes) noexcept override;
   void notifyEgressBodyBuffered(int64_t bytes) noexcept override;
-  HTTPTransaction* newPushedTransaction(
-      HTTPCodec::StreamID assocStreamId,
-      HTTPTransaction::PushHandler* handler,
-      ProxygenError* error = nullptr) noexcept override;
   bool serverEarlyResponseEnabled() const noexcept override {
     return HTTPSessionBase::getServerEarlyResponseEnabled();
   }

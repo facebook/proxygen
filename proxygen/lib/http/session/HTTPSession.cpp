@@ -555,39 +555,6 @@ void HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
   shutdownTransport(true, transactions_.empty(), ex.what());
 }
 
-HTTPTransaction* HTTPSession::newPushedTransaction(
-    HTTPCodec::StreamID assocStreamId,
-    HTTPTransaction::PushHandler* handler,
-    ProxygenError* error) noexcept {
-  if (!codec_.supportsPushTransactions()) {
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorPushNotSupported);
-    return nullptr;
-  }
-  CHECK(isDownstream());
-  CHECK_NOTNULL(handler);
-  if (draining_) {
-    // This session doesn't support any more push transactions
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorTransportIsDraining);
-    return nullptr;
-  }
-
-  if (outgoingStreams_ >= maxConcurrentOutgoingStreamsRemote_) {
-    // This session doesn't support any more push transactions
-    SET_PROXYGEN_ERROR_IF(
-        error, ProxygenError::kErrorMaxConcurrentOutgoingStreamLimitReached);
-    return nullptr;
-  }
-
-  HTTPTransaction* txn = createTransaction(
-      codec_.createStream(), assocStreamId, http2::DefaultPriority, error);
-  if (!txn) {
-    return nullptr;
-  }
-  DestructorGuard dg(this);
-  txn->setHandler(handler);
-  return txn;
-}
-
 size_t HTTPSession::getCodecSendWindowSize() const {
   const HTTPSettings* settings = codec_.getIngressSettings();
   if (settings) {

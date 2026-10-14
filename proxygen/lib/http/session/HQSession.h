@@ -635,13 +635,6 @@ class HQSession
   virtual void eraseUnboundStream(HQStreamTransportBase*) {
   }
 
-  virtual HTTPTransaction* newPushedTransaction(
-      HTTPCodec::StreamID,           /* parentRequestStreamId */
-      HTTPTransaction::PushHandler*, /* handler */
-      ProxygenError*) {
-    return nullptr;
-  }
-
   // Callback methods that are invoked by the stream dispatchers
   void dispatchControlStream(quic::StreamId /* id */,
                              hq::UnidirectionalStreamType /* type */,
@@ -1433,14 +1426,6 @@ class HQSession
       return false;
     }
 
-    HTTPTransaction* newPushedTransaction(
-        HTTPCodec::StreamID /* parentTxnId */,
-        HTTPTransaction::PushHandler* /* handler */,
-        ProxygenError* /* error */ = nullptr) noexcept override {
-      LOG(FATAL) << __func__ << " Only available via request stream";
-      folly::assume_unreachable();
-    }
-
     std::string getSecurityProtocol() const override {
       VLOG(4) << __func__ << " txn=" << txn_;
       return "quic/tls1.3";
@@ -1875,11 +1860,6 @@ class HQSession
       initCodec(std::move(codec), __func__);
       initIngress(__func__);
     }
-
-    HTTPTransaction* newPushedTransaction(
-        HTTPCodec::StreamID /* parentTxnId */,
-        HTTPTransaction::PushHandler* /* handler */,
-        ProxygenError* error = nullptr) noexcept override;
 
     void sendPushPromise(HTTPTransaction* /* txn */,
                          folly::Optional<hq::PushId> /* pushId */,

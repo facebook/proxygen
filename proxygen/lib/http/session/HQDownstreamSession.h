@@ -58,11 +58,6 @@ class HQDownstreamSession : public HQSession {
   bool isReplaySafe() const override {
     LOG(FATAL) << __func__ << " is an upstream interface";
   }
-  // Create a new pushed transaction.
-  HTTPTransaction* newPushedTransaction(
-      HTTPCodec::StreamID,           /* parentRequestStreamId */
-      HTTPTransaction::PushHandler*, /* handler */
-      ProxygenError* error = nullptr) override;
 
   /**
    * Returns true iff a new outgoing transaction can be made on this session

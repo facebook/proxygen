@@ -519,11 +519,6 @@ class HTTPTransaction
 
     [[nodiscard]] virtual bool isDraining() const = 0;
 
-    virtual HTTPTransaction* newPushedTransaction(
-        HTTPCodec::StreamID assocStreamId,
-        HTTPTransaction::PushHandler* handler,
-        ProxygenError* error = nullptr) noexcept = 0;
-
     [[nodiscard]] virtual std::string getSecurityProtocol() const = 0;
 
     virtual void addWaitingForReplaySafety(

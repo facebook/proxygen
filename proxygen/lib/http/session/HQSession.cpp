@@ -3785,20 +3785,6 @@ void HQSession::HQStreamTransport::sendPushPromise(
   }
 }
 
-HTTPTransaction* FOLLY_NULLABLE
-HQSession::HQStreamTransport::newPushedTransaction(
-    HTTPCodec::StreamID parentRequestStreamId,
-    HTTPTransaction::PushHandler* handler,
-    ProxygenError* error) noexcept {
-
-  CHECK_EQ(parentRequestStreamId, txn_.getID());
-
-  return session_.newPushedTransaction(
-      parentRequestStreamId, // stream id of the egress push stream
-      handler,
-      error);
-}
-
 void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
     hq::PushId, HTTPCodec::StreamID, std::unique_ptr<HTTPMessage>) {
 }
