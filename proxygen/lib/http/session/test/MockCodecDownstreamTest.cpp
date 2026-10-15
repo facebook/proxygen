@@ -258,39 +258,6 @@ TEST_F(MockCodecDownstreamTest, OnAbortThenTimeouts) {
   eventBase_.loop();
 }
 
-TEST_F(MockCodecDownstreamTest, ServerPushUnsupported) {
-  MockHTTPHandler handler;
-  StrictMock<MockHTTPPushHandler> pushHandler;
-  auto req = makeGetRequest();
-
-  EXPECT_CALL(*codec_, generatePushPromise(_, _, _, _, _, _)).Times(0);
-  InSequence enforceOrder;
-  EXPECT_CALL(mockController_, getRequestHandler(_, _))
-      .WillOnce(Return(&handler));
-  EXPECT_CALL(handler, _setTransaction(_)).WillOnce(SaveArg<0>(&handler.txn_));
-  EXPECT_CALL(handler, _onHeadersComplete(_))
-      .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage>) {
-        EXPECT_EQ(handler.txn_->newPushedTransaction(&pushHandler), nullptr);
-        EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
-      }));
-  EXPECT_CALL(handler, _onEOM()).WillOnce(Invoke([&] {
-    handler.sendReplyWithBody(200, 100);
-    eventBase_.loopOnce();
-  }));
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
-  EXPECT_CALL(*codec_,
-              generateBody(_, 1, PtrBufHasLen(uint64_t(100)), _, true));
-  EXPECT_CALL(handler, _detachTransaction());
-
-  codecCallback_->onMessageBegin(1, req.get());
-  codecCallback_->onHeadersComplete(1, std::move(req));
-  codecCallback_->onMessageComplete(1, false);
-
-  EXPECT_CALL(*codec_, onIngressEOF());
-  EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->dropConnection();
-}
-
 TEST_F(MockCodecDownstreamTest, ReadTimeout) {
   // Test read timeout path
   codec_->enableDoubleGoawayDrain();

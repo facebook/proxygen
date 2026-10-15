@@ -320,44 +320,6 @@ class HTTPTransactionHandler : public TraceEventObserver {
   ~HTTPTransactionHandler() override = default;
 };
 
-class HTTPPushTransactionHandler : public HTTPTransactionHandler {
- public:
-  ~HTTPPushTransactionHandler() override = default;
-
-  void onHeadersComplete(std::unique_ptr<HTTPMessage>) noexcept final {
-    LOG(FATAL) << "push txn received headers";
-  }
-
-  void onBody(std::unique_ptr<folly::IOBuf>) noexcept final {
-    LOG(FATAL) << "push txn received body";
-  }
-
-  void onBodyWithOffset(uint64_t,
-                        std::unique_ptr<folly::IOBuf>) noexcept final {
-    LOG(FATAL) << "push txn received body with offset";
-  }
-
-  void onChunkHeader(size_t /* length */) noexcept final {
-    LOG(FATAL) << "push txn received chunk header";
-  }
-
-  void onChunkComplete() noexcept final {
-    LOG(FATAL) << "push txn received chunk complete";
-  }
-
-  void onTrailers(std::unique_ptr<HTTPHeaders>) noexcept final {
-    LOG(FATAL) << "push txn received trailers";
-  }
-
-  void onEOM() noexcept final {
-    LOG(FATAL) << "push txn received EOM";
-  }
-
-  void onUpgrade(UpgradeProtocol) noexcept final {
-    LOG(FATAL) << "push txn received upgrade";
-  }
-};
-
 /**
  * Callback interface to be notified of events on the byte stream.
  */
@@ -425,7 +387,6 @@ class HTTPTransaction
     , public WebTransportImpl::SessionProvider {
  public:
   using Handler = HTTPTransactionHandler;
-  using PushHandler = HTTPPushTransactionHandler;
 
   using FlowControlInfo = proxygen::FlowControlInfo;
 
@@ -1363,18 +1324,6 @@ class HTTPTransaction
    */
   bool supportsPushTransactions() const {
     return isDownstream() && transport_.getCodec().supportsPushTransactions();
-  }
-
-  /**
-   * Create a new pushed transaction associated with this transaction,
-   * and assign the given handler and priority.
-   *
-   * @return the new transaction for the push, or nullptr if a new push
-   * transaction is impossible right now.
-   */
-  HTTPTransaction* newPushedTransaction(HTTPPushTransactionHandler*,
-                                        ProxygenError* = nullptr) {
-    return nullptr;
   }
 
   /**

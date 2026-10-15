@@ -85,12 +85,6 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
               getLocalAddressNonConst,
               (),
               (noexcept));
-  MOCK_METHOD((HTTPTransaction*),
-              newPushedTransaction,
-              (HTTPCodec::StreamID assocStreamId,
-               HTTPTransaction::PushHandler* handler,
-               ProxygenError* error),
-              (noexcept));
 
   const folly::SocketAddress& getLocalAddress() const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
@@ -405,9 +399,6 @@ class MockHTTPTransaction : public HTTPTransaction {
   MOCK_METHOD(void, pauseIngress, ());
   MOCK_METHOD(void, resumeIngress, ());
   MOCK_METHOD(bool, handlerEgressPaused, (), (const));
-  MOCK_METHOD(HTTPTransaction*,
-              newPushedTransaction,
-              (HTTPPushTransactionHandler*, ProxygenError*));
   MOCK_METHOD(void, setReceiveWindow, (uint32_t));
   MOCK_METHOD(const Window&, getReceiveWindow, (), (const));
   MOCK_METHOD(void,

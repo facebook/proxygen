@@ -9,7 +9,6 @@
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
 
 #include <folly/Range.h>
-#include <proxygen/httpserver/PushHandler.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 

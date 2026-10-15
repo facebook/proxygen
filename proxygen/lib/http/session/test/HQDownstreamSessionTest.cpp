@@ -46,8 +46,6 @@ using Priority = quic::HTTPPriorityQueue::Priority;
 
 using HQDownstreamSessionTestDeliveryAck = HQDownstreamSessionTest;
 
-// Use this test class for h3 server push tests
-using HQDownstreamSessionTestPush = HQDownstreamSessionTest;
 // Use this test class for h3 downstream datagram tests
 using HQDownstreamSessionTestDatagram = HQDownstreamSessionTest;
 
@@ -3072,26 +3070,6 @@ INSTANTIATE_TEST_SUITE_P(HQDownstreamSessionBeforeTransportReadyTest,
                          }()),
                          paramsToTestName);
 
-TEST_P(HQDownstreamSessionTestPush, ServerPushUnsupported) {
-  auto id = sendRequest("/", 1);
-  auto handler = addSimpleStrictHandler();
-  StrictMock<MockHTTPPushHandler> pushHandler;
-  handler->expectHeaders();
-  handler->expectEOM([&] {
-    auto outgoingStreams = hqSession_->getNumOutgoingStreams();
-    EXPECT_EQ(handler->txn_->newPushedTransaction(&pushHandler), nullptr);
-    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams);
-    handler->sendReplyWithBody(200, 100);
-  });
-  handler->expectDetachTransaction();
-  flushRequestsAndLoop();
-
-  EXPECT_TRUE(pushes_.empty());
-  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 100);
-  EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
-  hqSession_->closeWhenIdle();
-}
-
 using DropConnectionInTransportReadyTest =
     HQDownstreamSessionBeforeTransportReadyTest;
 
@@ -3122,17 +3100,6 @@ INSTANTIATE_TEST_SUITE_P(DropConnectionInTransportReadyTest,
                                return tp;
                              }()),
                          paramsToTestName);
-// Instantiate hq server push tests
-INSTANTIATE_TEST_SUITE_P(HQDownstreamSessionTest,
-                         HQDownstreamSessionTestPush,
-                         Values([] {
-                           TestParams tp;
-                           tp.alpn_ = "h3";
-                           tp.unidirectionalStreamsCredit = 8;
-                           return tp;
-                         }()),
-                         paramsToTestName);
-
 // Use this test class for mismatched alpn tests
 class HQDownstreamSessionTestUnsupportedAlpn : public HQDownstreamSessionTest {
  public:

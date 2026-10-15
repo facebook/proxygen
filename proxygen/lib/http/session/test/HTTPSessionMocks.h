@@ -446,59 +446,6 @@ class MockHTTPHandler
   }
 };
 
-class MockHTTPPushHandler
-    : public HTTPHandlerBase
-    , public HTTPTransaction::PushHandler {
- public:
-  MockHTTPPushHandler() = default;
-  MockHTTPPushHandler(HTTPTransaction& txn,
-                      HTTPMessage* msg,
-                      const folly::SocketAddress&)
-      : HTTPHandlerBase(&txn, msg) {
-  }
-
-  void setTransaction(HTTPTransaction* txn) noexcept override {
-    _setTransaction(txn);
-  }
-  MOCK_METHOD(void, _setTransaction, (HTTPTransaction*));
-
-  void detachTransaction() noexcept override {
-    _detachTransaction();
-  }
-  MOCK_METHOD(void, _detachTransaction, ());
-
-  void onError(const HTTPException& error) noexcept override {
-    _onError(error);
-  }
-  MOCK_METHOD(void, _onError, (const HTTPException&));
-
-  void onGoaway(ErrorCode errCode) noexcept override {
-    _onGoaway(errCode);
-  }
-  MOCK_METHOD(void, _onGoaway, (ErrorCode));
-
-  void onEgressPaused() noexcept override {
-    _onEgressPaused();
-  }
-  MOCK_METHOD(void, _onEgressPaused, ());
-
-  void onEgressResumed() noexcept override {
-    _onEgressResumed();
-  }
-  MOCK_METHOD(void, _onEgressResumed, ());
-
-  void sendPushHeaders(const std::string& path,
-                       const std::string& host,
-                       uint32_t content_length) {
-    HTTPMessage push;
-    push.setURL(path);
-    push.getHeaders().set(HTTP_HEADER_HOST, host);
-    push.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH,
-                          folly::to<std::string>(content_length));
-    txn_->sendHeaders(push);
-  }
-};
-
 class MockController : public HTTPSessionController {
  public:
   MOCK_METHOD(HTTPTransactionHandler*,

@@ -773,63 +773,6 @@ class WaitReleaseHandler : public BaseSampleHandler {
   folly::EventBase* evb_;
 };
 
-namespace {
-constexpr auto kPushFileName = "pusheen.txt";
-};
-
-class ServerPushHandler : public BaseSampleHandler {
-  class ServerPushTxnHandler : public proxygen::HTTPPushTransactionHandler {
-    void setTransaction(
-        proxygen::HTTPTransaction* /* txn */) noexcept override {
-    }
-
-    void detachTransaction() noexcept override {
-    }
-
-    void onError(const proxygen::HTTPException& /* err */) noexcept override {
-    }
-
-    void onEgressPaused() noexcept override {
-    }
-
-    void onEgressResumed() noexcept override {
-    }
-  };
-
- public:
-  explicit ServerPushHandler(const HandlerParams& params)
-      : BaseSampleHandler(params) {
-  }
-
-  void onHeadersComplete(
-      std::unique_ptr<proxygen::HTTPMessage> /* msg */) noexcept override;
-
-  void onBody(std::unique_ptr<folly::IOBuf> /* chain */) noexcept override;
-
-  void onEOM() noexcept override;
-
-  void onError(const proxygen::HTTPException& /*error*/) noexcept override;
-
-  void detachTransaction() noexcept override {
-  }
-
- private:
-  void sendPushPromise(proxygen::HTTPTransaction* /* pushTxn */,
-                       const std::string& /* path */);
-
-  void sendErrorResponse(const std::string& /* body */);
-
-  void sendPushResponse(proxygen::HTTPTransaction* /* pushTxn */,
-                        const std::string& /* url */,
-                        const std::string& /* body */,
-                        bool /* eom */);
-
-  void sendOkResponse(const std::string& /* body */, bool /* eom */);
-
-  std::string path_;
-  ServerPushTxnHandler pushTxnHandler_;
-};
-
 class DeviousBatonHandler : public BaseSampleHandler {
  public:
   explicit DeviousBatonHandler(const HandlerParams& params,

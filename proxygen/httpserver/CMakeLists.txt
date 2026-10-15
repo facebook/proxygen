@@ -105,15 +105,6 @@ install(TARGETS proxygenhqloggerhelper EXPORT proxygen-exports)
 add_library(proxygen::proxygenhqloggerhelper ALIAS proxygenhqloggerhelper)
 
 if (BUILD_SAMPLES)
-  add_executable(proxygen_push
-    samples/push/PushServer.cpp
-    samples/push/PushRequestHandler.cpp
-  )
-  target_compile_options(
-      proxygen_push PRIVATE ${_PROXYGEN_COMMON_COMPILE_OPTIONS})
-  target_link_libraries(proxygen_push PUBLIC proxygen proxygen_httpserver)
-  install(TARGETS proxygen_push EXPORT proxygen-exports DESTINATION bin)
-
   add_executable(proxygen_proxy
     samples/proxy/ProxyServer.cpp
     samples/proxy/ProxyHandler.cpp

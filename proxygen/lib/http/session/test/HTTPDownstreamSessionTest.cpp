@@ -3111,29 +3111,6 @@ TEST_F(HTTP2DownstreamSessionTest, GracefulDrainOnTimeout) {
   httpSession_->timeoutExpired();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, ServerPushUnsupported) {
-  clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
-  clientCodec_->generateSettings(requests_);
-  auto streamId = sendRequest();
-  auto handler = addSimpleStrictHandler();
-  StrictMock<MockHTTPPushHandler> pushHandler;
-  handler->expectHeaders([&] {
-    EXPECT_EQ(handler->txn_->newPushedTransaction(&pushHandler), nullptr);
-    EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
-  });
-  handler->expectEOM([&] { handler->sendReplyWithBody(200, 100); });
-  handler->expectDetachTransaction();
-  flushRequestsAndLoop();
-
-  EXPECT_CALL(callbacks_, onPushMessageBegin(_, _, _)).Times(0);
-  EXPECT_CALL(callbacks_, onMessageBegin(streamId, _));
-  EXPECT_CALL(callbacks_, onHeadersComplete(streamId, _));
-  EXPECT_CALL(callbacks_, onBody(streamId, _, _));
-  EXPECT_CALL(callbacks_, onMessageComplete(streamId, _));
-  parseOutput(*clientCodec_);
-  cleanup();
-}
-
 #if 0
 TEST_F(HTTP2DownstreamSessionTest, TestPriorityFCBlocked) {
   // Send two requests that are not stream f/c blocked but are conn f/c blocked

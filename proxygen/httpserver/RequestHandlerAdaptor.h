@@ -14,7 +14,6 @@
 namespace proxygen {
 
 class RequestHandler;
-class PushHandler;
 
 /**
  * An adaptor that converts HTTPTransactionHandler to RequestHandler.

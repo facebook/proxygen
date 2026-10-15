@@ -8,13 +8,11 @@
 
 #pragma once
 
-#include <folly/Expected.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {
 
 class RequestHandler;
-class PushHandler;
 
 /**
  * Interface that acts as client for RequestHandler. It also has a hook
@@ -73,11 +71,6 @@ class ResponseHandler {
   virtual void pauseIngress() noexcept = 0;
 
   virtual void resumeIngress() noexcept = 0;
-
-  virtual folly::Expected<ResponseHandler*, ProxygenError> newPushedResponse(
-      PushHandler*) noexcept {
-    return folly::makeUnexpected(kErrorUnknown);
-  }
 
   // Accessors for Transport/Connection information
   [[nodiscard]] virtual const wangle::TransportInfo& getSetupTransportInfo()
