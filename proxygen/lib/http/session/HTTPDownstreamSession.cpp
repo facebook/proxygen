@@ -67,11 +67,6 @@ void HTTPDownstreamSession::onHeadersSent(const HTTPMessage& headers,
 }
 
 bool HTTPDownstreamSession::allTransactionsStarted() const {
-  for (const auto& txn : transactions_) {
-    if (txn.second.isPushed() && !txn.second.isEgressStarted()) {
-      return false;
-    }
-  }
   return true;
 }
 

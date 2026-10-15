@@ -147,10 +147,8 @@ HTTPTransaction::HTTPTransaction(
     stats_->recordTransactionOpened();
   }
 
-  if (isDownstream() || !isPushed()) {
-    queueHandle_ =
-        egressQueue_.addTransaction(id_, priority, this, false, &insertDepth_);
-  }
+  queueHandle_ =
+      egressQueue_.addTransaction(id_, priority, this, false, &insertDepth_);
   if (priority.streamDependency != egressQueue_.getRootId() &&
       insertDepth_ == 1) {
     priorityFallback_ = true;
@@ -206,14 +204,12 @@ void HTTPTransaction::onIngressHeadersComplete(
     std::unique_ptr<HTTPMessage> msg) {
   DestructorGuard g(this);
   msg->setSeqNo(seqNo_);
-  if (isUpstream() && !isPushed() && msg->isResponse()) {
+  if (isUpstream() && msg->isResponse()) {
     lastResponseStatus_ = msg->getStatusCode();
   }
-  bool nonFinalPushHeaders = isPushed() && msg->isRequest();
   if (!validateIngressStateTransition(
-          msg->isFinal() && !nonFinalPushHeaders
-              ? IngressSmEvent::onFinalHeaders
-              : IngressSmEvent::onNonFinalHeaders)) {
+          msg->isFinal() ? IngressSmEvent::onFinalHeaders
+                         : IngressSmEvent::onNonFinalHeaders)) {
     return;
   }
   checkForUpgrade(*msg);
@@ -1006,7 +1002,7 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
     return;
   }
   DCHECK(!isEgressComplete());
-  if (!headers.isRequest() && !isPushed()) {
+  if (!headers.isRequest()) {
     lastResponseStatus_ = headers.getStatusCode();
   }
   checkForUpgrade(headers);

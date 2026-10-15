@@ -1378,13 +1378,6 @@ class HTTPTransaction
   }
 
   /**
-   * True if this transaction is a server push transaction
-   */
-  bool isPushed() const {
-    return assocStreamId_.has_value();
-  }
-
-  /**
    * Overrides the default idle timeout value.
    */
   void setIdleTimeout(std::chrono::milliseconds idleTimeout);

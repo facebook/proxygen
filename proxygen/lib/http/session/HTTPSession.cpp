@@ -570,14 +570,6 @@ void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
 
   HTTPTransaction* txn = findTransaction(streamID);
   if (txn) {
-    if (isDownstream() && txn->isPushed()) {
-      // Push streams are unidirectional (half-closed). If the downstream
-      // attempts to send ingress, abort with STREAM_CLOSED error.
-      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-                       "Downstream attempts to send ingress, abort.");
-      ex.setCodecStatusCode(ErrorCode::STREAM_CLOSED);
-      txn->onError(ex);
-    }
     return; // If this transaction is already registered, no need to add it now
   }
 
@@ -1162,11 +1154,6 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
   }
   const uint64_t newOffset = sessionByteOffset();
 
-  // for push response count towards the MAX_CONCURRENT_STREAMS limit
-  if (isDownstream() && headers.isResponse() && txn->isPushed()) {
-    incrementOutgoingStreams(txn);
-  }
-
   // For all upstream headers, addFirstHeaderByteEvent should be added
   // For all downstream, only response headers need addFirstHeaderByteEvent
   bool shouldAddFirstHeaderByteEvent =
@@ -1421,8 +1408,7 @@ size_t HTTPSession::sendCertificateRequest(
 void HTTPSession::decrementTransactionCount(HTTPTransaction* txn,
                                             bool ingressEOM,
                                             bool egressEOM) {
-  if ((isUpstream() && !txn->isPushed()) ||
-      (isDownstream() && txn->isPushed())) {
+  if (isUpstream()) {
     if (ingressEOM && txn->testAndClearIsCountedTowardsStreamLimit()) {
       DCHECK_NE(outgoingStreams_, 0);
       outgoingStreams_--;
@@ -2298,13 +2284,11 @@ HTTPTransaction* HTTPSession::createTransaction(
   incrementSeqNo();
   txn->setReceiveWindow(receiveStreamWindowSize_);
 
-  if (isUpstream() && !txn->isPushed()) {
+  if (isUpstream()) {
     incrementOutgoingStreams(txn);
-    // do not count towards MAX_CONCURRENT_STREAMS for PUSH_PROMISE
-  } else if (!(isDownstream() && txn->isPushed())) {
+  } else {
     incrementIncomingStreams(txn);
   }
-  // Downstream push is counted in HTTPSession::sendHeaders
 
   if (infoCallback_) {
     infoCallback_->onTransactionAttached(*this);

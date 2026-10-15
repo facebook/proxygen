@@ -730,10 +730,6 @@ size_t HQSession::HQStreamTransportBase::changePriority(
   if (isUpstream(session_.direction_) && txn->isIngressEOMSeen()) {
     return 0;
   }
-  if (txn->isPushed()) {
-    auto pushId = txn->getID();
-    return session_.sendPushPriority(pushId, httpPriority);
-  }
   return session_.sendPriority(txn->getID(), httpPriority);
 }
 
@@ -1778,9 +1774,8 @@ void HQSession::onPriority(quic::StreamId streamId, const HTTPPriority& pri) {
     return;
   }
   CHECK(sock_);
-  // This also covers push streams:
   auto stream = findStream(streamId);
-  if (!stream || (!stream->txn_.isPushed() && !stream->hasHeaders_)) {
+  if (!stream || !stream->hasHeaders_) {
     // We are supposed to drop the connection with HTTP_ID_ERROR if the streamId
     // points to a control stream. But why should I spend CPU looking it up?
     priorityUpdatesBuffer_.insert(streamId, pri);
@@ -2413,7 +2408,7 @@ void HQSession::HQStreamTransportBase::initCodec(
     c->setActivationHook([this] { return setActiveCodec("self"); });
   }
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  if (isUpstream(session_.direction_) || txn_.isPushed()) {
+  if (isUpstream(session_.direction_)) {
     codecStreamId_ = codecFilterChain.createStream();
   }
   hasCodec_ = true;
@@ -2809,20 +2804,9 @@ void HQSession::HQStreamTransportBase::transactionTimeout(
   VLOG(4) << __func__ << " txn=" << txn_;
   DCHECK(txn == &txn_);
 
-  if (txn->isPushed()) {
-    if (!hasIngressStreamId()) {
-      // This transaction has not been assigned a stream id yet.
-      // Do not attempt to close the stream but do invoke
-      // the timeout on the txn
-      VLOG(3) << "Transaction timeout on pushedTxn pushId=" << txn->getID();
-      txn_.onIngressTimeout();
-      return;
-    }
-  }
   // Verify that the transaction has egress or ingress stream
   DCHECK(hasIngressStreamId() || hasEgressStreamId())
-      << "Timeout on transaction without stream id txnID=" << txn->getID()
-      << " isPushed=" << txn->isPushed();
+      << "Timeout on transaction without stream id txnID=" << txn->getID();
   // A transaction has timed out.  If the transaction does not have
   // a Handler yet, because we haven't yet received the full request
   // headers, we give it a DirectResponseHandler that generates an
@@ -3091,9 +3075,7 @@ size_t HQSession::HQStreamTransportBase::sendAbort(
                        folly::to<std::string>("Application aborts, errorCode=",
                                               getErrorCodeString(errorCode),
                                               " txnID=",
-                                              txn->getID(),
-                                              " isPushed=",
-                                              txn->isPushed()));
+                                              txn->getID()));
 }
 
 size_t HQSession::HQStreamTransportBase::sendAbortImpl(HTTP3::ErrorCode code,
