@@ -167,6 +167,7 @@ class QuicWtSession final : public QuicWtSessionBase {
   void setHandler(WebTransportHandler* handler) noexcept {
     if (!handler) {
       closeSession(folly::none);
+      return;
     }
     wtHandler_ = WtHandlerPtr(handler, WtHandlerDeleter{.owning = false});
   }
