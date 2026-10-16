@@ -75,7 +75,10 @@ void RequestWorkerThread::setup() {
 }
 
 void RequestWorkerThread::forceStop() {
-  evb_->terminateLoopSoon();
+  // Stop the loop from its own thread. Once the loop exits, the owning executor
+  // may destroy evb_ immediately, and nothing would order a cross-thread
+  // terminateLoopSoon() call before that destruction.
+  evb_->runInEventBaseThread([evb = evb_] { evb->terminateLoopSoon(); });
 }
 
 void RequestWorkerThread::cleanup() {
