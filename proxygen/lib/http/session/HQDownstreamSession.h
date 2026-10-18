@@ -176,8 +176,6 @@ class HQDownstreamSession : public HQSession {
                          quic::StreamId streamId,
                          quic::StreamId parentStreamId);
 
-  bool erasePushStream(quic::StreamId streamId) override;
-
   void dispatchPushStream(quic::StreamId /* pushStreamId */,
                           hq::PushId /* pushId */,
                           size_t /* toConsume */) override {

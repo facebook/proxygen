@@ -185,22 +185,6 @@ HQUpstreamSession::findIngressPushStreamByPushId(hq::PushId pushId) {
   }
 }
 
-bool HQUpstreamSession::erasePushStream(quic::StreamId streamId) {
-  auto res = streamIdToPushId_.find(streamId);
-  if (res != streamIdToPushId_.end()) {
-    auto pushId = res->second;
-    // Ingress push stream may be using the push id
-    // erase it as well if present
-    ingressPushStreams_.erase(pushId);
-
-    // Unconditionally erase the lookup entry tables
-    streamIdToPushId_.erase(res);
-    pushIdToStreamId_.erase(pushId);
-    return true;
-  }
-  return false;
-}
-
 uint32_t HQUpstreamSession::numberOfIngressPushStreams() const {
   return ingressPushStreams_.size();
 }

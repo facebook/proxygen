@@ -162,9 +162,6 @@ class MockHQSession : public HQSession {
     return txn_.get();
   }
 
-  bool erasePushStream(quic::StreamId) override {
-    return false;
-  }
   uint32_t getNumOutgoingStreams() const override {
     return static_cast<uint32_t>(streams_.size());
   }

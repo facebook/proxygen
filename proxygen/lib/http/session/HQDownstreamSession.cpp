@@ -151,16 +151,6 @@ HQDownstreamSession::findEgressPushStream(quic::StreamId streamId) {
   }
 }
 
-bool HQDownstreamSession::erasePushStream(quic::StreamId streamId) {
-  auto pushIdIter = streamIdToPushId_.find(streamId);
-  if (pushIdIter != streamIdToPushId_.end()) {
-    auto pushId = pushIdIter->second;
-    pushIdToStreamId_.erase(pushId);
-    streamIdToPushId_.erase(pushIdIter);
-  }
-  return egressPushStreams_.erase(streamId);
-}
-
 uint32_t HQDownstreamSession::numberOfEgressPushStreams() const {
   return egressPushStreams_.size();
 }

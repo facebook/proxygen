@@ -1105,17 +1105,7 @@ HQSession::findControlStream(quic::StreamId streamId) {
 }
 
 bool HQSession::eraseStream(quic::StreamId streamId) {
-  // Try different possible locations and remove the
-  // stream
-  bool erased = false;
-  if (streams_.erase(streamId)) {
-    erased = true;
-  }
-
-  // TODO: only do this when stream is server-uni
-  erased |= erasePushStream(streamId);
-
-  return erased;
+  return streams_.erase(streamId) != 0;
 }
 
 void HQSession::runSessionLoopCallback() noexcept {

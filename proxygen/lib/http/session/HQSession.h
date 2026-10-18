@@ -587,8 +587,6 @@ class HQSession
   // has been erased
   bool eraseStream(quic::StreamId);
 
-  virtual bool erasePushStream(quic::StreamId streamId) = 0;
-
   void resumeReadsForPushStream(quic::StreamId streamId) {
     pendingProcessReadSet_.insert(streamId);
     resumeReads(streamId);
