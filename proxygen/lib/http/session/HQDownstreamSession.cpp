@@ -139,18 +139,6 @@ HQDownstreamSession::createEgressPushStream(hq::PushId pushId,
   return &matchPair.first->second;
 }
 
-HQDownstreamSession::HQEgressPushStream* FOLLY_NULLABLE
-HQDownstreamSession::findEgressPushStream(quic::StreamId streamId) {
-  auto it = egressPushStreams_.find(streamId);
-  if (it == egressPushStreams_.end()) {
-    return nullptr;
-  } else {
-    auto pstream = &it->second;
-    DCHECK(pstream->isUsing(streamId));
-    return pstream;
-  }
-}
-
 uint32_t HQDownstreamSession::numberOfEgressPushStreams() const {
   return egressPushStreams_.size();
 }

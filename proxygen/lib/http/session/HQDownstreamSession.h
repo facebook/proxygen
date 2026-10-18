@@ -166,9 +166,6 @@ class HQDownstreamSession : public HQSession {
 
   std::unordered_map<quic::StreamId, HQEgressPushStream> egressPushStreams_;
 
-  // Find an egress push stream
-  HQEgressPushStream* findEgressPushStream(quic::StreamId);
-
   uint32_t numberOfEgressPushStreams() const;
 
   HQEgressPushStream* FOLLY_NULLABLE
