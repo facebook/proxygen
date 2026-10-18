@@ -85,60 +85,6 @@ bool HQDownstreamSession::pushAllowedByGoaway(hq::PushId pushId) {
   return pushId < peerMinUnseenId_;
 }
 
-HQDownstreamSession::HQEgressPushStream* FOLLY_NULLABLE
-HQDownstreamSession::createEgressPushStream(hq::PushId pushId,
-                                            quic::StreamId streamId,
-                                            quic::StreamId parentStreamId) {
-
-  VLOG(4) << __func__ << "sess=" << *this << " pushId=" << pushId
-          << " isClosing()=" << isClosing() << " streamId=" << streamId
-          << " parentStreamId=" << parentStreamId;
-
-  // Use version utils to ensure that the session is not in draining state
-  if (!pushAllowedByGoaway(pushId)) {
-    VLOG(3) << __func__ << " Not creating - session is draining"
-            << " sess=" << *this << " pushId=" << pushId
-            << " isClosing()=" << isClosing() << " streamId=" << streamId
-            << " parentStreamId=" << parentStreamId;
-    return nullptr;
-  }
-
-  auto codec = createCodec(streamId);
-
-  auto matchPair = egressPushStreams_.emplace(
-      std::piecewise_construct,
-      std::forward_as_tuple(streamId),
-      std::forward_as_tuple(
-          *this,
-          streamId,
-          pushId,
-          parentStreamId,
-          getNumTxnServed(),
-          std::move(codec),
-          WheelTimerInstance(transactionsTimeout_, getEventBase())));
-  incrementSeqNo();
-
-  pushIdToStreamId_[pushId] = streamId;
-  streamIdToPushId_[streamId] = pushId;
-
-  CHECK(matchPair.second) << "Emplacement failed, despite earlier "
-                             "existence check.";
-
-  // Generate the stream preface
-  matchPair.first->second.generateStreamPreface();
-
-  // Generate the push id
-  matchPair.first->second.generateStreamPushId();
-
-  // Notify pending egress on the stream
-  matchPair.first->second.notifyPendingEgress();
-
-  // tracks max historical streams
-  HTTPSessionBase::onNewOutgoingStream(getNumOutgoingStreams());
-
-  return &matchPair.first->second;
-}
-
 uint32_t HQDownstreamSession::numberOfEgressPushStreams() const {
   return egressPushStreams_.size();
 }

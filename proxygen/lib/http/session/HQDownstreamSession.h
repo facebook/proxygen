@@ -168,11 +168,6 @@ class HQDownstreamSession : public HQSession {
 
   uint32_t numberOfEgressPushStreams() const;
 
-  HQEgressPushStream* FOLLY_NULLABLE
-  createEgressPushStream(hq::PushId pushId,
-                         quic::StreamId streamId,
-                         quic::StreamId parentStreamId);
-
   void dispatchPushStream(quic::StreamId /* pushStreamId */,
                           hq::PushId /* pushId */,
                           size_t /* toConsume */) override {
