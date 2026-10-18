@@ -135,12 +135,6 @@ class HQDownstreamSession : public HQSession {
       DCHECK(txn == &txn_);
     }
 
-    void sendPushPromise(HTTPTransaction* /* txn */,
-                         folly::Optional<hq::PushId> /* pushId */,
-                         const HTTPMessage& /* headers */,
-                         HTTPHeaderSize* /* outSize */,
-                         bool /* includeEOM */) override;
-
     /**
      * Write the encoded push id to the egress stream.
      */

@@ -2958,12 +2958,6 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
   DCHECK(txn == &txn_);
 
   updatePriority(headers);
-  // If this is a push promise, send it on the parent stream.
-  // The accounting will happen in the nested context
-  if (headers.isRequest() && txn->getAssocTxnId()) {
-    sendPushPromise(txn, folly::none, headers, size, includeEOM);
-    return;
-  }
   auto g = folly::makeGuard(setActiveCodec(__func__));
   auto streamId = getStreamId();
   auto headerGenOffsets =
@@ -3713,59 +3707,6 @@ void HQSession::expirePendingWTStreams(quic::StreamId sessionID) noexcept {
 // Methods specific to StreamTransport subclasses
 //
 //
-
-// Request-stream implementation of the "sendPushPromise"
-// HQEgressPushStream::sendPushPromise calls this
-void HQSession::HQStreamTransport::sendPushPromise(
-    HTTPTransaction* txn,
-    folly::Optional<hq::PushId> pushId,
-    const HTTPMessage& headers,
-    HTTPHeaderSize* size,
-    bool includeEOM) {
-  CHECK(txn);
-
-  CHECK(pushId.has_value()) << " Request stream impl expects pushID to be set";
-  const uint64_t oldOffset = streamWriteByteOffset();
-  auto g = folly::makeGuard(setActiveCodec(__func__));
-
-  codecFilterChain.generatePushPromise(
-      writeBuf_, *codecStreamId_, headers, pushId.value(), includeEOM, size);
-
-  const uint64_t newOffset = streamWriteByteOffset();
-  if (size) {
-    VLOG(4) << "sending push promise, size=" << size->compressed
-            << ", uncompressedSize=" << size->uncompressed << " txn=" << txn_;
-  }
-
-  if (includeEOM) {
-    CHECK_GE(newOffset, oldOffset);
-    session_.handleLastByteEvents(&byteEventTracker_,
-                                  &txn_,
-                                  newOffset - oldOffset,
-                                  streamWriteByteOffset(),
-                                  true);
-  }
-
-  if (includeEOM) {
-    egressEOM_ = EgressEOM::Pending;
-  }
-  notifyPendingEgress();
-
-  auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::steady_clock::now() - createdTime);
-  auto sock = session_.sock_;
-  auto streamId = getStreamId();
-  if (sock && sock->getState() && sock->getState()->qLogger) {
-    sock->getState()->qLogger->addStreamStateUpdate(
-        streamId, quic::kPushPromise, timeDiff);
-  }
-  if (includeEOM) {
-    if (sock && sock->getState() && sock->getState()->qLogger) {
-      sock->getState()->qLogger->addStreamStateUpdate(
-          streamId, quic::kEOM, timeDiff);
-    }
-  }
-}
 
 void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
     hq::PushId, HTTPCodec::StreamID, std::unique_ptr<HTTPMessage>) {

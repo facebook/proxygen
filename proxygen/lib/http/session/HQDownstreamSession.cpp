@@ -170,42 +170,6 @@ uint32_t HQDownstreamSession::numberOfEgressPushStreams() const {
   return egressPushStreams_.size();
 }
 
-// Push-stream implementation of the "sendPushPromise"
-// It invokes HQStreamTransport::sendPushPromise
-// Since this method does not uses codecs directly, it should not
-// set an active codec
-void HQDownstreamSession::HQEgressPushStream::sendPushPromise(
-    HTTPTransaction* txn,
-    folly::Optional<hq::PushId> pushId,
-    const HTTPMessage& headers,
-    HTTPHeaderSize* size,
-    bool includeEOM) {
-
-  CHECK(txn) << "Must be invoked on a live transaction";
-  CHECK(txn->getAssocTxnId())
-      << "Must be invoked on a transaction with a parent";
-  CHECK_EQ(txn_.getID(), txn->getID()) << " Transaction stream mismatch";
-  CHECK(pushId == folly::none) << " The push id is stored in the egress stream,"
-                               << " and should not be passed by the session";
-
-  auto parentStreamId = txn->getAssocTxnId();
-#if DEBUG
-  HQDownstreamSession& session = dynamic_cast<HQDownstreamSession&>(session_);
-#else
-  auto& session = static_cast<HQDownstreamSession&>(session_);
-#endif
-  auto parentStream = session.findNonDetachedStream(*parentStreamId);
-  if (!parentStream) {
-    session_.dropConnectionAsync(
-        quic::QuicError(quic::TransportErrorCode::STREAM_STATE_ERROR,
-                        "Send push promise on a stream without a parent"),
-        kErrorConnection);
-    return;
-  }
-  // Redirect to the parent transaction
-  parentStream->sendPushPromise(txn, pushId_, headers, size, includeEOM);
-}
-
 size_t HQDownstreamSession::HQEgressPushStream::generateStreamPushId() {
   // reserve space for max quic interger len
   auto result = hq::writeStreamPreface(writeBuf_, pushId_);

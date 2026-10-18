@@ -1349,18 +1349,6 @@ class HQSession
       return 0;
     }
 
-    // Send a push promise. Has different implementations in
-    // request streams / push streams
-    virtual void sendPushPromise(HTTPTransaction* /* txn */,
-                                 folly::Optional<hq::PushId> /* pushId */,
-                                 const HTTPMessage& /* headers */,
-                                 HTTPHeaderSize* /* outSize */,
-                                 bool /* includeEOM */) {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      CHECK(hasEgressStreamId())
-          << __func__ << " invoked on stream without egress";
-    }
-
     void notifyPendingEgress() noexcept override;
 
     void detach(HTTPTransaction* /* txn */) noexcept override {
@@ -1860,12 +1848,6 @@ class HQSession
       initCodec(std::move(codec), __func__);
       initIngress(__func__);
     }
-
-    void sendPushPromise(HTTPTransaction* /* txn */,
-                         folly::Optional<hq::PushId> /* pushId */,
-                         const HTTPMessage& /* headers */,
-                         HTTPHeaderSize* /* outSize */,
-                         bool /* includeEOM */) override;
 
     void onPushPromiseHeadersComplete(
         hq::PushId /* pushID */,
