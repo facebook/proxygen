@@ -205,8 +205,6 @@ class HQUpstreamSession : public HQSession {
 
   void eraseUnboundStream(HQStreamTransportBase*) override;
 
-  void cleanupUnboundPushStreams(std::vector<quic::StreamId>&) override;
-
   void dispatchPushStream(quic::StreamId /* pushStreamId */,
                           hq::PushId /* pushId */,
                           size_t /* toConsume */) override;

@@ -770,9 +770,6 @@ class HQSession
   HQControlStream* createIngressControlStream(
       quic::StreamId id, hq::UnidirectionalStreamType streamType);
 
-  virtual void cleanupUnboundPushStreams(std::vector<quic::StreamId>&) {
-  }
-
   // gets the ALPN from the transport and returns whether the protocol is
   // supported. Drops the connection if not supported
   bool getAndCheckApplicationProtocol();
@@ -1917,7 +1914,7 @@ class HQSession
   quic::HTTPPriorityQueue httpPriorityQueue_;
 
   // Cleanup all pending streams. Invoked in session timeout
-  size_t cleanupPendingStreams();
+  void cleanupPendingStreams();
 
   // Remove all callbacks from a stream during cleanup
   void clearStreamCallbacks(quic::StreamId /* id */);

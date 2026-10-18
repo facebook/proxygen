@@ -1427,21 +1427,10 @@ void HQSession::rejectStream(quic::StreamId id, HTTP3::ErrorCode err) {
   sock_->setPeekCallback(id, nullptr);
 }
 
-size_t HQSession::cleanupPendingStreams() {
-  std::vector<quic::StreamId> streamsToCleanup;
-
+void HQSession::cleanupPendingStreams() {
   // Cleanup pending streams in the dispatchers
   unidirectionalReadDispatcher_.cleanup();
   bidirectionalReadDispatcher_.cleanup();
-
-  // These streams have been dispatched as push streams but are missing their
-  // push promise
-  cleanupUnboundPushStreams(streamsToCleanup);
-
-  // Clean up the streams by detaching all callbacks
-  for (auto pendingStreamId : streamsToCleanup) {
-    clearStreamCallbacks(pendingStreamId);
-  }
 
   auto pending = std::move(pendingWTStreams_);
   for (const auto& [_, entry] : pending) {
@@ -1449,8 +1438,6 @@ size_t HQSession::cleanupPendingStreams() {
       rejectStream(id, kBufferedRejectedErr);
     }
   }
-
-  return streamsToCleanup.size();
 }
 
 void HQSession::clearStreamCallbacks(quic::StreamId id) {

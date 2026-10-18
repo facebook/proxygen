@@ -238,14 +238,4 @@ void HQUpstreamSession::eraseUnboundStream(HQStreamTransportBase* hqStream) {
   ingressPushStreams_.erase(pushId);
 }
 
-void HQUpstreamSession::cleanupUnboundPushStreams(
-    std::vector<quic::StreamId>& streamsToCleanup) {
-  for (auto& it : streamIdToPushId_) {
-    auto streamId = it.first;
-    auto pushId = it.second;
-    if (!ingressPushStreams_.contains(pushId)) {
-      streamsToCleanup.push_back(streamId);
-    }
-  }
-}
 } // namespace proxygen
