@@ -164,37 +164,6 @@ void HQUpstreamSession::detachThreadLocals(bool) {
   }
 }
 
-bool HQUpstreamSession::tryBindIngressStreamToTxn(
-    quic::StreamId streamId,
-    hq::PushId pushId,
-    HQIngressPushStream* pushStream) {
-  // lookup pending nascent stream id
-  CHECK(pushStream);
-
-  VLOG(4) << __func__ << " attempting to bind streamID=" << streamId
-          << " to pushID=" << pushId;
-  pushStream->bindTo(streamId);
-
-#if defined(DEBUG) && DEBUG
-  // Check postconditions - the ingress push stream
-  // should own both the push id and the stream id.
-  // No nascent stream should own the stream id
-  auto streamById = findIngressPushStream(streamId);
-  auto streamByPushId = findIngressPushStreamByPushId(pushId);
-
-  DCHECK_EQ(streamId, pushStream->getIngressStreamId());
-  DCHECK(streamById) << "Ingress stream must be bound to the streamID="
-                     << streamId;
-  DCHECK(streamByPushId) << "Ingress stream must be found by the pushID="
-                         << pushId;
-  DCHECK_EQ(streamById, streamByPushId) << "Must be same stream";
-#endif
-
-  VLOG(4) << __func__ << " successfully bound streamID=" << streamId
-          << " to pushID=" << pushId;
-  return true;
-}
-
 HQUpstreamSession::HQIngressPushStream* FOLLY_NULLABLE
 HQUpstreamSession::findIngressPushStream(quic::StreamId streamId) {
   auto res = streamIdToPushId_.find(streamId);

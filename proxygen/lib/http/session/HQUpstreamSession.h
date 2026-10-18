@@ -210,15 +210,6 @@ class HQUpstreamSession : public HQSession {
 
   uint32_t numberOfIngressPushStreams() const;
 
-  /**
-   * Attempt to bind an ingress push stream object (which has the txn)
-   * to a nascent stream (which has the transport/codec).
-   * returns true if binding was successful
-   */
-  bool tryBindIngressStreamToTxn(quic::StreamId streamID,
-                                 hq::PushId pushId,
-                                 HQIngressPushStream* pushStream = nullptr);
-
   bool erasePushStream(quic::StreamId streamId) override;
 
   void eraseUnboundStream(HQStreamTransportBase*) override;
