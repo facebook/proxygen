@@ -278,7 +278,6 @@ class HQSession
   void onSettings(const SettingsList& settings);
 
   void onPriority(quic::StreamId streamId, const HTTPPriority& pri);
-  void onPushPriority(hq::PushId pushId, const HTTPPriority& pri);
 
   folly::AsyncTransport* getTransport() override {
     return nullptr;
@@ -1082,11 +1081,6 @@ class HQSession
 
     void onPriority(HTTPCodec::StreamID id, const HTTPPriority& pri) override {
       session_.onPriority(id, pri);
-    }
-
-    void onPushPriority(HTTPCodec::StreamID id,
-                        const HTTPPriority& pri) override {
-      session_.onPushPriority(id, pri);
     }
 
     std::unique_ptr<hq::HQUnidirectionalCodec> ingressCodec_;

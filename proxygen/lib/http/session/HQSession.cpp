@@ -1759,36 +1759,6 @@ void HQSession::onPriority(quic::StreamId streamId, const HTTPPriority& pri) {
   }
 }
 
-void HQSession::onPushPriority(hq::PushId pushId, const HTTPPriority& pri) {
-  CHECK(isDownstream(direction_));
-  if (drainState_ != DrainState::NONE) {
-    return;
-  }
-  CHECK(sock_);
-
-  if (maxAllowedPushId_.hasValue() && *maxAllowedPushId_ < pushId) {
-    VLOG(4) << "Priority update stream id=" << pushId
-            << " greater than max allowed push id=" << *maxAllowedPushId_;
-    dropConnectionAsync(quic::QuicError(HTTP3::ErrorCode::HTTP_ID_ERROR,
-                                        "PushId is beyond max allowed push id"),
-                        kErrorMalformedInput);
-    return;
-  }
-  auto iter = pushIdToStreamId_.find(pushId);
-  if (iter == pushIdToStreamId_.end()) {
-    VLOG(4) << "Priority update of unknown push id=" << pushId;
-    return;
-  }
-  auto streamId = iter->second;
-  auto stream = findPushStream(streamId);
-  if (!stream) {
-    return;
-  }
-  if (enableEgressPrioritization_) {
-    stream->setPriority(*sock_, streamId, pri);
-  }
-}
-
 void HQSession::notifyEgressBodyBuffered(int64_t bytes) {
   if (HTTPSessionBase::notifyEgressBodyBuffered(bytes, true) &&
       !inLoopCallback_ && !isLoopCallbackScheduled() && sock_) {
