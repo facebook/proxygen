@@ -203,8 +203,6 @@ class HQUpstreamSession : public HQSession {
 
   uint32_t numberOfIngressPushStreams() const;
 
-  void eraseUnboundStream(HQStreamTransportBase*) override;
-
   void dispatchPushStream(quic::StreamId /* pushStreamId */,
                           hq::PushId /* pushId */,
                           size_t /* toConsume */) override;

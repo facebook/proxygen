@@ -2451,9 +2451,6 @@ HQSession::HQStreamTransportBase::getSessionType() const noexcept {
 }
 
 void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
-  // Special case - streams that dont have either ingress stream id
-  // or egress stream id dont need to be actually detached
-  // prior to being erased
   if (hqStream->hasIngressStreamId() || hqStream->hasEgressStreamId()) {
     auto streamId = hqStream->getStreamId();
     VLOG(4) << __func__ << " streamID=" << streamId;
@@ -2462,9 +2459,6 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
       clearStreamCallbacks(streamId);
     }
     eraseStream(streamId);
-  } else {
-    VLOG(4) << __func__ << " streamID=NA";
-    eraseUnboundStream(hqStream);
   }
 
   if (getNumStreams() == 0) {

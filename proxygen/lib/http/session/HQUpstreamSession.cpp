@@ -226,16 +226,4 @@ void HQUpstreamSession::HQIngressPushStream::bindTo(quic::StreamId streamId) {
   session.resumeReadsForPushStream(streamId);
 }
 
-// This can only be unbound in that it has not received a stream ID yet
-void HQUpstreamSession::eraseUnboundStream(HQStreamTransportBase* hqStream) {
-  auto hqPushIngressStream = dynamic_cast<HQIngressPushStream*>(hqStream);
-  CHECK(hqPushIngressStream)
-      << "Only HQIngressPushStream streams are allowed to be non-bound";
-  // This is what makes it unbound, it also cannot be in the map
-  DCHECK(!hqStream->hasIngressStreamId());
-  auto pushId = hqPushIngressStream->getPushId();
-  DCHECK(pushIdToStreamId_.find(pushId) == pushIdToStreamId_.end());
-  ingressPushStreams_.erase(pushId);
-}
-
 } // namespace proxygen

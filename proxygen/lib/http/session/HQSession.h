@@ -598,9 +598,6 @@ class HQSession
   // Find a control stream by stream id (either ingress or egress)
   HQControlStream* findControlStream(quic::StreamId streamId);
 
-  virtual void eraseUnboundStream(HQStreamTransportBase*) {
-  }
-
   // Callback methods that are invoked by the stream dispatchers
   void dispatchControlStream(quic::StreamId /* id */,
                              hq::UnidirectionalStreamType /* type */,
