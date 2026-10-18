@@ -2985,17 +2985,6 @@ size_t HQSession::HQStreamTransportBase::sendAbortImpl(HTTP3::ErrorCode code,
   if (!ingressOnly && hasEgressStreamId()) {
     abortEgress(true);
   }
-  // NOTE: What about the streams that only `hasIngressStreamId()` ?
-  // At the time being, the only case of ingress-only transport stream
-  // is an ingress push stream. The essential procedure for aborting
-  // the ingress push streams is the same as above - abort the stream via
-  // sending the "stop sending" frame on the control stream.
-  //
-  // Additional logic that is specific to the ingress push stream, such as
-  // sending `CANCEL_PUSH` message, does not belong to `HQSession` level, but
-  // to `HQUpstreamSesssion::HQIngressPushStream::sendAbort`, which
-  // invokes this method.
-
   // We generated 0 application bytes so return 0?
   return 0;
 }

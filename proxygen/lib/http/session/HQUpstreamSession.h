@@ -97,8 +97,7 @@ class HQUpstreamSession : public HQSession {
   }
 
   uint32_t getNumIncomingStreams() const override {
-    // need transport API
-    return static_cast<uint32_t>(numberOfIngressPushStreams());
+    return 0;
   }
 
  protected:
@@ -107,105 +106,9 @@ class HQUpstreamSession : public HQSession {
  private:
   void connectTimeoutExpired() noexcept;
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4250) // inherits 'proxygen::detail::..' via dominance
-#endif
-
-  /**
-   * Client-side representation of a push stream.
-   * Does not support egress operations.
-   */
-  class HQIngressPushStream
-      : public detail::singlestream::SSIngress
-      , public HQSession::HQStreamTransportBase {
-   public:
-    HQIngressPushStream(HQSession& session,
-                        hq::PushId pushId,
-                        folly::Optional<HTTPCodec::StreamID> parentTxnId,
-                        uint32_t seqNo,
-                        const WheelTimerInstance& timeout,
-                        HTTPSessionStats* stats = nullptr,
-                        http2::PriorityUpdate priority = hqDefaultPriority)
-        : detail::singlestream::SSIngress(folly::none),
-          HQStreamTransportBase(session,
-                                TransportDirection::UPSTREAM,
-                                static_cast<HTTPCodec::StreamID>(pushId),
-                                seqNo,
-                                timeout,
-                                stats,
-                                priority,
-                                parentTxnId,
-                                hq::UnidirectionalStreamType::PUSH),
-          pushId_(pushId) {
-      // Ingress push streams are not initialized
-      // until after the nascent push stream
-      // has been received
-      // NOTE: change the API to avoid accepting parent txn ids
-      // as optional
-      CHECK(parentTxnId.has_value());
-    }
-
-    // Bind this stream to a transport stream
-    void bindTo(quic::StreamId transportStreamId);
-
-    void onPushMessageBegin(HTTPCodec::StreamID pushId,
-                            HTTPCodec::StreamID parentTxnId,
-                            HTTPMessage* /* msg */) override {
-      LOG(ERROR) << "Push promise on push stream" << " txn=" << txn_
-                 << " pushID=" << pushId << " parentTxnId=" << parentTxnId;
-      session_.dropConnectionAsync(
-          quic::QuicError(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED,
-                          "Push promise on push stream"),
-          kErrorConnection);
-    }
-
-    // Abort procedure that is specific to ingress push streams.
-    size_t sendAbort(HTTPTransaction* txn,
-                     ErrorCode errorCode) noexcept override {
-      // TBD: send "cancel push" here.
-
-      return sendAbortImpl(
-          toHTTP3ErrorCode(errorCode),
-          folly::to<std::string>("Application aborts pushed txn,"
-                                 " errorCode=",
-                                 getErrorCodeString(errorCode),
-                                 " pushID=",
-                                 getPushId(),
-                                 " txn=",
-                                 txn->getID(),
-                                 " hasIngressStream=",
-                                 hasIngressStreamId()));
-    }
-
-    hq::PushId getPushId() const {
-      return pushId_;
-    }
-
-    folly::Expected<folly::Unit, WebTransport::ErrorCode> sendWTMaxData(
-        uint64_t /* maxData */) override {
-      // Push streams are ingress-only, so sendMaxData is not applicable
-      return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
-    }
-
-   private:
-    hq::PushId pushId_; // The push id in context of which this stream is
-                        // received
-  }; // HQIngressPushStream
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
-  uint32_t numberOfIngressPushStreams() const;
-
   void dispatchPushStream(quic::StreamId /* pushStreamId */,
                           hq::PushId /* pushId */,
                           size_t /* toConsume */) override;
-
-  // Incoming server push streams. Since the incoming push streams
-  // can be created before transport stream
-  std::unordered_map<hq::PushId, HQIngressPushStream> ingressPushStreams_;
 
   /**
    * The Session notifies when an upstream 'connection' has been established

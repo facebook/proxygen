@@ -51,17 +51,6 @@
  *     - Direction: unidir
  *     - Cardinality: 2 unidirectional transport streams
  *
- *  - Incoming push streams (HQIngressPushStream)
- *    - Kind: requests
- *    - Direction: unidir
- *    - Cardinality: single unidirectional ingress transport stream
- *
- *  - Incoming push streams (HQEgressPushStream)
- *    - Kind: requests
- *    - Direction: unidir
- *    - Cardinality: single unidirectional egress transport stream
- *
- *
  *  The above puts a challenge: The codec management code needs to access
  *    different streams, but should not be aware of the cardinailty.
  *
@@ -107,8 +96,8 @@
  *  +----------------------------+
  *  |      Concrete stream       |   See HQStreamTransport
  *  |       implementation       |       HQControlStream
- *  |   combines the Kind base   |       HQIngressPushStream
- *  +----------------------------+       HQEgressPushStream
+ *  |   combines the Kind base   |
+ *  +----------------------------+
  *
  *
  */

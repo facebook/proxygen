@@ -164,45 +164,11 @@ void HQUpstreamSession::detachThreadLocals(bool) {
   }
 }
 
-uint32_t HQUpstreamSession::numberOfIngressPushStreams() const {
-  return ingressPushStreams_.size();
-}
-
 void HQUpstreamSession::dispatchPushStream(quic::StreamId pushStreamId,
                                            hq::PushId,
                                            size_t) {
   // http/3 push in proxygen/lib is not supported
   rejectStream(pushStreamId);
-}
-
-void HQUpstreamSession::HQIngressPushStream::bindTo(quic::StreamId streamId) {
-  // Ensure the nascent push stream is in correct state
-  // and that its push id matches this stream's push id
-  DCHECK(txn_.getAssocTxnId().has_value());
-  VLOG(4) << __func__ << " Binding streamID=" << streamId
-          << " to txn=" << txn_.getID();
-#if defined(DEBUG) && DEBUG
-  // will throw bad-cast
-  HQUpstreamSession& session = dynamic_cast<HQUpstreamSession&>(session_);
-#else
-  auto& session = static_cast<HQUpstreamSession&>(session_);
-#endif
-  // Initialize this stream's codec with the id of the transport stream
-  auto codec = session.createCodec(streamId);
-  initCodec(std::move(codec), __func__);
-  DCHECK_EQ(*codecStreamId_, streamId);
-
-  // Now that the codec is initialized, set the stream ID
-  // of the push stream
-  setIngressStreamId(streamId);
-  DCHECK_EQ(getIngressStreamId(), streamId);
-
-  // Enable ingress on this stream. Read callback for the stream's
-  // id will be transferred to the HQSession
-  initIngress(__func__);
-
-  // Re-enable reads
-  session.resumeReadsForPushStream(streamId);
 }
 
 } // namespace proxygen
