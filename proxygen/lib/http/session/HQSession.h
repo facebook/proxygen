@@ -1124,13 +1124,6 @@ class HQSession
                             HTTPCodec::StreamID /* parentTxnId */,
                             HTTPMessage* /* msg */) override;
 
-    virtual void onPushPromiseHeadersComplete(
-        hq::PushId /* pushID */,
-        HTTPCodec::StreamID /* assoc streamID */,
-        std::unique_ptr<HTTPMessage> /* msg */) {
-      LOG(ERROR) << "push promise: txn=" << txn_ << " TODO";
-    }
-
     void onHeadersComplete(HTTPCodec::StreamID streamID,
                            std::unique_ptr<HTTPMessage> msg) override;
 
@@ -1739,13 +1732,6 @@ class HQSession
     // Track number of armed QUIC delivery callbacks.
     uint64_t numActiveDeliveryCallbacks_{0};
 
-    // Used to store last seen ingress push ID between
-    // the invocations of onPushPromiseBegin / onHeadersComplete.
-    // It is being reset by
-    //  - "onNewMessage" (in which case the push promise is being abandoned),
-    //  - "onPushMessageBegin" (which may be abandonned / duplicate message id)
-    //  - "onHeadersComplete" (not pending anymore)
-    folly::Optional<hq::PushId> ingressPushId_;
     /**
      * We asynchronously deliver datagrams to the HttpTxnHandler after upstream
      * txn receives 2xx or downstream txn sends a 2xx.
@@ -1805,11 +1791,6 @@ class HQSession
       initCodec(std::move(codec), __func__);
       initIngress(__func__);
     }
-
-    void onPushPromiseHeadersComplete(
-        hq::PushId /* pushID */,
-        HTTPCodec::StreamID /* assoc streamID */,
-        std::unique_ptr<HTTPMessage> /* promise */) override;
 
     uint16_t getDatagramSizeLimit() const noexcept override;
     folly::Expected<folly::Unit, WebTransport::ErrorCode> sendDatagram(

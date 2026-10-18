@@ -2701,18 +2701,9 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
 
   // Tell the HTTPTransaction to start processing the message now
   // that the full ingress headers have arrived.
-  // Depending on the push promise latch, the message is delivered to
-  // the current transaction (no push promise) or to a freshly created
-  // pushed transaction. The latter is done via "onPushPromiseHeadersComplete"
-  // callback
   const bool isResp = msg->isResponse();
-  if (ingressPushId_) {
-    onPushPromiseHeadersComplete(*ingressPushId_, streamID, std::move(msg));
-    ingressPushId_ = folly::none;
-  } else {
-    txn_.onIngressHeadersComplete(std::move(msg));
-    maybeScheduleWTStreamDrain();
-  }
+  txn_.onIngressHeadersComplete(std::move(msg));
+  maybeScheduleWTStreamDrain();
   if (auto httpSessionActivityTracker =
           session_.getHTTPSessionActivityTracker()) {
     httpSessionActivityTracker->reportActivity();
@@ -3284,19 +3275,7 @@ size_t HQSession::HQStreamTransportBase::sendPadding(
 
 void HQSession::HQStreamTransportBase::onMessageBegin(
     HTTPCodec::StreamID streamID, HTTPMessage* /* msg */) {
-  VLOG(4) << __func__ << " txn=" << txn_ << " streamID=" << streamID
-          << " ingressPushId=" << ingressPushId_.value_or(-1);
-
-  if (ingressPushId_) {
-    constexpr auto error =
-        "Received onMessageBegin in the middle of push promise";
-    LOG(ERROR) << error << " streamID=" << streamID << " session=" << session_;
-    // TODO: Audit this error code
-    session_.dropConnectionAsync(
-        quic::QuicError(HTTP3::ErrorCode::HTTP_FRAME_ERROR, error),
-        kErrorDropped);
-    return;
-  }
+  VLOG(4) << __func__ << " txn=" << txn_ << " streamID=" << streamID;
 
   if (session_.infoCallback_) {
     session_.infoCallback_->onRequestBegin(session_);
@@ -3305,10 +3284,6 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
   // NOTE: for H2 this is where we create a new stream and transaction.
   // for HQ there is nothing to do here, except caching the codec streamID
   codecStreamId_ = streamID;
-
-  // Reset the pending pushID, since the subsequent invocation of
-  // `onHeadersComplete` won't be associated with a push
-  ingressPushId_ = folly::none;
 }
 
 void HQSession::HQStreamTransportBase::trackEgressBodyOffset(
@@ -3627,14 +3602,6 @@ void HQSession::expirePendingWTStreams(quic::StreamId sessionID) noexcept {
   for (auto id : entry->streams) {
     rejectStream(id, kBufferedRejectedErr);
   }
-}
-
-// Methods specific to StreamTransport subclasses
-//
-//
-
-void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
-    hq::PushId, HTTPCodec::StreamID, std::unique_ptr<HTTPMessage>) {
 }
 
 void HQSession::onDatagramsAvailable() noexcept {
