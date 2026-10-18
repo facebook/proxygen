@@ -197,10 +197,6 @@ class HQUpstreamSession : public HQSession {
 #pragma warning(pop)
 #endif
 
-  // Find an ingress push stream
-  HQIngressPushStream* findIngressPushStream(quic::StreamId);
-  HQIngressPushStream* findIngressPushStreamByPushId(hq::PushId);
-
   uint32_t numberOfIngressPushStreams() const;
 
   void dispatchPushStream(quic::StreamId /* pushStreamId */,

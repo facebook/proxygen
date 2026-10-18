@@ -164,27 +164,6 @@ void HQUpstreamSession::detachThreadLocals(bool) {
   }
 }
 
-HQUpstreamSession::HQIngressPushStream* FOLLY_NULLABLE
-HQUpstreamSession::findIngressPushStream(quic::StreamId streamId) {
-  auto res = streamIdToPushId_.find(streamId);
-  if (res == streamIdToPushId_.end()) {
-    return nullptr;
-  } else {
-    return findIngressPushStreamByPushId(res->second);
-  }
-}
-
-HQUpstreamSession::HQIngressPushStream* FOLLY_NULLABLE
-HQUpstreamSession::findIngressPushStreamByPushId(hq::PushId pushId) {
-  VLOG(4) << __func__ << " looking up ingress push stream by pushID=" << pushId;
-  auto it = ingressPushStreams_.find(pushId);
-  if (it == ingressPushStreams_.end()) {
-    return nullptr;
-  } else {
-    return &it->second;
-  }
-}
-
 uint32_t HQUpstreamSession::numberOfIngressPushStreams() const {
   return ingressPushStreams_.size();
 }
