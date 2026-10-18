@@ -68,8 +68,7 @@ class HQDownstreamSession : public HQSession {
   }
 
   uint32_t getNumOutgoingStreams() const override {
-    // need transport API
-    return static_cast<uint32_t>(numberOfEgressPushStreams());
+    return 0;
   }
 
   uint32_t getNumIncomingStreams() const override {
@@ -85,102 +84,11 @@ class HQDownstreamSession : public HQSession {
     CHECK_EQ(getNumStreams(), 0);
   }
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4250) // inherits 'proxygen::detail::..' via dominance
-#endif
-
-  /**
-   * Server side representation of a push stream
-   * Does not support ingress
-   */
-  class HQEgressPushStream
-      : public detail::singlestream::SSEgress
-      , public HQStreamTransportBase {
-   public:
-    HQEgressPushStream(HQSession& session,
-                       quic::StreamId streamId,
-                       hq::PushId pushId,
-                       folly::Optional<HTTPCodec::StreamID> parentTxnId,
-                       uint32_t seqNo,
-                       std::unique_ptr<HTTPCodec> codec,
-                       const WheelTimerInstance& timeout,
-                       HTTPSessionStats* stats = nullptr,
-                       http2::PriorityUpdate priority = hqDefaultPriority)
-        : detail::singlestream::SSEgress(streamId),
-          HQStreamTransportBase(session,
-                                TransportDirection::DOWNSTREAM,
-                                streamId,
-                                seqNo,
-                                timeout,
-                                stats,
-                                priority,
-                                parentTxnId,
-                                hq::UnidirectionalStreamType::PUSH),
-          pushId_(pushId) {
-      // Request streams are eagerly initialized
-      initCodec(std::move(codec), __func__);
-      // DONT init ingress on egress-only stream
-    }
-
-    hq::PushId getPushId() const {
-      return pushId_;
-    }
-
-    // Unlike request streams and ingres push streams,
-    // the egress push stream does not have to flush
-    // ingress queues
-    void transactionTimeout(HTTPTransaction* txn) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      DCHECK(txn == &txn_);
-    }
-
-    /**
-     * Write the encoded push id to the egress stream.
-     */
-    size_t generateStreamPushId();
-
-    // Egress only stream should not pause ingress
-    void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__
-              << " Ingress function called on egress-only stream, ignoring";
-    }
-
-    // Egress only stream should not pause ingress
-    void resumeIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__
-              << " Ingress function called on egress-only stream, ignoring";
-    }
-
-    folly::Expected<folly::Unit, WebTransport::ErrorCode> sendWTMaxData(
-        uint64_t /* maxData */) override {
-      return folly::unit;
-    }
-
-   private:
-    hq::PushId pushId_; // The push id in context of which this stream is sent
-  }; // HQEgressPushStream
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
-  std::unordered_map<quic::StreamId, HQEgressPushStream> egressPushStreams_;
-
-  uint32_t numberOfEgressPushStreams() const;
-
   void dispatchPushStream(quic::StreamId /* pushStreamId */,
                           hq::PushId /* pushId */,
                           size_t /* toConsume */) override {
     LOG(DFATAL) << "nope";
   }
-
-  // This is the current method of creating new push IDs.
-  hq::PushId createNewPushId();
-
-  bool pushAllowedByGoaway(hq::PushId pushId);
-
-  // Value of the next pushId, used for outgoing push transactions
-  hq::PushId nextAvailablePushId_{0};
 
   // Whether or not we have already received an onTransportReady callback.
   bool transportReadyNotified_{false};

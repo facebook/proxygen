@@ -80,30 +80,6 @@ void HQDownstreamSession::detachThreadLocals(bool) {
   LOG(FATAL) << __func__ << " is an upstream interface";
 }
 
-bool HQDownstreamSession::pushAllowedByGoaway(hq::PushId pushId) {
-  // TODO: This is always true since we ignore client sent GOAWAY right now
-  return pushId < peerMinUnseenId_;
-}
-
-uint32_t HQDownstreamSession::numberOfEgressPushStreams() const {
-  return egressPushStreams_.size();
-}
-
-size_t HQDownstreamSession::HQEgressPushStream::generateStreamPushId() {
-  // reserve space for max quic interger len
-  auto result = hq::writeStreamPreface(writeBuf_, pushId_);
-  CHECK(result.has_value())
-      << __func__ << " QUIC integer encoding error value=" << pushId_;
-
-  return *result;
-}
-
-// Return a new push id that can be used for outgoing transactions
-hq::PushId HQDownstreamSession::createNewPushId() {
-  auto newPushId = nextAvailablePushId_++;
-  return newPushId;
-}
-
 folly::Optional<HTTPHeaders> HQDownstreamSession::getExtraHeaders(
     const HTTPMessage& headers, quic::StreamId streamId) {
   if (!sock_) {
