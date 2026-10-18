@@ -240,16 +240,6 @@ void HQUpstreamSession::HQIngressPushStream::bindTo(quic::StreamId streamId) {
 
   // Re-enable reads
   session.resumeReadsForPushStream(streamId);
-
-  // Notify testing callbacks that a full push transaction
-  // has been successfully initialized
-  if (session.serverPushLifecycleCb_) {
-    session.serverPushLifecycleCb_->onPushedTxn(&txn_,
-                                                streamId,
-                                                getPushId(),
-                                                txn_.getAssocTxnId().value(),
-                                                false /* eof */);
-  }
 }
 
 // This can only be unbound in that it has not received a stream ID yet

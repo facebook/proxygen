@@ -141,16 +141,9 @@ class HQUpstreamSession : public HQSession {
       // Ingress push streams are not initialized
       // until after the nascent push stream
       // has been received
-      // notify the testing callbacks that a half-opened push transaction
-      // has been created
-
       // NOTE: change the API to avoid accepting parent txn ids
       // as optional
       CHECK(parentTxnId.has_value());
-      auto cb = ((HQUpstreamSession&)session_).serverPushLifecycleCb_;
-      if (cb) {
-        cb->onHalfOpenPushedTxn(&txn_, pushId, *parentTxnId, false);
-      }
     }
 
     // Bind this stream to a transport stream

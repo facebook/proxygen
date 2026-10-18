@@ -33,7 +33,6 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/QuicProtocolInfo.h>
-#include <proxygen/lib/http/session/ServerPushLifecycle.h>
 #include <proxygen/lib/http/session/SessionLoopCallback.h>
 #include <proxygen/lib/http/session/WebTransportFilter.h>
 #include <proxygen/lib/utils/ConditionalGate.h>
@@ -113,10 +112,6 @@ class HQSession
  public:
   folly::Optional<hq::PushId> getMaxAllowedPushId() {
     return maxAllowedPushId_;
-  }
-
-  void setServerPushLifecycleCallback(ServerPushLifecycleCallback* cb) {
-    serverPushLifecycleCb_ = cb;
   }
 
   class ConnectCallback {
@@ -752,10 +747,6 @@ class HQSession
   // unused; toFollySocketAddressRef returns the original reference directly.
   mutable folly::SocketAddress cachedLocalAddr_;
   mutable folly::SocketAddress cachedPeerAddr_;
-
-  // Callback pointer used for correctness testing. Not used
-  // for session logic.
-  ServerPushLifecycleCallback* serverPushLifecycleCb_{nullptr};
 
   // Debug feature to test the impact of request body prioritization.
   bool enableEgressPrioritization_{true};
