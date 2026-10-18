@@ -139,11 +139,6 @@ HQDownstreamSession::createEgressPushStream(hq::PushId pushId,
   return &matchPair.first->second;
 }
 
-HQSession::HQStreamTransportBase* HQDownstreamSession::findPushStream(
-    quic::StreamId streamId) {
-  return findEgressPushStream(streamId);
-}
-
 HQDownstreamSession::HQEgressPushStream* FOLLY_NULLABLE
 HQDownstreamSession::findEgressPushStream(quic::StreamId streamId) {
   auto it = egressPushStreams_.find(streamId);

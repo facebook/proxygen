@@ -223,15 +223,6 @@ class HQUpstreamSession : public HQSession {
   HQStreamTransportBase* createIngressPushStream(quic::StreamId parentStreamId,
                                                  hq::PushId pushId) override;
 
-  HQStreamTransportBase* findPushStream(quic::StreamId id) override;
-
-  void findPushStreams(
-      std::unordered_set<HQStreamTransportBase*>& streams) override {
-    for (auto& pstream : ingressPushStreams_) {
-      streams.insert(&pstream.second);
-    }
-  }
-
   bool erasePushStream(quic::StreamId streamId) override;
 
   void eraseUnboundStream(HQStreamTransportBase*) override;

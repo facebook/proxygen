@@ -525,10 +525,10 @@ class HQSession
   //  Find any transport-like stream by quic stream id
   HQStreamTransportBase* findStream(quic::StreamId streamId);
 
-  // Find any transport-like stream suitable for ingress (request/push-ingress)
+  // Find any transport-like stream suitable for ingress
   HQStreamTransportBase* findIngressStream(quic::StreamId streamId,
                                            bool includeDetached = false);
-  // Find any transport-like stream suitable for egress (request/push-egress)
+  // Find any transport-like stream suitable for egress
   HQStreamTransportBase* findEgressStream(quic::StreamId streamId,
                                           bool includeDetached = false);
 
@@ -538,10 +538,9 @@ class HQSession
    * that if the callback *adds* streams, they will not get the callback.
    */
   void invokeOnAllStreams(std::function<void(HQStreamTransportBase*)> fn) {
-    invokeOnStreamsImpl(
-        std::move(fn),
-        [this](quic::StreamId id) { return this->findStream(id); },
-        true);
+    invokeOnStreamsImpl(std::move(fn), [this](quic::StreamId id) {
+      return this->findStream(id);
+    });
   }
 
   void invokeOnEgressStreams(std::function<void(HQStreamTransportBase*)> fn,
@@ -554,12 +553,10 @@ class HQSession
 
   void invokeOnIngressStreams(std::function<void(HQStreamTransportBase*)> fn,
                               bool includeDetached = false) {
-    invokeOnStreamsImpl(
-        std::move(fn),
-        [this, includeDetached](quic::StreamId id) {
-          return this->findIngressStream(id, includeDetached);
-        },
-        true);
+    invokeOnStreamsImpl(std::move(fn),
+                        [this, includeDetached](quic::StreamId id) {
+                          return this->findIngressStream(id, includeDetached);
+                        });
   }
 
   void invokeOnNonDetachedStreams(
@@ -569,24 +566,11 @@ class HQSession
     });
   }
 
-  virtual HQStreamTransportBase* findPushStream(quic::StreamId) = 0;
-
-  virtual void findPushStreams(
-      std::unordered_set<HQStreamTransportBase*>& streams) = 0;
-
-  // Apply the function on the streams found by the two locators.
-  // Note that same stream can be returned by a find-by-stream-id
-  // and find-by-push-id locators.
-  // This is mitigated by collecting the streams in an unordered set
-  // prior to application of the funtion
-  // Note that the function is allowed to delete a stream by invoking
-  // erase stream, but the locators are not allowed to do so.
-  // Note that neither the locators nor the function are allowed
-  // to call "invokeOnStreamsImpl"
+  // The function may erase a stream; the locator must not.
+  // Neither may call invokeOnStreamsImpl recursively.
   void invokeOnStreamsImpl(
       std::function<void(HQStreamTransportBase*)> fn,
-      std::function<HQStreamTransportBase*(quic::StreamId)> findByStreamIdFn,
-      bool includePush = false) {
+      std::function<HQStreamTransportBase*(quic::StreamId)> findByStreamIdFn) {
     DestructorGuard g(this);
     std::unordered_set<HQStreamTransportBase*> streams;
     streams.reserve(getNumStreams());
@@ -596,10 +580,6 @@ class HQSession
       if (pstream) {
         streams.insert(pstream);
       }
-    }
-
-    if (includePush) {
-      findPushStreams(streams);
     }
 
     for (HQStreamTransportBase* pstream : streams) {
@@ -908,8 +888,6 @@ class HQSession
    * Shared implementation of "findXXXstream" methods
    */
   HQStreamTransportBase* findStreamImpl(quic::StreamId streamId,
-                                        bool includeEgress = true,
-                                        bool includeIngress = true,
                                         bool includeDetached = true);
 
   /**

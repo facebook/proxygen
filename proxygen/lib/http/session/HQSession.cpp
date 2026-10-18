@@ -1042,48 +1042,30 @@ void HQSession::HQStreamTransportBase::errorOnTransaction(
 
 HQSession::HQStreamTransportBase* FOLLY_NULLABLE
 HQSession::findNonDetachedStream(quic::StreamId streamId) {
-  return findStreamImpl(streamId,
-                        true /* includeEgress */,
-                        true /* includeIngress */,
-                        false /* includeDetached */);
+  return findStreamImpl(streamId, false /* includeDetached */);
 }
 
 HQSession::HQStreamTransportBase* FOLLY_NULLABLE
 HQSession::findStream(quic::StreamId streamId) {
-  return findStreamImpl(streamId,
-                        true /* includeEgress */,
-                        true /* includeIngress */,
-                        true /* includeDetached */);
+  return findStreamImpl(streamId, true /* includeDetached */);
 }
 
 HQSession::HQStreamTransportBase* FOLLY_NULLABLE
 HQSession::findIngressStream(quic::StreamId streamId, bool includeDetached) {
-  return findStreamImpl(streamId,
-                        false /* includeEgress */,
-                        true /* includeIngress */,
-                        includeDetached);
+  return findStreamImpl(streamId, includeDetached);
 }
 
 HQSession::HQStreamTransportBase* FOLLY_NULLABLE
 HQSession::findEgressStream(quic::StreamId streamId, bool includeDetached) {
-  return findStreamImpl(streamId,
-                        true /* includeEgress */,
-                        false /* includeIngress */,
-                        includeDetached);
+  return findStreamImpl(streamId, includeDetached);
 }
 
 HQSession::HQStreamTransportBase* FOLLY_NULLABLE
-HQSession::findStreamImpl(quic::StreamId streamId,
-                          bool includeEgress,
-                          bool includeIngress,
-                          bool includeDetached) {
+HQSession::findStreamImpl(quic::StreamId streamId, bool includeDetached) {
   HQStreamTransportBase* pstream{nullptr};
   auto it = streams_.find(streamId);
   if (it != streams_.end()) {
     pstream = &it->second;
-  }
-  if (!pstream && (includeIngress || includeEgress)) {
-    pstream = findPushStream(streamId);
   }
   if (!pstream) {
     return nullptr;

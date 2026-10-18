@@ -241,11 +241,6 @@ HQUpstreamSession::createIngressPushStream(HTTPCodec::StreamID parentId,
   return newIngressPushStream;
 }
 
-HQSession::HQStreamTransportBase* HQUpstreamSession::findPushStream(
-    quic::StreamId streamId) {
-  return findIngressPushStream(streamId);
-}
-
 HQUpstreamSession::HQIngressPushStream* FOLLY_NULLABLE
 HQUpstreamSession::findIngressPushStream(quic::StreamId streamId) {
   auto res = streamIdToPushId_.find(streamId);

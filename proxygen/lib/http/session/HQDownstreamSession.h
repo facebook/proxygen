@@ -176,16 +176,6 @@ class HQDownstreamSession : public HQSession {
                          quic::StreamId streamId,
                          quic::StreamId parentStreamId);
 
-  HQStreamTransportBase* findPushStream(quic::StreamId id) override;
-
-  // Only need to search ingress push streams, so this is a no-op
-  void findPushStreams(
-      std::unordered_set<HQStreamTransportBase*>& streams) override {
-    for (auto& pstream : egressPushStreams_) {
-      streams.insert(&pstream.second);
-    }
-  }
-
   bool erasePushStream(quic::StreamId streamId) override;
 
   void dispatchPushStream(quic::StreamId /* pushStreamId */,

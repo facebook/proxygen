@@ -341,12 +341,6 @@ class MockHQSession : public HQSession {
     return txn_.get();
   }
 
-  HQStreamTransportBase* findPushStream(quic::StreamId) override {
-    return nullptr;
-  }
-
-  void findPushStreams(std::unordered_set<HQStreamTransportBase*>&) override {
-  }
   bool erasePushStream(quic::StreamId) override {
     return false;
   }
