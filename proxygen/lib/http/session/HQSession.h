@@ -407,7 +407,6 @@ class HQSession
   }
 
   size_t sendPriority(HTTPCodec::StreamID id, HTTPPriority pri);
-  size_t sendPushPriority(hq::PushId pushId, HTTPPriority pri);
 
   /**
    * Get session-level transport info.

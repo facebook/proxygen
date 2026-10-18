@@ -688,33 +688,6 @@ size_t HQSession::sendPriority(HTTPCodec::StreamID id, HTTPPriority priority) {
   return ret;
 }
 
-size_t HQSession::sendPushPriority(hq::PushId pushId, HTTPPriority priority) {
-  auto iter = pushIdToStreamId_.find(pushId);
-  if (iter == pushIdToStreamId_.end()) {
-    return 0;
-  }
-  auto streamId = iter->second;
-  auto stream = findPushStream(streamId);
-  if (!stream) {
-    LOG(ERROR) << "Cannot find push streamId=" << streamId
-               << " with pushId=" << pushId << " presented in id map";
-    return 0;
-  }
-
-  if (enableEgressPrioritization_) {
-    stream->setPriority(*sock_, streamId, priority);
-  }
-  auto controlStream = findControlStream(UnidirectionalStreamType::CONTROL);
-  if (!controlStream) {
-    return 0;
-  }
-  auto g = folly::makeGuard(controlStream->setActiveCodec(__func__));
-  auto ret = controlStream->codecFilterChain.generatePushPriority(
-      controlStream->writeBuf_, pushId, priority);
-  scheduleWrite();
-  return ret;
-}
-
 size_t HQSession::HQStreamTransportBase::changePriority(
     HTTPTransaction* txn, HTTPPriority httpPriority) noexcept {
   CHECK_EQ(txn, &txn_);
