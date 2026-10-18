@@ -195,52 +195,6 @@ bool HQUpstreamSession::tryBindIngressStreamToTxn(
   return true;
 }
 
-// Called when we receive a push promise
-HQUpstreamSession::HQStreamTransportBase*
-HQUpstreamSession::createIngressPushStream(HTTPCodec::StreamID parentId,
-                                           hq::PushId pushId) {
-
-  // Check that a stream with this ID has not been created yet
-  DCHECK(!findIngressPushStreamByPushId(pushId))
-      << "Ingress stream with this push ID already exists pushID=" << pushId;
-
-  auto matchPair = ingressPushStreams_.emplace(
-      std::piecewise_construct,
-      std::forward_as_tuple(pushId),
-      std::forward_as_tuple(
-          *this,
-          pushId,
-          parentId,
-          getNumTxnServed(),
-          WheelTimerInstance(transactionsTimeout_, getEventBase())));
-
-  CHECK(matchPair.second) << "Emplacement failed, despite earlier "
-                             "existence check.";
-
-  auto newIngressPushStream = &matchPair.first->second;
-
-  // If there is a nascent stream ready to be bound to the newly
-  // created ingress stream, do it now.
-  bool bound = false;
-  auto res = pushIdToStreamId_.find(pushId);
-  if (res == pushIdToStreamId_.end()) {
-    VLOG(4)
-        << __func__ << " pushID=" << pushId
-        << " not found in the lookup table, size=" << pushIdToStreamId_.size();
-  } else {
-    bound =
-        tryBindIngressStreamToTxn(res->second, pushId, newIngressPushStream);
-  }
-
-  VLOG(4) << "Successfully created new ingress push stream"
-          << " pushID=" << pushId << " parentStreamID=" << parentId
-          << " bound=" << bound << " streamID="
-          << (bound ? newIngressPushStream->getIngressStreamId()
-                    : static_cast<unsigned long>(-1));
-
-  return newIngressPushStream;
-}
-
 HQUpstreamSession::HQIngressPushStream* FOLLY_NULLABLE
 HQUpstreamSession::findIngressPushStream(quic::StreamId streamId) {
   auto res = streamIdToPushId_.find(streamId);

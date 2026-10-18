@@ -605,11 +605,6 @@ class HQSession
   // Find a control stream by stream id (either ingress or egress)
   HQControlStream* findControlStream(quic::StreamId streamId);
 
-  virtual HQStreamTransportBase* createIngressPushStream(quic::StreamId,
-                                                         hq::PushId) {
-    return nullptr;
-  }
-
   virtual void eraseUnboundStream(HQStreamTransportBase*) {
   }
 

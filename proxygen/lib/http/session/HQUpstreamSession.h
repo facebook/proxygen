@@ -219,10 +219,6 @@ class HQUpstreamSession : public HQSession {
                                  hq::PushId pushId,
                                  HQIngressPushStream* pushStream = nullptr);
 
-  // Create ingress push stream.
-  HQStreamTransportBase* createIngressPushStream(quic::StreamId parentStreamId,
-                                                 hq::PushId pushId) override;
-
   bool erasePushStream(quic::StreamId streamId) override;
 
   void eraseUnboundStream(HQStreamTransportBase*) override;
