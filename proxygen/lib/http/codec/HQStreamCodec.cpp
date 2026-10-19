@@ -21,6 +21,29 @@ namespace proxygen::hq {
 using namespace folly;
 using namespace folly::io;
 
+namespace {
+bool isKnownFrameType(FrameType type) {
+  switch (type) {
+    case hq::FrameType::DATA:
+    case hq::FrameType::HEADERS:
+    case hq::FrameType::CANCEL_PUSH:
+    case hq::FrameType::SETTINGS:
+    case hq::FrameType::PUSH_PROMISE:
+    case hq::FrameType::GOAWAY:
+    case hq::FrameType::MAX_PUSH_ID:
+    case hq::FrameType::PRIORITY_UPDATE:
+    case hq::FrameType::PUSH_PRIORITY_UPDATE:
+    case hq::FrameType::FB_PRIORITY_UPDATE:
+    case hq::FrameType::FB_PUSH_PRIORITY_UPDATE:
+    case hq::FrameType::WEBTRANSPORT_BIDI:
+      return true;
+    case hq::FrameType::PADDING:
+    default:
+      return false;
+  }
+}
+} // namespace
+
 HQStreamCodec::HQStreamCodec(StreamID streamId,
                              TransportDirection direction,
                              QPACKCodec& headerCodec,
@@ -46,7 +69,7 @@ HQStreamCodec::~HQStreamCodec() {
 }
 
 ParseResult HQStreamCodec::checkFrameAllowed(FrameType type) {
-  if (isConnect_ && type != hq::FrameType::DATA) {
+  if (isConnect_ && type != hq::FrameType::DATA && isKnownFrameType(type)) {
     setParseErrorContext(
         "non-data-frame-on-connect",
         folly::to<std::string>("type=", getFrameTypeString(type)));
@@ -238,6 +261,10 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
   if (transportDirection_ == TransportDirection::DOWNSTREAM &&
       msg->getMethod() == HTTPMethod::CONNECT) {
     isConnect_ = true;
+    const auto* protocol = msg->getUpgradeProtocol();
+    if (protocol && *protocol == headers::kWebsocketString) {
+      msg->setIngressWebsocketUpgrade();
+    }
   }
 
   if (acknowledge) {

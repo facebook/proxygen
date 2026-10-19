@@ -2082,6 +2082,76 @@ TEST_P(HQDownstreamSessionTestDatagram, BufferedDatagramDroppedOnNon2xx) {
   hqSession_->dropConnection();
 }
 
+namespace {
+HTTPMessage getWebsocketRequest() {
+  auto req = getGetRequest("/websocket");
+  req.setSecure(true);
+  req.setEgressWebsocketUpgrade();
+  return req;
+}
+
+HTTPMessage getWebsocketResponse() {
+  HTTPMessage resp;
+  resp.setStatusCode(101);
+  resp.setEgressWebsocketUpgrade();
+  return resp;
+}
+} // namespace
+
+TEST_P(HQDownstreamSessionTest, WebsocketExtendedConnect) {
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
+    EXPECT_TRUE(msg->isIngressWebsocketUpgrade());
+    handler->txn_->sendHeaders(getWebsocketResponse());
+    handler->sendBody(10);
+  });
+  auto id = sendRequest(getWebsocketRequest(), /*eom=*/false);
+  flushRequestsAndLoopN(1);
+
+  handler->expectBody();
+  auto& request = getStream(id);
+  request.codec->generateBody(
+      request.buf, request.id, makeBuf(20), HTTPCodec::NoPadding, false);
+  flushRequestsAndLoopN(1);
+
+  handler->expectEOM();
+  request.readEOF = true;
+  flushRequestsAndLoopN(1);
+
+  handler->expectDetachTransaction();
+  handler->sendEOM();
+  flushRequestsAndLoop();
+
+  auto& stream = socketDriver_->streams_[id];
+  EXPECT_TRUE(stream.writeEOF);
+  FakeHTTPCodecCallback callbacks;
+  request.codec->setCallback(&callbacks);
+  request.codec->onIngress(*stream.writeBuf.front());
+  request.codec->onIngressEOF();
+  EXPECT_EQ(callbacks.msg->getStatusCode(), 200);
+  EXPECT_EQ(callbacks.bodyLength, 10);
+  EXPECT_EQ(callbacks.messageComplete, 1);
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTest, WebsocketExtendedConnectCancel) {
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
+    EXPECT_TRUE(msg->isIngressWebsocketUpgrade());
+    handler->txn_->sendHeaders(getWebsocketResponse());
+  });
+  auto id = sendRequest(getWebsocketRequest(), /*eom=*/false);
+  flushRequestsAndLoopN(1);
+
+  handler->expectDetachTransaction();
+  handler->txn_->sendAbort(ErrorCode::CANCEL);
+  flushRequestsAndLoop();
+
+  EXPECT_EQ(socketDriver_->streams_[id].error,
+            folly::make_optional(HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED));
+  hqSession_->closeWhenIdle();
+}
+
 // Just open a stream and send nothing
 TEST_P(HQDownstreamSessionTest, zeroBytes) {
   auto id = nextStreamId();

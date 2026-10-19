@@ -175,6 +175,25 @@ TEST_F(HQMultiCodecTest, RemoveCodecWithBlockedTrailers) {
   EXPECT_EQ(callbacks.trailers, 0);
 }
 
+TEST_F(HQMultiCodecTest, WebsocketUpgrade) {
+  HQMultiCodec upstreamCodec{TransportDirection::UPSTREAM};
+  HTTPCodec::StreamID id{0};
+  upstreamCodec.addCodec(id);
+  auto req = getGetRequest("/websocket");
+  req.setSecure(true);
+  req.setEgressWebsocketUpgrade();
+  upstreamCodec.generateHeader(writeBuf_, id, req);
+
+  FakeHTTPCodecCallback callbacks;
+  callbacks.setSessionStreamId(kSessionStreamId);
+  codec_.addCodec(id);
+  codec_.setCallback(&callbacks);
+  EXPECT_TRUE(codec_.setCurrentStream(id));
+  codec_.onIngress(*writeBuf_.front());
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_TRUE(callbacks.msg->isIngressWebsocketUpgrade());
+}
+
 TEST_F(HQMultiCodecTest, Generic) {
   EXPECT_TRUE(codec_.supportsParallelRequests());
   EXPECT_NE(codec_.getEgressSettings(), nullptr);

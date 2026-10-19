@@ -879,6 +879,107 @@ TEST_F(HQCodecTest, WebTransportProtocol) {
   EXPECT_EQ("webtransport", *callbacks_.msg->getUpgradeProtocol());
 }
 
+namespace {
+HTTPMessage getWebsocketRequest() {
+  HTTPMessage req = getGetRequest("/websocket");
+  req.setSecure(true);
+  req.setEgressWebsocketUpgrade();
+  return req;
+}
+} // namespace
+
+TEST_F(HQCodecTest, WebsocketUpgrade) {
+  upstreamCodec_->generateHeader(queue_, streamId_, getWebsocketRequest());
+  parse();
+
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(HTTPMethod::CONNECT, callbacks_.msg->getMethod());
+  EXPECT_TRUE(callbacks_.msg->isIngressWebsocketUpgrade());
+  EXPECT_EQ(headers::kWebsocketString, *callbacks_.msg->getUpgradeProtocol());
+}
+
+TEST_F(HQCodecTest, WebsocketResponseIs200) {
+  HTTPMessage resp;
+  resp.setStatusCode(101);
+  resp.setEgressWebsocketUpgrade();
+  downstreamCodec_->generateHeader(queue_, streamId_, resp);
+  parseUpstream();
+
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.msg->getStatusCode(), 200);
+}
+
+TEST_F(HQCodecTest, WebsocketMalformedRequest) {
+  const std::string kConnect{"CONNECT"};
+  const std::string kWebsocketPath{"/websocket"};
+  const std::string kSchemeHttps{"https"};
+  const std::string kHost{"www.foo.com"};
+  using compress::Header;
+  auto method = Header::makeHeaderForTest(headers::kMethod, kConnect);
+  auto protocol =
+      Header::makeHeaderForTest(headers::kProtocol, headers::kWebsocketString);
+  auto path = Header::makeHeaderForTest(headers::kPath, kWebsocketPath);
+  auto scheme = Header::makeHeaderForTest(headers::kScheme, kSchemeHttps);
+  auto authority = Header::makeHeaderForTest(headers::kAuthority, kHost);
+  std::vector<std::vector<Header>> malformedRequests{
+      {method, protocol, scheme, authority},
+      {method, protocol, path, authority},
+      {method, protocol, protocol, path, scheme, authority},
+  };
+
+  for (auto& reqHeaders : malformedRequests) {
+    hq::writeHeaders(queue_,
+                     qpackUpstream_.encode(reqHeaders, streamId_).stream);
+    HQStreamCodec downstreamCodec(
+        streamId_,
+        TransportDirection::DOWNSTREAM,
+        qpackDownstream_,
+        qpackDownEncoderWriteBuf_,
+        qpackDownDecoderWriteBuf_,
+        [] { return std::numeric_limits<uint64_t>::max(); },
+        ingressSettings_);
+    downstreamCodec.setCallback(&callbacks_);
+    downstreamCodec.onIngress(*queue_.front());
+    queue_.reset();
+  }
+
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, malformedRequests.size());
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HQCodecTest, WebsocketIgnoresUnknownFrames) {
+  upstreamCodec_->generateHeader(queue_, streamId_, getWebsocketRequest());
+  writeValidFrame(queue_, FrameType(*getGreaseId(0)));
+  upstreamCodec_->generatePadding(queue_, streamId_, 16);
+  writeValidFrame(queue_, FrameType::DATA);
+  parse();
+  EXPECT_EQ(callbacks_.bodyCalls, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+
+  writeValidFrame(queue_, FrameType::HEADERS);
+  parse();
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
+}
+
+TEST_F(HQCodecTest, ConnectIgnoresUnknownFrames) {
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::CONNECT);
+  req.getHeaders().add(HTTP_HEADER_HOST, "myhost:1234");
+  upstreamCodec_->generateHeader(queue_, streamId_, req);
+  writeValidFrame(queue_, FrameType(*getGreaseId(0)));
+  upstreamCodec_->generatePadding(queue_, streamId_, 16);
+  writeValidFrame(queue_, FrameType::DATA);
+  parse();
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_FALSE(callbacks_.msg->isIngressWebsocketUpgrade());
+  EXPECT_EQ(callbacks_.bodyCalls, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 TEST_F(HQCodecTest, PaddingIgnored) {
   std::string data("abcde");
   auto buf = folly::IOBuf::copyBuffer(data.data(), data.length());
