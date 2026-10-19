@@ -528,7 +528,7 @@ WebTransport::FCState WebTransportImpl::StreamReadHandle::dataAvailable(
 }
 
 void WebTransportImpl::StreamReadHandle::readError(
-    quic::StreamId id, quic::QuicError error) noexcept {
+    quic::StreamId /* id */, quic::QuicError error) noexcept {
   // The transport delivers readError() and drops the read callback itself.
   readCallbackRegistered_ = false;
   impl_.sp_.refreshTimeout();
