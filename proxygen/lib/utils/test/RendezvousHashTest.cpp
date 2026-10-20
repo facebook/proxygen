@@ -7,7 +7,6 @@
  */
 
 #include <folly/Conv.h>
-#include <folly/container/Foreach.h>
 #include <folly/portability/GTest.h>
 #include <map>
 #include <vector>
@@ -230,7 +229,7 @@ TEST(ConsistentHashRing, DistributionAccuracy) {
   for (auto& weight : weights) {
     RendezvousHash hashes;
     std::vector<std::pair<std::string, uint64_t>> nodes;
-    FOR_EACH_RANGE(i, 0, keys.size()) {
+    for (std::size_t i = 0; i < keys.size(); ++i) {
       nodes.emplace_back(keys[i], weight[i]);
     }
     hashes.build(nodes);
