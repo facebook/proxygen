@@ -30,8 +30,8 @@ namespace proxygen::coro {
  *
  * auto sink = std::make_unique<HTTPStreamSourceSink>(
  *    evb, upstreamSession->acquireKeepAlive(), handler);
- * sink->transact(upstreamSession, std::move(reservation))
- *   .scheduleOn(evb).start();
+ * co_withExecutor(evb, sink->transact(upstreamSession, std::move(reservation)))
+ *   .start();
  */
 class HTTPStreamSourceUpstreamSink
     : public HTTPSink
