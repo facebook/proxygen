@@ -76,6 +76,7 @@ proxygen_add_library(proxygen_http_codec_http1x_codec
     proxygen_http_codec_util
     proxygen_http_http_headers
     Folly::folly_base64
+    Folly::folly_conv
     Folly::folly_io_iobuf
     Folly::folly_random
     Folly::folly_ssl_openssl_hash

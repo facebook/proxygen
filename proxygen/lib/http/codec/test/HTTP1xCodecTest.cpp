@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 
+#include <folly/Conv.h>
 #include <folly/String.h>
 #include <folly/base64.h>
 #include <folly/portability/GTest.h>
@@ -979,6 +980,101 @@ TEST(HTTP1xCodecTest, WebsocketUpgrade) {
   auto ws_accept_header =
       headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT);
   EXPECT_NE(ws_accept_header, empty_string);
+}
+
+TEST(HTTP1xCodecTest, WebsocketConnectRejectionBody) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+
+  HTTPMessage req;
+  req.setHTTPVersion(2, 0);
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  folly::IOBufQueue writeBuf;
+  codec.generateHeader(writeBuf, codec.createStream(), req);
+
+  HTTP1xCodec peer(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback peerCallbacks;
+  peer.setCallback(&peerCallbacks);
+  peer.onIngress(*writeBuf.front());
+  ASSERT_NE(peerCallbacks.msg_, nullptr);
+  EXPECT_EQ(peerCallbacks.msg_->getMethod(), HTTPMethod::GET);
+
+  const string body = "Unauthorized";
+  auto response = folly::IOBuf::copyBuffer(
+      "HTTP/1.1 401 Unauthorized\r\nContent-Length: " +
+      folly::to<std::string>(body.size()) + "\r\n\r\n" + body);
+  codec.onIngress(*response);
+
+  ASSERT_NE(callbacks.msg_, nullptr);
+  EXPECT_EQ(callbacks.msg_->getStatusCode(), 401);
+  EXPECT_EQ(callbacks.bodyLen, body.size());
+  EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_EQ(callbacks.errors, 0);
+}
+
+TEST(HTTP1xCodecTest, WebsocketConnectNonUpgrade200Body) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+
+  HTTPMessage req;
+  req.setHTTPVersion(2, 0);
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  folly::IOBufQueue writeBuf;
+  codec.generateHeader(writeBuf, codec.createStream(), req);
+
+  const string body = "ordinary response";
+  auto response = folly::IOBuf::copyBuffer(
+      "HTTP/1.1 200 OK\r\nContent-Length: " +
+      folly::to<std::string>(body.size()) + "\r\n\r\n" + body);
+  codec.onIngress(*response);
+
+  ASSERT_NE(callbacks.msg_, nullptr);
+  EXPECT_EQ(callbacks.msg_->getStatusCode(), 200);
+  EXPECT_FALSE(callbacks.msg_->isIngressWebsocketUpgrade());
+  EXPECT_EQ(callbacks.bodyLen, body.size());
+  EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_EQ(callbacks.errors, 0);
+}
+
+TEST(HTTP1xCodecTest, WebsocketConnectUpgrade) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodec peer(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  HTTP1xCodecCallback peerCallbacks;
+  codec.setCallback(&callbacks);
+  peer.setCallback(&peerCallbacks);
+
+  HTTPMessage req;
+  req.setHTTPVersion(2, 0);
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  folly::IOBufQueue writeBuf;
+  const auto streamID = codec.createStream();
+  codec.generateHeader(writeBuf, streamID, req);
+  peer.onIngress(*writeBuf.front());
+
+  HTTPMessage resp;
+  resp.setHTTPVersion(1, 1);
+  resp.setStatusCode(101);
+  resp.setEgressWebsocketUpgrade();
+  writeBuf.reset();
+  peer.generateHeader(writeBuf, streamID, resp);
+  codec.onIngress(*writeBuf.front());
+  auto data = folly::IOBuf::copyBuffer("upgraded-protocol-data");
+  codec.onIngress(*data);
+
+  ASSERT_NE(callbacks.msg_, nullptr);
+  EXPECT_EQ(callbacks.msg_->getStatusCode(), 101);
+  EXPECT_TRUE(callbacks.msg_->isIngressWebsocketUpgrade());
+  EXPECT_EQ(callbacks.bodyLen, data->length());
+  EXPECT_EQ(callbacks.errors, 0);
 }
 
 // A rejected (non-101) response to an HTTP/1.1 Upgrade request closes the

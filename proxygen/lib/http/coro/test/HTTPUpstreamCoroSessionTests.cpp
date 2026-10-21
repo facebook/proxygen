@@ -12,6 +12,7 @@
 #include "proxygen/lib/http/coro/test/Mocks.h"
 #include <folly/logging/xlog.h>
 
+#include <folly/Conv.h>
 #include <folly/ExceptionWrapper.h>
 #include <folly/coro/Timeout.h>
 
@@ -968,6 +969,56 @@ CO_TEST_P_X(H1UpstreamSessionTest, DrainAfterFailedUpgrade) {
     EXPECT_EQ(resp->headers->getStatusCode(), 500);
     EXPECT_CALL(lifecycleObs_, onDrainStarted(_)).Times(0);
   }
+}
+
+CO_TEST_P_X(H1UpstreamSessionTest, WebsocketConnectRejectionBody) {
+  const std::string body = "Unauthorized";
+  const auto bodyLength = folly::to<uint32_t>(body.size());
+  auto req =
+      HTTPFixedSource::makeFixedRequest("/websocket", HTTPMethod::CONNECT);
+  req->msg_->setHTTPVersion(2, 0);
+  req->msg_->setEgressWebsocketUpgrade();
+  auto responseSource = co_await co_awaitTry(session_->sendRequest(req));
+  XCHECK(!responseSource.hasException());
+
+  auto resp = makeResponse(401, true);
+  resp.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
+                        folly::to<std::string>(bodyLength));
+  serializeResponse(*responseSource->getStreamID(),
+                    std::move(resp),
+                    folly::IOBuf::copyBuffer(body));
+
+  auto response = co_await expectResponse(
+      std::move(*responseSource), 401, bodyLength, true);
+  XCHECK_NE(response, nullptr);
+  auto responseBody = response->body_.move();
+  XCHECK(responseBody);
+  EXPECT_EQ(responseBody->moveToFbString(), body);
+}
+
+CO_TEST_P_X(H1UpstreamSessionTest, WebsocketConnectNonUpgrade200Body) {
+  const std::string body = "ordinary response";
+  const auto bodyLength = folly::to<uint32_t>(body.size());
+  auto req =
+      HTTPFixedSource::makeFixedRequest("/websocket", HTTPMethod::CONNECT);
+  req->msg_->setHTTPVersion(2, 0);
+  req->msg_->setEgressWebsocketUpgrade();
+  auto responseSource = co_await co_awaitTry(session_->sendRequest(req));
+  XCHECK(!responseSource.hasException());
+
+  auto resp = makeResponse(200, true);
+  resp.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
+                        folly::to<std::string>(bodyLength));
+  serializeResponse(*responseSource->getStreamID(),
+                    std::move(resp),
+                    folly::IOBuf::copyBuffer(body));
+
+  auto response = co_await expectResponse(
+      std::move(*responseSource), 200, bodyLength, true);
+  XCHECK_NE(response, nullptr);
+  auto responseBody = response->body_.move();
+  XCHECK(responseBody);
+  EXPECT_EQ(responseBody->moveToFbString(), body);
 }
 
 TEST_P(H2QUpstreamSessionTest, ReceiveGoaway) {

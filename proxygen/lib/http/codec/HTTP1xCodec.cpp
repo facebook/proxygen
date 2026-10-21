@@ -461,7 +461,9 @@ void HTTP1xCodec::generateHeader(
     DCHECK_EQ(txn, egressTxnID_);
     requestPending_ = true;
     responsePending_ = true;
-    connectRequest_ = (msg.getMethod() == HTTPMethod::CONNECT);
+    // proxying downstream non-h1 ws CONNECT must be serialized as GET
+    connectRequest_ = (msg.getMethod() == HTTPMethod::CONNECT) &&
+                      !msg.isEgressWebsocketUpgrade();
     headRequest_ = (msg.getMethod() == HTTPMethod::HEAD);
     expectNoResponseBody_ = connectRequest_ || headRequest_;
   } else {
