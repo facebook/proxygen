@@ -274,6 +274,30 @@ TEST_F(HTTPChecksTest, SetParserPausedReachesChainEnd) {
   chain_.setParserPaused(true);
 }
 
+// A filter can itself be the chain's destination when it wraps its own codec
+// in call_; pausing the chain has to reach that inner codec.
+TEST(HTTPCodecFilterChainTest, SetParserPausedReachesCodecWrappedByChainEnd) {
+  class WrappingCodec : public PassThroughHTTPCodecFilter {
+   public:
+    explicit WrappingCodec(HTTPCodec* inner) {
+      call_ = inner;
+    }
+    void setCallback(HTTPCodec::Callback* callback) override {
+      callback_ = callback;
+    }
+  };
+  auto* inner = new MockHTTPCodec();
+  MockHTTPCodecCallback callback;
+  HTTPCodecFilterChain chain(std::make_unique<WrappingCodec>(inner));
+  chain.setCallback(&callback);
+  chain.add<HTTPChecks>();
+  EXPECT_CALL(*inner, setParserPaused(true));
+  EXPECT_CALL(*inner, setParserPaused(false));
+
+  chain.setParserPaused(true);
+  chain.setParserPaused(false);
+}
+
 TEST_F(DebugFilterTest, NoError) {
   chain_.onIngress(*makeIOBuf("foo"));
   chain_.onIngressEOF();

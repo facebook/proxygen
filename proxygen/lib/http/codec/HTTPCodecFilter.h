@@ -24,8 +24,13 @@ class HTTPCodecFilter
   using GenericFilter::GenericFilter;
 
   // Filters are not allowed to change this: HTTPCodecFilterChain sends it
-  // straight to the codec at the end of the chain.
-  void setParserPaused(bool /* paused */) final {
+  // straight to the codec at the end of the chain and never calls this on
+  // intermediate filters. Forward to call_ so that a filter used as the chain
+  // destination reaches the codec it wraps.
+  void setParserPaused(bool paused) final {
+    if (call_) {
+      call_->setParserPaused(paused);
+    }
   }
 };
 
