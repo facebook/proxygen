@@ -9,6 +9,7 @@
 #include <proxygen/lib/utils/ParseURL.h>
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 
 #include <folly/portability/Sockets.h>
@@ -253,10 +254,11 @@ bool ParseURL::hostIsIPAddress() {
   // null-terminated
   std::string hostNoBrackets(hostNoBrackets_);
   int af = hostNoBrackets.find(':') == std::string::npos ? AF_INET : AF_INET6;
-  char buf4[sizeof(in_addr)];
-  char buf6[sizeof(in6_addr)];
-  return inet_pton(af, hostNoBrackets.c_str(), af == AF_INET ? buf4 : buf6) ==
-         1;
+  std::array<char, sizeof(in_addr)> buf4{};
+  std::array<char, sizeof(in6_addr)> buf6{};
+  return inet_pton(af,
+                   hostNoBrackets.c_str(),
+                   af == AF_INET ? buf4.data() : buf6.data()) == 1;
 }
 
 void ParseURL::stripBrackets() noexcept {
