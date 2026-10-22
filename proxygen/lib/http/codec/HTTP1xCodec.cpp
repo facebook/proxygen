@@ -8,6 +8,9 @@
 
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 
+#include <array>
+#include <string_view>
+
 #include <folly/Conv.h>
 #include <folly/Random.h>
 #include <folly/base64.h>
@@ -25,7 +28,7 @@ using std::unique_ptr;
 namespace {
 
 constexpr std::string_view kChunked = "chunked";
-const char CRLF[] = "\r\n";
+constexpr std::string_view CRLF = "\r\n";
 
 /**
  * Write an ASCII decimal representation of an integer value
@@ -56,9 +59,9 @@ unsigned u64toa(uint64_t value, char* dst) {
 }
 
 void appendUint(IOBufQueue& queue, size_t& len, uint64_t value) {
-  char buf[32];
-  size_t encodedLen = u64toa(value, buf);
-  queue.append(buf, encodedLen);
+  std::array<char, 32> buf{};
+  size_t encodedLen = u64toa(value, buf.data());
+  queue.append(buf.data(), encodedLen);
   len += encodedLen;
 }
 
@@ -392,7 +395,7 @@ bool HTTP1xCodec::isBusy() const {
 void HTTP1xCodec::addDateHeader(IOBufQueue& writeBuf, size_t& len) {
   appendLiteral(writeBuf, len, "Date: ");
   appendString(writeBuf, len, HTTPMessage::formatDateHeader());
-  appendLiteral(writeBuf, len, CRLF);
+  appendString(writeBuf, len, CRLF);
 }
 
 constexpr folly::StringPiece kUpgradeToken = "websocket";
@@ -425,23 +428,23 @@ void HTTP1xCodec::serializeWebsocketHeader(IOBufQueue& writeBuf,
   if (upstream) {
     appendLiteral(writeBuf, len, "Upgrade: ");
     appendString(writeBuf, len, kUpgradeToken.str());
-    appendLiteral(writeBuf, len, CRLF);
+    appendString(writeBuf, len, CRLF);
     upgradeHeader_ = kUpgradeToken.str();
 
     auto key = generateWebsocketKey();
     appendLiteral(writeBuf, len, "Sec-WebSocket-Key: ");
     appendString(writeBuf, len, key);
-    appendLiteral(writeBuf, len, CRLF);
+    appendString(writeBuf, len, CRLF);
     DCHECK(websockAcceptKey_.empty());
     websockAcceptKey_ = generateWebsocketAccept(key);
   } else {
     appendLiteral(writeBuf, len, "Upgrade: ");
     appendString(writeBuf, len, kUpgradeToken.str());
-    appendLiteral(writeBuf, len, CRLF);
+    appendString(writeBuf, len, CRLF);
 
     appendLiteral(writeBuf, len, "Sec-WebSocket-Accept: ");
     appendString(writeBuf, len, websockAcceptKey_);
-    appendLiteral(writeBuf, len, CRLF);
+    appendString(writeBuf, len, CRLF);
   }
 }
 
@@ -577,7 +580,7 @@ void HTTP1xCodec::generateHeader(
       }
       break;
   }
-  appendLiteral(writeBuf, len, CRLF);
+  appendString(writeBuf, len, CRLF);
 
   if (keepalive_ && (!msg.wantsKeepalive() || version.first < 1 ||
                      (downstream && version == HTTPMessage::kHTTPVersion10 &&
@@ -746,9 +749,9 @@ void HTTP1xCodec::generateHeader(
   if (!deferredContentLength.empty()) {
     appendLiteral(writeBuf, len, "Content-Length: ");
     appendString(writeBuf, len, deferredContentLength);
-    appendLiteral(writeBuf, len, CRLF);
+    appendString(writeBuf, len, CRLF);
   }
-  appendLiteral(writeBuf, len, CRLF);
+  appendString(writeBuf, len, CRLF);
   if (eom) {
     len += generateEOM(writeBuf, txn);
   }
@@ -779,12 +782,13 @@ size_t HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
   }
 
   if (egressChunked_ && !inChunk_) {
-    char chunkLenBuf[32];
-    int rc = snprintf(chunkLenBuf, sizeof(chunkLenBuf), "%zx\r\n", buflen);
+    std::array<char, 32> chunkLenBuf{};
+    int rc =
+        snprintf(chunkLenBuf.data(), chunkLenBuf.size(), "%zx\r\n", buflen);
     CHECK_GT(rc, 0);
-    CHECK_LT(size_t(rc), sizeof(chunkLenBuf));
+    CHECK_LT(size_t(rc), chunkLenBuf.size());
 
-    writeBuf.append(chunkLenBuf, rc);
+    writeBuf.append(chunkLenBuf.data(), rc);
     totLen += rc;
 
     writeBuf.append(std::move(chain));
@@ -812,12 +816,13 @@ size_t HTTP1xCodec::generateChunkHeader(IOBufQueue& writeBuf,
   if (egressChunked_) {
     CHECK(!inChunk_);
     inChunk_ = true;
-    char chunkLenBuf[32];
-    int rc = snprintf(chunkLenBuf, sizeof(chunkLenBuf), "%zx\r\n", length);
+    std::array<char, 32> chunkLenBuf{};
+    int rc =
+        snprintf(chunkLenBuf.data(), chunkLenBuf.size(), "%zx\r\n", length);
     CHECK_GT(rc, 0);
-    CHECK_LT(size_t(rc), sizeof(chunkLenBuf));
+    CHECK_LT(size_t(rc), chunkLenBuf.size());
 
-    writeBuf.append(chunkLenBuf, rc);
+    writeBuf.append(chunkLenBuf.data(), rc);
     return rc;
   }
 
@@ -848,7 +853,7 @@ size_t HTTP1xCodec::generateTrailers(IOBufQueue& writeBuf,
       appendString(writeBuf, len, trailer);
       appendLiteral(writeBuf, len, ": ");
       appendString(writeBuf, len, value);
-      appendLiteral(writeBuf, len, CRLF);
+      appendString(writeBuf, len, CRLF);
     });
     len += generateEOM(writeBuf, txn);
   }
@@ -868,7 +873,7 @@ size_t HTTP1xCodec::generateEOM(IOBufQueue& writeBuf, StreamID txn) {
         lastChunkWritten_ = true;
         appendLiteral(writeBuf, len, "0\r\n");
       }
-      appendLiteral(writeBuf, len, CRLF);
+      appendString(writeBuf, len, CRLF);
     }
   }
   switch (transportDirection_) {
