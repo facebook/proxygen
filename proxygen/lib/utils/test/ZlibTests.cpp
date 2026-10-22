@@ -42,7 +42,8 @@ std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
 void verify(CompressionType type,
             std::unique_ptr<IOBuf> original,
             std::unique_ptr<IOBuf> compressed) {
-  auto zd = std::make_unique<ZlibStreamDecompressor>(type);
+  auto zd =
+      std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(type);
 
   auto decompressed = zd->decompress(compressed.get());
   ASSERT_FALSE(zd->hasError()) << "Decompression error. r=" << zd->getStatus();
@@ -177,10 +178,10 @@ TEST_F(ZlibTests, MaxDecompressionRatio_FailsWhenRatioTooSmall) {
   auto compressed = compressBuf(CompressionType::GZIP, original);
   ASSERT_NE(compressed, nullptr);
 
-  auto zd = std::make_unique<ZlibStreamDecompressor>(
+  auto zd = std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(
       CompressionType::GZIP,
-      kZlibDecompressorBufferGrowthDefault,
-      kZlibDecompressorBufferMinsizeDefault,
+      proxygen::decompression::kZlibDecompressorBufferGrowthDefault,
+      proxygen::decompression::kZlibDecompressorBufferMinsizeDefault,
       /*maxDecompressionRatio=*/10);
 
   auto decompressed = zd->decompress(compressed.get());
@@ -196,10 +197,10 @@ TEST_F(ZlibTests, MaxDecompressionRatio_PassesWhenRatioLargeEnough) {
   ASSERT_NE(compressed, nullptr);
 
   // Use a very large ratio so decompression succeeds.
-  auto zd = std::make_unique<ZlibStreamDecompressor>(
+  auto zd = std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(
       CompressionType::GZIP,
-      kZlibDecompressorBufferGrowthDefault,
-      kZlibDecompressorBufferMinsizeDefault,
+      proxygen::decompression::kZlibDecompressorBufferGrowthDefault,
+      proxygen::decompression::kZlibDecompressorBufferMinsizeDefault,
       /*maxDecompressionRatio=*/1000000);
 
   auto decompressed = zd->decompress(compressed.get());
@@ -216,7 +217,8 @@ TEST_F(ZlibTests, MaxDecompressionRatio_PassesWhenUnspecified) {
   ASSERT_NE(compressed, nullptr);
 
   // Default: no ratio limit.
-  auto zd = std::make_unique<ZlibStreamDecompressor>(CompressionType::GZIP);
+  auto zd = std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(
+      CompressionType::GZIP);
 
   auto decompressed = zd->decompress(compressed.get());
   EXPECT_FALSE(zd->hasError());
@@ -233,10 +235,10 @@ TEST_F(ZlibTests, MaxDecompressionRatio_StreamingChunksFailure) {
   auto compressed = compressBuf(CompressionType::GZIP, original);
   ASSERT_NE(compressed, nullptr);
 
-  auto zd = std::make_unique<ZlibStreamDecompressor>(
+  auto zd = std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(
       CompressionType::GZIP,
-      kZlibDecompressorBufferGrowthDefault,
-      kZlibDecompressorBufferMinsizeDefault,
+      proxygen::decompression::kZlibDecompressorBufferGrowthDefault,
+      proxygen::decompression::kZlibDecompressorBufferMinsizeDefault,
       /*maxDecompressionRatio=*/10);
 
   // Split compressed data into small chunks.

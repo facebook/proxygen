@@ -18,7 +18,7 @@ namespace folly {
 class IOBuf;
 }
 
-namespace proxygen {
+namespace proxygen::decompression {
 
 namespace {
 constexpr uint64_t kZlibDecompressorBufferGrowthDefault = 480;
@@ -74,4 +74,4 @@ class ZlibStreamDecompressor : public StreamDecompressor {
   uint64_t totalInputBytes_{0};
   uint64_t totalOutputBytes_{0};
 };
-} // namespace proxygen
+} // namespace proxygen::decompression

@@ -68,8 +68,9 @@ void ZlibStreamCompressor::init() {
 
   switch (type_) {
     case CompressionType::GZIP: {
-      auto windowBits = type_ == CompressionType::GZIP ? GZIP_WINDOW_BITS
-                                                       : DEFLATE_WINDOW_BITS;
+      auto windowBits = type_ == CompressionType::GZIP
+                            ? proxygen::decompression::GZIP_WINDOW_BITS
+                            : proxygen::decompression::DEFLATE_WINDOW_BITS;
       status_ = deflateInit2(&zlibStream_,
                              level_,
                              Z_DEFLATED,

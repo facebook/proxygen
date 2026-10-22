@@ -13,7 +13,7 @@
 
 using folly::IOBuf;
 
-namespace proxygen {
+namespace proxygen::decompression {
 
 void ZlibStreamDecompressor::init(CompressionType type) {
   DCHECK(type_ == CompressionType::NONE) << "Must be uninitialized";
@@ -120,4 +120,4 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
   return out;
 }
 
-} // namespace proxygen
+} // namespace proxygen::decompression

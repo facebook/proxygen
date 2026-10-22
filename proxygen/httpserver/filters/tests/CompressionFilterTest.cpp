@@ -36,7 +36,8 @@ MATCHER_P(IOBufEquals,
 
 struct ZlibTest {
   static std::unique_ptr<StreamDecompressor> makeDecompressor() {
-    return std::make_unique<ZlibStreamDecompressor>(CompressionType::GZIP);
+    return std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(
+        CompressionType::GZIP);
   }
   static std::string getExpectedEncoding() {
     return "gzip";
