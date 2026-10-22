@@ -39,7 +39,8 @@ class DecompressionFilter : public Filter {
   void onEOM() noexcept override;
 
  private:
-  std::unique_ptr<StreamDecompressor> decompressor_{nullptr};
+  std::unique_ptr<proxygen::decompression::StreamDecompressor> decompressor_{
+      nullptr};
 };
 
 /**

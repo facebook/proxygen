@@ -19,6 +19,8 @@ namespace proxygen {
 
 enum class CompressionType : uint8_t { NONE, DEFLATE, GZIP, ZSTD };
 
+namespace decompression {
+
 /**
  * Abstract base class for stream decompressor implementations.
  */
@@ -29,4 +31,5 @@ class StreamDecompressor {
   virtual bool hasError() = 0;
   virtual bool finished() = 0;
 };
+} // namespace decompression
 } // namespace proxygen

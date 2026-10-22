@@ -35,7 +35,8 @@ MATCHER_P(IOBufEquals,
 }
 
 struct ZlibTest {
-  static std::unique_ptr<StreamDecompressor> makeDecompressor() {
+  static std::unique_ptr<proxygen::decompression::StreamDecompressor>
+  makeDecompressor() {
     return std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(
         CompressionType::GZIP);
   }
@@ -48,7 +49,8 @@ struct ZlibTest {
 };
 
 struct ZstdTest {
-  static std::unique_ptr<StreamDecompressor> makeDecompressor() {
+  static std::unique_ptr<proxygen::decompression::StreamDecompressor>
+  makeDecompressor() {
     return std::make_unique<proxygen::decompression::ZstdStreamDecompressor>();
   }
   static std::string getExpectedEncoding() {
@@ -82,7 +84,7 @@ class CompressionFilterTest : public Test {
   CompressionFilter* filter_{nullptr};
   MockRequestHandler* requestHandler_;
   std::unique_ptr<MockResponseHandler> responseHandler_;
-  std::unique_ptr<StreamDecompressor> zd_;
+  std::unique_ptr<proxygen::decompression::StreamDecompressor> zd_;
   ResponseHandler* downstream_{nullptr};
 
   void exercise_compression(bool expectCompression,

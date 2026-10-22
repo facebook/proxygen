@@ -64,7 +64,7 @@ class DecompressionIngressFilter : public HTTPSourceFilter {
   void initializeWithHTTPMessage(HTTPMessage& msg);
 
  private:
-  std::unique_ptr<proxygen::StreamDecompressor> decompressor_;
+  std::unique_ptr<proxygen::decompression::StreamDecompressor> decompressor_;
   std::shared_ptr<StatsCallback> statsCallback_;
 };
 
