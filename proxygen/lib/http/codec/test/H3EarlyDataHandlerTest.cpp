@@ -41,7 +41,7 @@ TEST_F(H3EarlyDataHandlerTest, GetAndValidateRoundtrip) {
 TEST_F(H3EarlyDataHandlerTest, ValidateWithLargerCurrentLimits) {
   // Serialize with small limits
   auto smallSettings =
-      makeSettings({{SettingsId::HEADER_TABLE_SIZE, 2048},
+      makeSettings({{SettingsId::MAX_HEADER_LIST_SIZE, 65536},
                     {SettingsId::_HQ_QPACK_BLOCKED_STREAMS, 50}});
   handler_.setCurrentSettings(smallSettings);
   auto buf = handler_.get();
@@ -49,7 +49,7 @@ TEST_F(H3EarlyDataHandlerTest, ValidateWithLargerCurrentLimits) {
 
   // Increase current limits — cached (smaller) values should still be valid
   auto largerSettings =
-      makeSettings({{SettingsId::HEADER_TABLE_SIZE, 4096},
+      makeSettings({{SettingsId::MAX_HEADER_LIST_SIZE, 131072},
                     {SettingsId::_HQ_QPACK_BLOCKED_STREAMS, 100}});
   handler_.setCurrentSettings(largerSettings);
   EXPECT_TRUE(handler_.validate(std::string("h3"), buf));
@@ -65,6 +65,28 @@ TEST_F(H3EarlyDataHandlerTest, ValidateRejectsCachedHeaderTableSizeTooLarge) {
   auto smallerSettings = makeSettings({{SettingsId::HEADER_TABLE_SIZE, 4096}});
   handler_.setCurrentSettings(smallerSettings);
   EXPECT_FALSE(handler_.validate(std::string("h3"), buf));
+}
+
+TEST_F(H3EarlyDataHandlerTest, ValidateRejectsCachedHeaderTableSizeTooSmall) {
+  auto settings = makeSettings({{SettingsId::HEADER_TABLE_SIZE, 2048}});
+  handler_.setCurrentSettings(settings);
+  auto buf = handler_.get();
+  ASSERT_NE(buf, nullptr);
+
+  auto largerSettings = makeSettings({{SettingsId::HEADER_TABLE_SIZE, 4096}});
+  handler_.setCurrentSettings(largerSettings);
+  EXPECT_FALSE(handler_.validate(std::string("h3"), buf));
+}
+
+TEST_F(H3EarlyDataHandlerTest, ValidateAllowsZeroCachedHeaderTableSize) {
+  auto settings = makeSettings({{SettingsId::HEADER_TABLE_SIZE, 0}});
+  handler_.setCurrentSettings(settings);
+  auto buf = handler_.get();
+  ASSERT_NE(buf, nullptr);
+
+  auto largerSettings = makeSettings({{SettingsId::HEADER_TABLE_SIZE, 4096}});
+  handler_.setCurrentSettings(largerSettings);
+  EXPECT_TRUE(handler_.validate(std::string("h3"), buf));
 }
 
 TEST_F(H3EarlyDataHandlerTest, ValidateRejectsCachedBlockedStreamsTooLarge) {

@@ -172,7 +172,14 @@ bool H3EarlyDataHandler::validate(const quic::Optional<std::string>& /*alpn*/,
       continue;
     }
 
-    if (isLimitSetting(cachedHqId)) {
+    if (cachedHqId == hq::SettingId::HEADER_TABLE_SIZE) {
+      // RFC 9204 3.2.3: a non-zero remembered capacity must match exactly
+      if (cachedValue != 0 && cachedValue != currentSetting->value) {
+        XLOG(DBG2) << "Cached setting " << idResult->first << " value "
+                   << cachedValue << " != current " << currentSetting->value;
+        return false;
+      }
+    } else if (isLimitSetting(cachedHqId)) {
       // For limits: cached must be <= current
       if (cachedValue > currentSetting->value) {
         XLOG(DBG2) << "Cached setting " << idResult->first << " value "
