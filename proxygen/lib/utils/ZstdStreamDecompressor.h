@@ -26,7 +26,7 @@
 
 #include <proxygen/lib/utils/StreamDecompressor.h>
 
-namespace proxygen {
+namespace proxygen::decompression {
 
 constexpr uint64_t kDefaultMaxZstdDecompressionRatio = 1000;
 
@@ -72,4 +72,4 @@ class ZstdStreamDecompressor : public StreamDecompressor {
   uint64_t totalInputBytes_{0};
   uint64_t totalOutputBytes_{0};
 };
-} // namespace proxygen
+} // namespace proxygen::decompression

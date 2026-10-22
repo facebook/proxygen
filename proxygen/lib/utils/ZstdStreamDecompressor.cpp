@@ -11,7 +11,7 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 
-namespace proxygen {
+namespace proxygen::decompression {
 
 void ZstdStreamDecompressor::freeDCtx(ZSTD_DCtx* dctx) {
   ZSTD_freeDCtx(dctx);
@@ -88,4 +88,4 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
 
   return out;
 }
-} // namespace proxygen
+} // namespace proxygen::decompression

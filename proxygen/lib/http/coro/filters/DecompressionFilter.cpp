@@ -103,7 +103,8 @@ void DecompressionIngressFilter::initializeWithHTTPMessage(HTTPMessage& msg) {
       statsCallback_->onDecompressionAlgo(std::string(it->name));
     }
     if (it->type == CompressionType::ZSTD) {
-      decompressor_ = std::make_unique<ZstdStreamDecompressor>();
+      decompressor_ =
+          std::make_unique<proxygen::decompression::ZstdStreamDecompressor>();
     } else {
       decompressor_ =
           std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(

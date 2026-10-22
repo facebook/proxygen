@@ -40,7 +40,7 @@ struct ZlibTest {
 
 struct ZstdTest {
   static std::unique_ptr<StreamDecompressor> makeDecompressor() {
-    return std::make_unique<ZstdStreamDecompressor>();
+    return std::make_unique<proxygen::decompression::ZstdStreamDecompressor>();
   }
   static std::string getExpectedEncoding() {
     return "zstd";

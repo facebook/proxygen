@@ -17,7 +17,8 @@ void DecompressionFilter::onRequest(std::unique_ptr<HTTPMessage> msg) noexcept {
   auto contentEncoding =
       headers.getSingleOrNullptr(HTTP_HEADER_CONTENT_ENCODING);
   if (contentEncoding && *contentEncoding == "zstd") {
-    decompressor_ = std::make_unique<ZstdStreamDecompressor>();
+    decompressor_ =
+        std::make_unique<proxygen::decompression::ZstdStreamDecompressor>();
     headers.remove(HTTP_HEADER_CONTENT_ENCODING);
     headers.remove(HTTP_HEADER_CONTENT_LENGTH);
   }

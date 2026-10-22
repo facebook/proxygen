@@ -42,7 +42,8 @@ std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
 void verify(std::unique_ptr<IOBuf> original,
             std::unique_ptr<IOBuf> compressed,
             bool reuseBuf) {
-  auto zd = std::make_unique<ZstdStreamDecompressor>(reuseBuf);
+  auto zd = std::make_unique<proxygen::decompression::ZstdStreamDecompressor>(
+      reuseBuf);
 
   auto decompressed = zd->decompress(compressed.get());
   ASSERT_FALSE(zd->hasError()) << "Decompression error.";
@@ -56,7 +57,8 @@ void verify(std::unique_ptr<IOBuf> original,
 void verifyPieces(std::unique_ptr<IOBuf> original,
                   std::vector<std::unique_ptr<IOBuf>> compressed,
                   bool reuseBuf) {
-  auto zd = std::make_unique<ZstdStreamDecompressor>(reuseBuf);
+  auto zd = std::make_unique<proxygen::decompression::ZstdStreamDecompressor>(
+      reuseBuf);
 
   auto decompressed = folly::IOBuf::create(0);
 
@@ -260,7 +262,7 @@ TEST_F(ZstdTests, MaxDecompressionRatio_FailsWhenRatioTooSmall) {
   auto compressed = compress(original);
   ASSERT_NE(compressed, nullptr);
 
-  auto zd = std::make_unique<ZstdStreamDecompressor>(
+  auto zd = std::make_unique<proxygen::decompression::ZstdStreamDecompressor>(
       /*reuseOutBuf=*/false, /*maxDecompressionRatio=*/10);
 
   auto decompressed = zd->decompress(compressed.get());
@@ -275,7 +277,7 @@ TEST_F(ZstdTests, MaxDecompressionRatio_PassesWhenRatioLargeEnough) {
   ASSERT_NE(compressed, nullptr);
 
   // Use a very large ratio so decompression succeeds.
-  auto zd = std::make_unique<ZstdStreamDecompressor>(
+  auto zd = std::make_unique<proxygen::decompression::ZstdStreamDecompressor>(
       /*reuseOutBuf=*/false, /*maxDecompressionRatio=*/1000000);
 
   auto decompressed = zd->decompress(compressed.get());
@@ -291,7 +293,7 @@ TEST_F(ZstdTests, MaxDecompressionRatio_PassesWhenExplicitlyUnlimited) {
   ASSERT_NE(compressed, nullptr);
 
   // Explicitly opt out of ratio limit.
-  auto zd = std::make_unique<ZstdStreamDecompressor>(
+  auto zd = std::make_unique<proxygen::decompression::ZstdStreamDecompressor>(
       /*reuseOutBuf=*/false, /*maxDecompressionRatio=*/std::nullopt);
 
   auto decompressed = zd->decompress(compressed.get());
@@ -308,7 +310,7 @@ TEST_F(ZstdTests, MaxDecompressionRatio_StreamingChunksFailure) {
   auto compressed = compress(original);
   ASSERT_NE(compressed, nullptr);
 
-  auto zd = std::make_unique<ZstdStreamDecompressor>(
+  auto zd = std::make_unique<proxygen::decompression::ZstdStreamDecompressor>(
       /*reuseOutBuf=*/false, /*maxDecompressionRatio=*/10);
 
   // Split compressed data into small chunks.
