@@ -68,6 +68,10 @@ class HTTPSink {
   virtual void sendEOM() = 0;
   virtual bool isEgressEOMSeen() = 0;
   virtual void sendAbort() = 0;
+  // Sinks that cannot carry an error code fall back to sendAbort().
+  virtual void sendAbort(ErrorCode /*statusCode*/) {
+    sendAbort();
+  }
   virtual void updateAndSendPriority(HTTPPriority priority) = 0;
   enum class ByteEventFlags : uint8_t { ACK = 0x01, TX = 0x02 };
   virtual bool trackEgressBodyOffset(uint64_t bodyOffset,

@@ -122,6 +122,9 @@ class HTTPTransactionSink : public HTTPSink {
   void sendAbort() override {
     httpTransaction_->sendAbort();
   }
+  void sendAbort(ErrorCode statusCode) override {
+    httpTransaction_->sendAbort(statusCode);
+  }
   void updateAndSendPriority(HTTPPriority priority) override {
     httpTransaction_->updateAndSendPriority(priority);
   }
