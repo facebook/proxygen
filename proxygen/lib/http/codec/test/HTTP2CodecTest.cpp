@@ -1456,6 +1456,45 @@ TEST_F(HTTP2CodecTest, DoubleGoaway) {
   EXPECT_FALSE(downstreamCodec_.isStreamIngressEgressAllowed(2));
 }
 
+// A drain only stops new streams once the SECOND goaway lands. The first
+// advertises lastStream = max and refuses nothing, which is the whole point of
+// the double-goaway drain; the second pins lastStream to what the server has
+// already seen, lowering egressGoawayAck_, after which the codec drops the
+// ingress callbacks for anything above it. A peer that opens a stream in that
+// window gets it silently ignored -- no RST_STREAM, no session error, just no
+// handler.
+TEST_F(HTTP2CodecTest, NewStreamSuppressedAfterFinalGoaway) {
+  upstreamCodec_.generateSettings(output_);
+  parse();
+  callbacks_.reset();
+
+  // Drain into a separate buffer: output_ carries client -> server bytes, and
+  // the upstream codec must not see these goaways, or it would refuse to
+  // generate the requests below instead of the server refusing to accept them.
+  IOBufQueue goaways{IOBufQueue::cacheChainLength()};
+  HTTPMessage req = getGetRequest();
+  HTTPHeaderSize size;
+
+  downstreamCodec_.generateGoaway(goaways);
+  auto accepted = upstreamCodec_.createStream();
+  EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(accepted));
+  upstreamCodec_.generateHeader(output_, accepted, req, true, &size);
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+
+  downstreamCodec_.generateGoaway(goaways);
+  auto refused = upstreamCodec_.createStream();
+  EXPECT_FALSE(downstreamCodec_.isStreamIngressEgressAllowed(refused));
+  upstreamCodec_.generateHeader(output_, refused, req, true, &size);
+  parse();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 TEST_F(HTTP2CodecTest, DoubleGoawayWithError) {
   SetUpUpstreamTest();
   std::unique_ptr<folly::IOBuf> debugData =
