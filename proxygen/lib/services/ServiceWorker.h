@@ -83,6 +83,13 @@ class ServiceWorker {
               << " (drainingAcceptors_.size=" << drainingAcceptors_.size()
               << ")";
     // Evict any previous draining acceptor still occupying this address.
+    //
+    // FIXME: use-after-free if this branch is ever taken. forceStop() only
+    // queues the drop of the acceptor's connections on its EventBase, even
+    // when called on that thread, and erase() frees the acceptor before the
+    // drop runs. Current callers release every draining acceptor before
+    // draining its address again, so this is not reached. Free the evicted
+    // acceptor on a later loop iteration before relying on it.
     auto drainingIt = drainingAcceptors_.find(accAddress);
     if (drainingIt != drainingAcceptors_.end()) {
       LOG(INFO)
@@ -98,7 +105,11 @@ class ServiceWorker {
     namedAddress_.erase(name);
   }
 
-  // Release a draining acceptor, the caller now owns its lifetime.
+  // Release a draining acceptor, the caller now owns its lifetime. If it may
+  // still hold connections, forceStop() it and free it on a later loop
+  // iteration of its EventBase: forceStop() only queues the drop, so freeing
+  // the acceptor right after it leaves the queued drop running on freed
+  // memory.
   [[nodiscard]] wangle::Acceptor* releaseDrainingAcceptor(
       const AcceptorAddress& accAddress) {
     auto it = drainingAcceptors_.find(accAddress);
@@ -140,13 +151,22 @@ class ServiceWorker {
   virtual void flushStats() {
   }
 
-  // Destruct all the acceptors
+  // Destruct all the acceptors.
+  //
+  // Deliberately does not forceStop() first: this runs from worker destruction,
+  // after the worker's EventBase is destroyed, and forceStop() posts to it.
+  // Anything an acceptor still owns must have been reaped before then.
   virtual void clearAcceptors() {
     acceptors_.clear();
     namedAddress_.clear();
     drainingAcceptors_.clear();
   }
 
+  // Frees every draining acceptor at once, without forceStop(). It has no
+  // callers; it is for discarding drains that are over: call it on the worker's
+  // EventBase once no draining acceptor holds connections or has work queued
+  // there. To retire a live one, take it with releaseDrainingAcceptor()
+  // instead.
   virtual void clearDrainingAcceptors() {
     drainingAcceptors_.clear();
   }
