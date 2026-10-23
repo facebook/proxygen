@@ -45,6 +45,7 @@ proxygen_add_library(proxygen_http_webtransport_webtransportimpl
     proxygen_http_webtransport
     proxygen_http_webtransport_flow_controller
     mvfst::mvfst_constants
+    Folly::folly_io_async_destructor_check
 )
 
 proxygen_add_library(proxygen_http_webtransport_quicwebtransport

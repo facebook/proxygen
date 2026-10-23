@@ -236,6 +236,52 @@ TEST_F(QuicWebTransportTest, BidiStreamHandlerDestroysTransport) {
   EXPECT_EQ(sharedTransport, nullptr);
 }
 
+TEST_F(QuicWebTransportTest, ConnectionEndCancelCallbackClosesSession) {
+  WebTransport::BidiStreamHandle peerBidi{};
+  EXPECT_CALL(*handler_, onNewBidiStream(_))
+      .WillOnce(
+          [&](WebTransport::BidiStreamHandle handle) { peerBidi = handle; });
+  socketDriver_.addReadEvent(4, nullptr, false);
+  eventBase_.loopOnce();
+  ASSERT_NE(peerBidi.writeHandle, nullptr);
+  auto peerBidiToken = peerBidi.writeHandle->getCancelToken();
+
+  auto uniStream = webTransport()->createUniStream();
+  ASSERT_TRUE(uniStream.hasValue());
+  ASSERT_LT(uniStream.value()->getID(), 4);
+  folly::CancellationCallback closeOnCancel(
+      uniStream.value()->getCancelToken(),
+      [this] { webTransport()->closeSession(); });
+
+  socketDriver_.deliverConnectionError(
+      quic::QuicError(quic::ApplicationErrorCode(WT_ERROR_1), "peer close"));
+  eventBase_.loop();
+
+  EXPECT_TRUE(peerBidiToken.isCancellationRequested());
+}
+
+TEST_F(QuicWebTransportTest, ConnectionEndCancelCallbackDestroysTransport) {
+  std::shared_ptr<QuicWebTransport> sharedTransport(transport_.release());
+  WebTransport* wt = sharedTransport.get();
+  auto first = wt->createUniStream();
+  ASSERT_TRUE(first.hasValue());
+  auto second = wt->createUniStream();
+  ASSERT_TRUE(second.hasValue());
+  auto secondToken = second.value()->getCancelToken();
+  folly::CancellationCallback closeOnCancel(first.value()->getCancelToken(),
+                                            [&] {
+                                              wt->closeSession();
+                                              sharedTransport.reset();
+                                            });
+
+  socketDriver_.deliverConnectionError(
+      quic::QuicError(quic::ApplicationErrorCode(WT_ERROR_1), "peer close"));
+  eventBase_.loop();
+
+  EXPECT_EQ(sharedTransport, nullptr);
+  EXPECT_TRUE(secondToken.isCancellationRequested());
+}
+
 TEST_F(QuicWebTransportTest, SetPriority) {
   auto handle = webTransport()->createUniStream();
   EXPECT_TRUE(handle.hasValue());

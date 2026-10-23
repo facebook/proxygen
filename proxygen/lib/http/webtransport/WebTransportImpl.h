@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <folly/io/async/DestructorCheck.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/webtransport/FlowController.h>
 #include <proxygen/lib/http/webtransport/WebTransport.h>
@@ -21,7 +22,9 @@ constexpr double kFlowControlThreshold = 0.5;
 
 namespace proxygen {
 
-class WebTransportImpl : public WebTransport {
+class WebTransportImpl
+    : public WebTransport
+    , public folly::DestructorCheck {
  public:
   class TransportProvider {
    public:

@@ -75,7 +75,11 @@ void QuicWebTransport::onConnectionEnd(quic::QuicError error) noexcept {
 
 void QuicWebTransport::onConnectionEndImpl(
     folly::Optional<quic::QuicError> error) {
+  folly::DestructorCheck::Safety safety(*this);
   destroy();
+  if (safety.destroyed()) {
+    return;
+  }
   folly::Optional<uint32_t> wtError;
   if (error) {
     if (error->code.type() == quic::QuicErrorCode::Type::ApplicationErrorCode) {
@@ -148,7 +152,9 @@ QuicWebTransport::notifyPendingWriteOnStream(HTTPCodec::StreamID id,
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::resetWebTransportEgress(HTTPCodec::StreamID id,
                                           uint32_t errorCode) {
-  XCHECK(quicSocket_);
+  if (!quicSocket_) {
+    return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
+  }
   auto res = quicSocket_->resetStream(id, errorCode);
   if (!res) {
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);

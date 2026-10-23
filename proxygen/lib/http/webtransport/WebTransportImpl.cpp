@@ -36,6 +36,7 @@ void WebTransportImpl::destroy() {
 
 void WebTransportImpl::terminateSessionStreams(uint32_t errorCode,
                                                const std::string& reason) {
+  folly::DestructorCheck::Safety safety(*this);
   auto wtIngressStreams = std::move(wtIngressStreams_);
   for (auto& [id, stream] : wtIngressStreams) {
     // Deliver an error to the application if needed
@@ -58,7 +59,9 @@ void WebTransportImpl::terminateSessionStreams(uint32_t errorCode,
   for (auto& [id, stream] : wtEgressStreams) {
     // Deliver an error to the application
     stream.onStopSending(errorCode);
-    resetWebTransportEgress(id, errorCode);
+    if (!safety.destroyed()) {
+      resetWebTransportEgress(id, errorCode);
+    }
   }
 }
 
