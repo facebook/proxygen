@@ -40,6 +40,9 @@ class TraceEventContext {
 
   void traceEventAvailable(const TraceEvent& event);
 
+  // Copies the event to every observer but the last, which gets it moved.
+  void traceEventAvailable(TraceEvent&& event);
+
   [[nodiscard]] bool isAllTraceEventNeeded() const;
 
  private:

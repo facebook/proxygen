@@ -8,6 +8,8 @@
 
 #include <proxygen/lib/utils/ConnectionTelemetryBridge.h>
 #include <proxygen/lib/utils/TraceEvent.h>
+#include <proxygen/lib/utils/TraceEventContext.h>
+#include <proxygen/lib/utils/TraceEventObserver.h>
 
 #include <proxygen/lib/utils/Exception.h>
 #include <proxygen/lib/utils/TraceEventType.h>
@@ -57,6 +59,67 @@ TEST(ConnectionTelemetryBridgeTest, DropsEventsWithoutSinkAndForwardsWithSink) {
   EXPECT_EQ(capture.receivedType, TraceEventType::TotalRequest);
 
   ConnectionTelemetryBridge::registerSink(nullptr);
+}
+
+namespace {
+
+struct RecordingObserver : public TraceEventObserver {
+  void traceEventAvailable(TraceEvent event) noexcept override {
+    events.push_back(std::move(event));
+  }
+  std::vector<TraceEvent> events;
+};
+
+TraceEvent makeEventWithStringMeta() {
+  TraceEvent event(TraceEventType::TotalRequest, 7);
+  event.addMeta(TraceFieldType::Protocol,
+                std::string("a protocol name longer than the SSO buffer"));
+  return event;
+}
+
+void expectSameEvent(const TraceEvent& actual) {
+  EXPECT_EQ(actual.getType(), TraceEventType::TotalRequest);
+  EXPECT_EQ(actual.getParentID(), 7);
+  std::string protocol;
+  EXPECT_TRUE(actual.readStrMeta(TraceFieldType::Protocol, protocol));
+  EXPECT_EQ(protocol, "a protocol name longer than the SSO buffer");
+}
+
+} // namespace
+
+TEST(TraceEventContextTest, MovedEventReachesEveryObserverWhole) {
+  RecordingObserver first;
+  RecordingObserver second;
+  RecordingObserver third;
+  TraceEventContext context(7, {&first, &second, &third});
+
+  context.traceEventAvailable(makeEventWithStringMeta());
+
+  for (const auto* observer : {&first, &second, &third}) {
+    ASSERT_EQ(observer->events.size(), 1);
+    expectSameEvent(observer->events[0]);
+  }
+}
+
+TEST(TraceEventContextTest, CopiedEventReachesEveryObserverAndStaysIntact) {
+  RecordingObserver first;
+  RecordingObserver second;
+  TraceEventContext context(7, {&first, &second});
+  const TraceEvent event = makeEventWithStringMeta();
+
+  context.traceEventAvailable(event);
+
+  expectSameEvent(event);
+  ASSERT_EQ(first.events.size(), 1);
+  ASSERT_EQ(second.events.size(), 1);
+  expectSameEvent(first.events[0]);
+  expectSameEvent(second.events[0]);
+}
+
+TEST(TraceEventContextTest, MovedEventWithNoObserversIsDropped) {
+  TraceEventContext context(7, std::vector<TraceEventObserver*>{});
+
+  context.traceEventAvailable(makeEventWithStringMeta());
 }
 
 TEST(TraceEventTest, IntegralDataIntegralValue) {
