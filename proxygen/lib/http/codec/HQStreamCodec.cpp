@@ -390,8 +390,13 @@ void HQStreamCodec::generateHeaderImpl(
 
 size_t HQStreamCodec::generateBodyImpl(folly::IOBufQueue& writeBuf,
                                        std::unique_ptr<folly::IOBuf> chain) {
+  const auto payloadLength = chain->computeChainDataLength();
   auto result = hq::writeData(writeBuf, std::move(chain));
   if (result) {
+    lastGeneratedBodyFrame_ = GeneratedBodyFrame{
+        .headerLength = *result - payloadLength,
+        .payloadLength = payloadLength,
+    };
     return *result;
   }
   LOG(FATAL) << "frame exceeded 2^62-1 limit";

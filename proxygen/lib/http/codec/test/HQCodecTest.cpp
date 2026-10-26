@@ -173,6 +173,37 @@ TEST_F(HQCodecTest, DataFrame) {
   EXPECT_EQ(callbacks_.bodyLength, data->length());
 }
 
+TEST_F(HQCodecTest, GenerateBodyWritesOneDataFrameWithTrailingPayload) {
+  for (const size_t bodyLength : {size_t{63}, size_t{64}}) {
+    SCOPED_TRACE(bodyLength);
+    const std::string body(bodyLength, 'a');
+    IOBufQueue output{IOBufQueue::cacheChainLength()};
+
+    const auto encodedSize =
+        upstreamCodec_->generateBody(output,
+                                     streamId_,
+                                     IOBuf::copyBuffer(body),
+                                     HTTPCodec::NoPadding,
+                                     false);
+
+    EXPECT_EQ(encodedSize, output.chainLength());
+    folly::io::Cursor cursor(output.front());
+    const auto frameType = quic::follyutils::decodeQuicInteger(cursor);
+    ASSERT_TRUE(frameType.has_value());
+    EXPECT_EQ(frameType->first, folly::to_underlying(FrameType::DATA));
+    const auto payloadLength = quic::follyutils::decodeQuicInteger(cursor);
+    ASSERT_TRUE(payloadLength.has_value());
+    EXPECT_EQ(payloadLength->first, bodyLength);
+    // The codec reports the framing it wrote.
+    const auto& frame = upstreamCodec_->getLastGeneratedBodyFrame();
+    EXPECT_EQ(frame.headerLength, output.chainLength() - cursor.totalLength());
+    EXPECT_EQ(frame.payloadLength, bodyLength);
+    EXPECT_EQ(frame.headerLength + frame.payloadLength, encodedSize);
+    EXPECT_EQ(cursor.readFixedString(bodyLength), body);
+    EXPECT_TRUE(cursor.isAtEnd());
+  }
+}
+
 TEST_F(HQCodecTest, PriorityUpdate) {
   // SETTINGS is a must have
   writeValidFrame(queueCtrl_, FrameType::SETTINGS);

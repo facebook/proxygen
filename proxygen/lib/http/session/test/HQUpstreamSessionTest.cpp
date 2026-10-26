@@ -23,6 +23,7 @@
 #include <proxygen/lib/http/session/test/HQSessionTestCommon.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
+#include <proxygen/lib/http/session/test/MockHTTPTransactionObserver.h>
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/MockSessionObserver.h>
 #include <quic/api/test/MockQuicSocket.h>
@@ -42,6 +43,7 @@ using namespace proxygen::hq;
 using namespace quic;
 using namespace testing;
 using namespace std::chrono;
+using TxnBytesEvent = HTTPTransactionObserverInterface::TxnBytesEvent;
 
 namespace {
 constexpr quic::StreamId kQPACKEncoderIngressStreamId = 7;
@@ -251,6 +253,65 @@ TEST_P(HQUpstreamSessionTest, SimpleGet) {
                *std::get<0>(resp),
                std::move(std::get<1>(resp)),
                true);
+  flushAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQUpstreamSessionTest, BodyBytesGeneratedIncludesStreamRange) {
+  auto handler = openTransaction();
+  auto* txn = handler->txn_;
+  const auto streamId = txn->getID();
+  auto observer = std::make_unique<NiceMock<MockHTTPTransactionObserver>>(
+      MockHTTPTransactionObserver::EventSetBuilder()
+          .enable(MockHTTPTransactionObserver::Events::TxnBytes)
+          .build());
+  EXPECT_CALL(*observer, attached(Eq(txn->getObserverAccessor())));
+  txn->addObserver(observer.get());
+
+  constexpr size_t kBodyLength = 64;
+  folly::Optional<size_t> encodedBodyLength;
+  folly::Optional<TxnBytesEvent::BodyByteStreamRange> bodyByteStreamRange;
+  EXPECT_CALL(*observer, onBytesEvent(_, _))
+      .WillRepeatedly([&](HTTPTransactionObserverAccessor* observerAccessor,
+                          const TxnBytesEvent& event) {
+        if (event.type != TxnBytesEvent::Type::BODY_BYTES_GENERATED) {
+          return;
+        }
+        EXPECT_THAT(observerAccessor, Eq(txn->getObserverAccessor()));
+        encodedBodyLength = event.maybeNumBytes;
+        EXPECT_THAT(event.maybeNumBodyBytes,
+                    ::testing::Optional(Eq(kBodyLength)));
+        ASSERT_TRUE(event.maybeBodyByteStreamRange.has_value());
+        bodyByteStreamRange = event.maybeBodyByteStreamRange;
+      });
+
+  txn->sendHeaders(getPostRequest(kBodyLength));
+  txn->sendBody(makeBuf(kBodyLength));
+  eventBase_.loopOnce();
+
+  ASSERT_TRUE(encodedBodyLength.has_value());
+  EXPECT_GT(*encodedBodyLength, kBodyLength);
+  ASSERT_TRUE(bodyByteStreamRange.has_value());
+  EXPECT_EQ(bodyByteStreamRange->streamId, streamId);
+  EXPECT_EQ(bodyByteStreamRange->bodyOffset, 0);
+  EXPECT_EQ(bodyByteStreamRange->length, kBodyLength);
+  socketDriver_->flushWrites(streamId);
+  auto streamWriteOffset =
+      socketDriver_->getSocket()->getStreamWriteOffset(streamId);
+  ASSERT_TRUE(streamWriteOffset.has_value());
+  EXPECT_EQ(*streamWriteOffset,
+            bodyByteStreamRange->streamOffset + bodyByteStreamRange->length);
+
+  EXPECT_CALL(*observer, detached(Eq(txn->getObserverAccessor())));
+  txn->removeObserver(observer.get());
+  txn->sendEOM();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+  auto resp = makeResponse(200, 100);
+  sendResponse(
+      streamId, *std::get<0>(resp), std::move(std::get<1>(resp)), true);
   flushAndLoop();
   hqSession_->closeWhenIdle();
 }

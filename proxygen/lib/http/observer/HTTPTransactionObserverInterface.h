@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <folly/Optional.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/utils/Time.h>
@@ -28,6 +29,37 @@ class HTTPTransactionObserverInterface {
   };
 
   struct TxnBytesEvent {
+    /**
+     * Where one write's body payload landed on a transport stream: `length`
+     * payload bytes starting at body offset `bodyOffset` were written at
+     * stream offset `streamOffset` of stream `streamId`.
+     */
+    struct BodyByteStreamRange {
+      uint64_t streamId;
+      uint64_t bodyOffset;
+      uint64_t streamOffset;
+      size_t length;
+
+      struct BuilderFields {
+        folly::Optional<uint64_t> maybeStreamId;
+        folly::Optional<uint64_t> maybeBodyOffset;
+        folly::Optional<uint64_t> maybeStreamOffset;
+        folly::Optional<size_t> maybeLength;
+        explicit BuilderFields() = default;
+      };
+
+      struct Builder : private BuilderFields {
+        Builder&& setStreamId(uint64_t streamIdIn);
+        Builder&& setBodyOffset(uint64_t bodyOffsetIn);
+        Builder&& setStreamOffset(uint64_t streamOffsetIn);
+        Builder&& setLength(size_t lengthIn);
+        BodyByteStreamRange build() &&;
+        explicit Builder() = default;
+      };
+
+      explicit BodyByteStreamRange(BuilderFields& builderFields);
+    };
+
     enum class Type : uint8_t {
       LAST_HEADER_BYTE_READ,
       BODY_BYTES_READ,
@@ -42,9 +74,16 @@ class HTTPTransactionObserverInterface {
 
     const proxygen::TimePoint timestamp;
     const Type type;
+    // For BODY_BYTES_GENERATED, each event describes one transport write:
+    // `maybeNumBytes` is its encoded size, `maybeNumBodyBytes` the payload
+    // bytes inside it, and `maybeBodyByteStreamRange` where that payload
+    // landed on the stream, when the transport knows. EOM bytes written on
+    // their own are an event with zero body bytes.
     const folly::Optional<size_t> maybeNumBytes;
+    const folly::Optional<size_t> maybeNumBodyBytes;
     const folly::Optional<std::reference_wrapper<const HTTPMessage>>
         maybeHeadersRef;
+    const folly::Optional<BodyByteStreamRange> maybeBodyByteStreamRange;
 
     TxnBytesEvent(TxnBytesEvent&&) = delete;
     TxnBytesEvent& operator=(const TxnBytesEvent&) = delete;
@@ -56,8 +95,10 @@ class HTTPTransactionObserverInterface {
           maybeTimestampRef;
       Type type;
       size_t numBytes;
+      folly::Optional<size_t> numBodyBytes;
       folly::Optional<std::reference_wrapper<const HTTPMessage>>
           maybeHeadersRef;
+      folly::Optional<BodyByteStreamRange> maybeBodyByteStreamRange;
       explicit BuilderFields() = default;
     };
 
@@ -65,7 +106,10 @@ class HTTPTransactionObserverInterface {
       Builder&& setTimestamp(const proxygen::TimePoint& timestampIn);
       Builder&& setType(Type typeIn);
       Builder&& setNumBytes(const size_t numBytes);
+      Builder&& setNumBodyBytes(size_t numBodyBytesIn);
       Builder&& setHeaders(const proxygen::HTTPMessage& headersIn);
+      Builder&& setBodyByteStreamRange(
+          const BodyByteStreamRange& bodyByteStreamRangeIn);
       TxnBytesEvent build() &&;
       explicit Builder() = default;
     };

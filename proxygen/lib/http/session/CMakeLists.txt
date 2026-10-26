@@ -150,6 +150,7 @@ proxygen_add_library(proxygen_http_session_http_transaction
     proxygen_http_http_headers
     proxygen_http_session_stats
     proxygen_http_webtransport_httpwebtransport
+    Folly::folly_container_small_vector
     Folly::folly_conv
     Folly::folly_io_async_event_base_manager
     Folly::folly_tracing_scoped_trace_section

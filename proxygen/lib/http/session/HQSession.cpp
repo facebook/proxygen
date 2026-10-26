@@ -2308,6 +2308,7 @@ void HQSession::HQStreamTransportBase::initCodec(
     auto c = dynamic_cast<hq::HQStreamCodec*>(realCodec_.get());
     CHECK(c) << "HQ should use HQStream codec";
     c->setActivationHook([this] { return setActiveCodec("self"); });
+    hqStreamCodec_ = c;
   }
   auto g = folly::makeGuard(setActiveCodec(__func__));
   if (isUpstream(session_.direction_)) {
@@ -3149,7 +3150,8 @@ void HQSession::HQStreamTransportBase::coalesceEOM(size_t encodedBodyBytes) {
   }
 }
 
-size_t HQSession::HQStreamTransportBase::sendBody(
+HTTPTransaction::Transport::SendBodyResult
+HQSession::HQStreamTransportBase::sendBody( // NOLINT(bugprone-exception-escape)
     HTTPTransaction* txn,
     std::unique_ptr<folly::IOBuf> body,
     bool includeEOM,
@@ -3159,7 +3161,9 @@ size_t HQSession::HQStreamTransportBase::sendBody(
           << " txn=" << txn_;
   CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
   DCHECK(txn == &txn_);
+  // Cannot throw (see the NOLINT above): writeBuf_ caches its chain length.
   uint64_t offset = streamWriteByteOffset();
+  uint64_t bodyOffset = bodyBytesEgressed_;
 
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
@@ -3168,6 +3172,23 @@ size_t HQSession::HQStreamTransportBase::sendBody(
                                                      std::move(body),
                                                      HTTPCodec::NoPadding,
                                                      includeEOM);
+  // HQSession is the only layer that knows where body payload lands on the
+  // QUIC stream: `offset` is the stream write offset before the codec wrote,
+  // and the codec reports the DATA frame header it wrote before the payload.
+  folly::Optional<
+      HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange>
+      bodyByteStreamRange;
+  if (bodyLength > 0 && hqStreamCodec_) {
+    const auto& frame = hqStreamCodec_->getLastGeneratedBodyFrame();
+    DCHECK_EQ(frame.headerLength + frame.payloadLength, encodedSize);
+    bodyByteStreamRange = HTTPTransactionObserverInterface::TxnBytesEvent::
+                              BodyByteStreamRange::Builder()
+                                  .setStreamId(getStreamId())
+                                  .setBodyOffset(bodyOffset)
+                                  .setStreamOffset(offset + frame.headerLength)
+                                  .setLength(frame.payloadLength)
+                                  .build();
+  }
   bodyBytesEgressed_ += bodyLength;
   if (auto httpSessionActivityTracker =
           session_.getHTTPSessionActivityTracker()) {
@@ -3189,7 +3210,8 @@ size_t HQSession::HQStreamTransportBase::sendBody(
     coalesceEOM(encodedSize);
   }
   notifyPendingEgress();
-  return encodedSize;
+  return {.encodedSize = encodedSize,
+          .bodyByteStreamRange = std::move(bodyByteStreamRange)};
 }
 
 size_t HQSession::HQStreamTransportBase::sendChunkHeader(

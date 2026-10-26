@@ -38,15 +38,16 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
               sendHeaders,
               (HTTPTransaction*, const HTTPMessage&, HTTPHeaderSize*, bool),
               (noexcept));
-  MOCK_METHOD((size_t),
+  MOCK_METHOD((HTTPTransaction::Transport::SendBodyResult),
               sendBody,
               (HTTPTransaction*, std::shared_ptr<folly::IOBuf>, bool, bool),
               (noexcept));
 
-  size_t sendBody(HTTPTransaction* txn,
-                  std::unique_ptr<folly::IOBuf> iob,
-                  bool eom,
-                  bool trackLastByteFlushed) noexcept override {
+  HTTPTransaction::Transport::SendBodyResult sendBody(
+      HTTPTransaction* txn,
+      std::unique_ptr<folly::IOBuf> iob,
+      bool eom,
+      bool trackLastByteFlushed) noexcept override {
     return sendBody(txn,
                     std::shared_ptr<folly::IOBuf>(iob.release()),
                     eom,

@@ -37,6 +37,7 @@
 #include <proxygen/lib/utils/TraceEventObserver.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 #include <set>
+#include <vector>
 #include <wangle/acceptor/TransportInfo.h>
 
 namespace proxygen {
@@ -402,6 +403,26 @@ class HTTPTransaction
    public:
     enum class Type : uint8_t { TCP, QUIC };
 
+    /**
+     * What one `sendBody()` write produced.
+     */
+    struct SendBodyResult {
+      using BodyByteStreamRange =
+          HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange;
+
+      // Bytes the HTTP codec appended to the transport write buffer for this
+      // one write: for HTTP/3 the DATA frame header plus payload, for HTTP/2
+      // frame headers plus payload plus padding, and for HTTP/1.1 chunk
+      // framing plus payload. It is measured at the HTTP framing layer and
+      // excludes QUIC packetization, encryption, TLS, TCP/IP overhead and
+      // retransmissions. It covers the whole write, while
+      // `bodyByteStreamRange` covers only the payload inside it.
+      size_t encodedSize{0};
+      // Where the payload landed on the transport stream, when the transport
+      // knows (HTTP/3 only); none for an empty payload.
+      folly::Optional<BodyByteStreamRange> bodyByteStreamRange{};
+    };
+
     virtual void pauseIngress(HTTPTransaction* txn) noexcept = 0;
 
     virtual void resumeIngress(HTTPTransaction* txn) noexcept = 0;
@@ -413,10 +434,10 @@ class HTTPTransaction
                              HTTPHeaderSize* size,
                              bool eom) noexcept = 0;
 
-    virtual size_t sendBody(HTTPTransaction* txn,
-                            std::unique_ptr<folly::IOBuf> iobuf,
-                            bool eom,
-                            bool trackLastByteFlushed) noexcept = 0;
+    virtual SendBodyResult sendBody(HTTPTransaction* txn,
+                                    std::unique_ptr<folly::IOBuf> iobuf,
+                                    bool eom,
+                                    bool trackLastByteFlushed) noexcept = 0;
 
     virtual size_t sendChunkHeader(HTTPTransaction* txn,
                                    size_t length) noexcept = 0;
@@ -1627,9 +1648,8 @@ class HTTPTransaction
   void processIngressError(const HTTPException& ex);
 
   void sendBodyFlowControlled(std::unique_ptr<folly::IOBuf> body = nullptr);
-  size_t sendBodyNow(std::unique_ptr<folly::IOBuf> body,
-                     size_t bodyLen,
-                     bool eom);
+  folly::Optional<Transport::SendBodyResult> sendBodyNow(
+      std::unique_ptr<folly::IOBuf> body, size_t bodyLen, bool eom);
   size_t sendEOMNow();
   void onDeltaSendWindowSize(int32_t windowDelta);
 

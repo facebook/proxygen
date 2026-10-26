@@ -1260,10 +1260,11 @@ class HQSession
                      HTTPHeaderSize* size,
                      bool includeEOM) noexcept override;
 
-    size_t sendBody(HTTPTransaction* txn,
-                    std::unique_ptr<folly::IOBuf> body,
-                    bool includeEOM,
-                    bool trackLastByteFlushed) noexcept override;
+    HTTPTransaction::Transport::SendBodyResult sendBody(
+        HTTPTransaction* txn,
+        std::unique_ptr<folly::IOBuf> body,
+        bool includeEOM,
+        bool trackLastByteFlushed) noexcept override;
 
     size_t sendChunkHeader(HTTPTransaction* txn,
                            size_t length) noexcept override;
@@ -1637,6 +1638,9 @@ class HQSession
     // have read EOF
     bool readEOF_{false};
     bool hasCodec_{false};
+    // The stream's HQ codec, when it has one; it reports how each generated
+    // body was framed.
+    hq::HQStreamCodec* hqStreamCodec_{nullptr};
     bool hasIngress_{false};
     bool detached_{false};
     bool ingressError_{false};

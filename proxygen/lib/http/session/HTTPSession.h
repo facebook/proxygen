@@ -433,10 +433,11 @@ class HTTPSession
                    const HTTPMessage& headers,
                    HTTPHeaderSize* size,
                    bool includeEOM) noexcept override;
-  size_t sendBody(HTTPTransaction* txn,
-                  std::unique_ptr<folly::IOBuf>,
-                  bool includeEOM,
-                  bool trackLastByteFlushed) noexcept override;
+  HTTPTransaction::Transport::SendBodyResult sendBody(
+      HTTPTransaction* txn,
+      std::unique_ptr<folly::IOBuf>,
+      bool includeEOM,
+      bool trackLastByteFlushed) noexcept override;
   size_t sendChunkHeader(HTTPTransaction* txn, size_t length) noexcept override;
   size_t sendChunkTerminator(HTTPTransaction* txn) noexcept override;
   size_t sendPadding(HTTPTransaction* txn, uint16_t bytes) noexcept override;

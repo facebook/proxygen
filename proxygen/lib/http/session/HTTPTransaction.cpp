@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <folly/Conv.h>
+#include <folly/container/small_vector.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/tracing/ScopedTraceSection.h>
 #include <glog/logging.h>
@@ -1023,12 +1024,12 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
     transportCallback_->headerBytesGenerated(size);
   }
   const bool hasBytesObservers = hasBytesEventObservers();
-  const auto timeNow =
-      hasBytesObservers ? SteadyClock::now() : SteadyClock::time_point{};
+  folly::Optional<TimePoint> bytesGeneratedTimestamp;
   if (hasBytesObservers) {
+    bytesGeneratedTimestamp = SteadyClock::now();
     const auto e =
         TxnBytesEvent::Builder()
-            .setTimestamp(timeNow)
+            .setTimestamp(*bytesGeneratedTimestamp)
             .setType(TxnBytesEvent::Type::HEADER_BYTES_GENERATED)
             .setNumBytes(size.compressed ? size.compressed : size.uncompressed)
             .setHeaders(headers)
@@ -1045,11 +1046,16 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
     if (transportCallback_) {
       transportCallback_->bodyBytesGenerated(0);
     }
-    if (hasBytesObservers) {
+    // The transport callback can attach an observer, so recheck only then.
+    if (hasBytesObservers || (transportCallback_ && hasBytesEventObservers())) {
+      if (!bytesGeneratedTimestamp) {
+        bytesGeneratedTimestamp = SteadyClock::now();
+      }
       const auto e = TxnBytesEvent::Builder()
-                         .setTimestamp(timeNow)
+                         .setTimestamp(*bytesGeneratedTimestamp)
                          .setType(TxnBytesEvent::Type::BODY_BYTES_GENERATED)
                          .setNumBytes(0)
+                         .setNumBodyBytes(0)
                          .build();
       emitBytesEvent(e);
     }
@@ -1139,39 +1145,76 @@ size_t HTTPTransaction::sendDeferredBody(uint32_t maxEgress) {
 
   size_t nbytes = 0;
   bool willSendEOM = false;
+  // One entry per transport write, reported to bytes observers once the
+  // transport callback (which may attach an observer) has run. Inline
+  // storage covers the common body-only and body-plus-EOM flushes.
+  struct EgressWrite {
+    size_t encodedBytes{0};
+    size_t bodyBytes{0};
+    folly::Optional<TxnBytesEvent::BodyByteStreamRange> bodyByteStreamRange;
+  };
+  folly::small_vector<EgressWrite, 2> egressWrites;
 
   if (chunkHeaders_.empty()) {
     if (deferredEgressBody_.chainLength() > 0) {
       std::unique_ptr<IOBuf> body = deferredEgressBody_.split(canSend);
-      nbytes = sendBodyNow(std::move(body), canSend, hasPendingEOM());
+      auto maybeSendBodyResult =
+          sendBodyNow(std::move(body), canSend, hasPendingEOM());
+      if (maybeSendBodyResult) {
+        nbytes = maybeSendBodyResult->encodedSize;
+        egressWrites.push_back({
+            .encodedBytes = maybeSendBodyResult->encodedSize,
+            .bodyBytes = canSend,
+            .bodyByteStreamRange = maybeSendBodyResult->bodyByteStreamRange,
+        });
+      }
     }
   } else {
     size_t curLen = 0;
-    // This body is expliticly chunked
+    // This body is expliticly chunked. Chunk framing written around a body
+    // write counts toward that write's encoded bytes.
     while (!chunkHeaders_.empty() && canSend > 0) {
       Chunk& chunk = chunkHeaders_.front();
+      size_t chunkFramingBytes = 0;
       if (!chunk.headerSent) {
-        nbytes += transport_.sendChunkHeader(this, chunk.length);
+        chunkFramingBytes += transport_.sendChunkHeader(this, chunk.length);
         chunk.headerSent = true;
       }
       curLen = std::min<size_t>(chunk.length, canSend);
       std::unique_ptr<folly::IOBuf> cur = deferredEgressBody_.split(curLen);
       VLOG(4) << "sending " << curLen << " fin=false";
-      nbytes += sendBodyNow(std::move(cur), curLen, false);
+      auto maybeSendBodyResult = sendBodyNow(std::move(cur), curLen, false);
       canSend -= curLen;
       chunk.length -= curLen;
       if (chunk.length == 0) {
-        nbytes += transport_.sendChunkTerminator(this);
+        chunkFramingBytes += transport_.sendChunkTerminator(this);
         chunkHeaders_.pop_front();
       } else {
         DCHECK_EQ(canSend, 0);
+      }
+      nbytes += chunkFramingBytes;
+      // A failed body write is not reported, as in the unchunked branch.
+      if (maybeSendBodyResult) {
+        nbytes += maybeSendBodyResult->encodedSize;
+        egressWrites.push_back({
+            .encodedBytes =
+                chunkFramingBytes + maybeSendBodyResult->encodedSize,
+            .bodyBytes = curLen,
+            .bodyByteStreamRange = maybeSendBodyResult->bodyByteStreamRange,
+        });
       }
     }
     willSendEOM = hasPendingEOM();
   }
   // Send any queued eom
   if (willSendEOM) {
-    nbytes += sendEOMNow();
+    const auto eomBytes = sendEOMNow();
+    nbytes += eomBytes;
+    egressWrites.push_back({
+        .encodedBytes = eomBytes,
+        .bodyBytes = 0,
+        .bodyByteStreamRange = folly::none,
+    });
   }
 
   // Update the handler's pause state
@@ -1188,12 +1231,19 @@ size_t HTTPTransaction::sendDeferredBody(uint32_t maxEgress) {
     transportCallback_->bodyBytesGenerated(nbytes);
   }
   if (hasBytesEventObservers()) {
-    const auto e = TxnBytesEvent::Builder()
-                       .setTimestamp(proxygen::SteadyClock::now())
-                       .setType(TxnBytesEvent::Type::BODY_BYTES_GENERATED)
-                       .setNumBytes(nbytes)
-                       .build();
-    emitBytesEvent(e);
+    const auto timestamp = proxygen::SteadyClock::now();
+    for (const auto& write : egressWrites) {
+      auto builder = TxnBytesEvent::Builder()
+                         .setTimestamp(timestamp)
+                         .setType(TxnBytesEvent::Type::BODY_BYTES_GENERATED)
+                         .setNumBytes(write.encodedBytes)
+                         .setNumBodyBytes(write.bodyBytes);
+      if (write.bodyByteStreamRange) {
+        builder.setBodyByteStreamRange(*write.bodyByteStreamRange);
+      }
+      const auto e = std::move(builder).build();
+      emitBytesEvent(e);
+    }
   }
   return nbytes;
 }
@@ -1288,9 +1338,10 @@ size_t HTTPTransaction::sendEOMNow() {
   return nbytes;
 }
 
-size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
-                                    size_t bodyLen,
-                                    bool sendEom) {
+folly::Optional<HTTPTransaction::Transport::SendBodyResult>
+HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
+                             size_t bodyLen,
+                             bool sendEom) {
   constexpr std::string_view kNoneStr = "None";
   DCHECK(body);
   DCHECK_GT(bodyLen, 0);
@@ -1313,7 +1364,7 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
   const bool sendDataFin = sendEom && !trailers_;
   if (sendDataFin) {
     if (!validateEgressStateTransition(EgressSmEvent::eomFlushed)) {
-      return 0;
+      return folly::none;
     }
   } else if (ingressErrorSeen_ && isExpectingWindowUpdate()) {
     // I don't know how we got here but we're in trouble.  We need a window
@@ -1325,11 +1376,12 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
     ex.setProxygenError(kErrorEOF);
     ex.setCodecStatusCode(ErrorCode::FLOW_CONTROL_ERROR);
     onError(ex);
-    return 0;
+    return folly::none;
   }
   updateReadTimeout();
-  nbytes = transport_.sendBody(
+  auto sendBodyResult = transport_.sendBody(
       this, std::move(body), sendDataFin, enableLastByteFlushedTracking_);
+  nbytes = sendBodyResult.encodedSize;
 
   bodyBytesEgressed_ += bodyLen;
   for (auto it = egressBodyOffsetsToTrack_.begin();
@@ -1348,7 +1400,8 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
   if (isEgressComplete()) {
     nbytes += maybeSendDeferredNoError();
   }
-  return nbytes;
+  sendBodyResult.encodedSize = nbytes;
+  return sendBodyResult;
 }
 
 void HTTPTransaction::sendEOM() {
@@ -1382,6 +1435,7 @@ void HTTPTransaction::sendEOM() {
                            .setTimestamp(proxygen::SteadyClock::now())
                            .setType(TxnBytesEvent::Type::BODY_BYTES_GENERATED)
                            .setNumBytes(nbytes)
+                           .setNumBodyBytes(0)
                            .build();
         emitBytesEvent(e);
       }

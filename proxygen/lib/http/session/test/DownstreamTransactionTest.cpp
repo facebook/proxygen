@@ -13,9 +13,11 @@
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
+#include <proxygen/lib/http/session/test/MockHTTPTransactionObserver.h>
 
 using namespace proxygen;
 using namespace testing;
+using TxnBytesEvent = HTTPTransactionObserverInterface::TxnBytesEvent;
 
 using std::unique_ptr;
 
@@ -51,11 +53,13 @@ class DownstreamTransactionTest : public testing::Test {
             }));
     EXPECT_CALL(transport_, sendBody(txn, _, false, false))
         .WillRepeatedly(Invoke(
-            [=,
-             this](Unused, std::shared_ptr<folly::IOBuf> body, Unused, Unused) {
+            [=, this](Unused,
+                      std::shared_ptr<folly::IOBuf> body,
+                      Unused,
+                      Unused) -> HTTPTransaction::Transport::SendBodyResult {
               auto cur = body->computeChainDataLength();
               sent_ += cur;
-              return cur;
+              return {.encodedSize = cur};
             }));
     if (delayResponse) {
       EXPECT_CALL(transport_, sendEOM(txn, _));
@@ -428,6 +432,106 @@ TEST_F(DownstreamTransactionTest, DeferredEgress) {
 
   HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS, "test");
   txn.onError(err);
+}
+
+TEST_F(DownstreamTransactionTest,
+       BodyBytesGeneratedExcludesBodyRejectedBeforeTransport) {
+  auto& txn = makeTxn(true, 10, 10);
+
+  EXPECT_CALL(handler_, _setTransaction(&txn));
+  EXPECT_CALL(handler_, _onHeadersComplete(_));
+  txn.setHandler(&handler_);
+  txn.onIngressHeadersComplete(makeGetRequest());
+  EXPECT_CALL(handler_, _onEOM());
+  txn.onIngressEOM();
+
+  auto response = makeResponse(200);
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _, false));
+  txn.sendHeaders(*response);
+
+  auto observer = std::make_unique<NiceMock<MockHTTPTransactionObserver>>(
+      MockHTTPTransactionObserver::EventSetBuilder()
+          .enable(MockHTTPTransactionObserver::Events::TxnBytes)
+          .build());
+  EXPECT_CALL(*observer, attached(Eq(txn.getObserverAccessor())));
+  txn.addObserver(observer.get());
+
+  constexpr size_t kBodyLength = 10;
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(kBodyLength));
+  EXPECT_CALL(transport_, notifyPendingEgress());
+  EXPECT_CALL(handler_, _onEgressPaused());
+  txn.sendBody(makeBuf(kBodyLength));
+
+  HTTPException ingressError(HTTPException::Direction::INGRESS, "test");
+  txn.onError(ingressError);
+
+  EXPECT_CALL(transport_,
+              notifyEgressBodyBuffered(-static_cast<int64_t>(kBodyLength)));
+  EXPECT_CALL(transport_, sendBody(&txn, _, _, _)).Times(0);
+  EXPECT_CALL(transport_, sendAbort(&txn, ErrorCode::FLOW_CONTROL_ERROR));
+  EXPECT_CALL(handler_, _onError(_));
+  EXPECT_CALL(handler_, _detachTransaction());
+  EXPECT_CALL(transport_, detach(&txn));
+  // The flow-control failure aborts the write, so there is no write to
+  // report.
+  EXPECT_CALL(*observer, onBytesEvent(_, _)).Times(0);
+  EXPECT_FALSE(txn.onWriteReady(kBodyLength, 1.0));
+
+  EXPECT_CALL(*observer, detached(Eq(txn.getObserverAccessor())));
+  txn.removeObserver(observer.get());
+}
+
+TEST_F(DownstreamTransactionTest,
+       BodyBytesGeneratedExcludesChunkedBodyRejectedBeforeTransport) {
+  auto& txn = makeTxn(true, 10, 10);
+
+  EXPECT_CALL(handler_, _setTransaction(&txn));
+  EXPECT_CALL(handler_, _onHeadersComplete(_));
+  txn.setHandler(&handler_);
+  txn.onIngressHeadersComplete(makeGetRequest());
+  EXPECT_CALL(handler_, _onEOM());
+  txn.onIngressEOM();
+
+  auto response = makeResponse(200);
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _, false));
+  txn.sendHeaders(*response);
+
+  auto observer = std::make_unique<NiceMock<MockHTTPTransactionObserver>>(
+      MockHTTPTransactionObserver::EventSetBuilder()
+          .enable(MockHTTPTransactionObserver::Events::TxnBytes)
+          .build());
+  EXPECT_CALL(*observer, attached(Eq(txn.getObserverAccessor())));
+  txn.addObserver(observer.get());
+
+  constexpr size_t kBodyLength = 10;
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(kBodyLength));
+  EXPECT_CALL(transport_, notifyPendingEgress()).Times(AnyNumber());
+  EXPECT_CALL(handler_, _onEgressPaused());
+  txn.sendChunkHeader(kBodyLength);
+  txn.sendBody(makeBuf(kBodyLength));
+
+  HTTPException ingressError(HTTPException::Direction::INGRESS, "test");
+  txn.onError(ingressError);
+
+  EXPECT_CALL(transport_,
+              notifyEgressBodyBuffered(-static_cast<int64_t>(kBodyLength)));
+  EXPECT_CALL(transport_, sendChunkHeader(&txn, kBodyLength))
+      .WillOnce(Return(4));
+  EXPECT_CALL(transport_, sendChunkTerminator(&txn))
+      .Times(AnyNumber())
+      .WillRepeatedly(Return(2));
+  EXPECT_CALL(transport_, sendBody(&txn, _, _, _)).Times(0);
+  EXPECT_CALL(transport_, sendAbort(&txn, ErrorCode::FLOW_CONTROL_ERROR));
+  EXPECT_CALL(handler_, _onError(_));
+  EXPECT_CALL(handler_, _detachTransaction());
+  EXPECT_CALL(transport_, detach(&txn));
+  // The chunk framing went out, but the body write failed, so there is no
+  // write to report.
+  EXPECT_CALL(*observer, onBytesEvent(_, _)).Times(0);
+  EXPECT_FALSE(txn.onWriteReady(kBodyLength, 1.0));
+
+  EXPECT_CALL(*observer, detached(Eq(txn.getObserverAccessor())));
+  txn.removeObserver(observer.get());
 }
 
 TEST_F(DownstreamTransactionTest, InternalError) {

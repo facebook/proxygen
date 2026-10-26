@@ -1207,10 +1207,11 @@ void HTTPSession::commonEom(HTTPTransaction* txn,
   onEgressMessageFinished(txn);
 }
 
-size_t HTTPSession::sendBody(HTTPTransaction* txn,
-                             std::unique_ptr<folly::IOBuf> body,
-                             bool includeEOM,
-                             bool trackLastByteFlushed) noexcept {
+HTTPTransaction::Transport::SendBodyResult HTTPSession::sendBody(
+    HTTPTransaction* txn,
+    std::unique_ptr<folly::IOBuf> body,
+    bool includeEOM,
+    bool trackLastByteFlushed) noexcept {
   uint64_t offset = sessionByteOffset();
   size_t bodyLen = body ? body->computeChainDataLength() : 0;
   size_t encodedSize = codec_.generateBody(writeBuf_,
@@ -1236,7 +1237,7 @@ size_t HTTPSession::sendBody(HTTPTransaction* txn,
     VLOG(5) << *this << " sending EOM in body for streamID=" << txn->getID();
     commonEom(txn, encodedSize, true);
   }
-  return encodedSize;
+  return {.encodedSize = encodedSize, .bodyByteStreamRange = folly::none};
 }
 
 uint64_t HTTPSession::takeBodyBytesForWrite(uint64_t writeLen) {

@@ -10,6 +10,49 @@
 
 namespace proxygen {
 
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder&&
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder::
+    setStreamId(uint64_t streamIdIn) {
+  maybeStreamId = streamIdIn;
+  return std::move(*this);
+}
+
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder&&
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder::
+    setBodyOffset(uint64_t bodyOffsetIn) {
+  maybeBodyOffset = bodyOffsetIn;
+  return std::move(*this);
+}
+
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder&&
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder::
+    setStreamOffset(uint64_t streamOffsetIn) {
+  maybeStreamOffset = streamOffsetIn;
+  return std::move(*this);
+}
+
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder&&
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder::
+    setLength(size_t lengthIn) {
+  maybeLength = lengthIn;
+  return std::move(*this);
+}
+
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::Builder::
+    build() && {
+  return BodyByteStreamRange(*this);
+}
+
+HTTPTransactionObserverInterface::TxnBytesEvent::BodyByteStreamRange::
+    BodyByteStreamRange(BuilderFields& builderFields)
+    : streamId(*CHECK_NOTNULL(builderFields.maybeStreamId.get_pointer())),
+      bodyOffset(*CHECK_NOTNULL(builderFields.maybeBodyOffset.get_pointer())),
+      streamOffset(
+          *CHECK_NOTNULL(builderFields.maybeStreamOffset.get_pointer())),
+      length(*CHECK_NOTNULL(builderFields.maybeLength.get_pointer())) {
+}
+
 HTTPTransactionObserverInterface::TxnBytesEvent::Builder&&
 HTTPTransactionObserverInterface::TxnBytesEvent::Builder::setTimestamp(
     const proxygen::TimePoint& timestampIn) {
@@ -31,9 +74,23 @@ HTTPTransactionObserverInterface::TxnBytesEvent::Builder::setNumBytes(
 }
 
 HTTPTransactionObserverInterface::TxnBytesEvent::Builder&&
+HTTPTransactionObserverInterface::TxnBytesEvent::Builder::setNumBodyBytes(
+    size_t numBodyBytesIn) {
+  numBodyBytes = numBodyBytesIn;
+  return std::move(*this);
+}
+
+HTTPTransactionObserverInterface::TxnBytesEvent::Builder&&
 HTTPTransactionObserverInterface::TxnBytesEvent::Builder::setHeaders(
     const HTTPMessage& headersIn) {
   maybeHeadersRef = headersIn;
+  return std::move(*this);
+}
+
+HTTPTransactionObserverInterface::TxnBytesEvent::Builder&&
+HTTPTransactionObserverInterface::TxnBytesEvent::Builder::
+    setBodyByteStreamRange(const BodyByteStreamRange& bodyByteStreamRangeIn) {
+  maybeBodyByteStreamRange = bodyByteStreamRangeIn;
   return std::move(*this);
 }
 
@@ -47,7 +104,9 @@ HTTPTransactionObserverInterface::TxnBytesEvent::TxnBytesEvent(
     : timestamp(*CHECK_NOTNULL(builderFields.maybeTimestampRef.get_pointer())),
       type(builderFields.type),
       maybeNumBytes(builderFields.numBytes),
-      maybeHeadersRef(builderFields.maybeHeadersRef) {
+      maybeNumBodyBytes(builderFields.numBodyBytes),
+      maybeHeadersRef(builderFields.maybeHeadersRef),
+      maybeBodyByteStreamRange(builderFields.maybeBodyByteStreamRange) {
 }
 
 } // namespace proxygen

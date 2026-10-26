@@ -143,6 +143,20 @@ class HQStreamCodec
   void onHeadersComplete(HTTPHeaderSize decodedSize, bool acknowledge) override;
   void onDecodeError(HPACK::DecodeError decodeError) override;
 
+  /**
+   * How the last generated body was framed: the DATA frame header written
+   * before the payload, and the payload length.
+   */
+  struct GeneratedBodyFrame {
+    size_t headerLength{0};
+    size_t payloadLength{0};
+  };
+
+  [[nodiscard]] const GeneratedBodyFrame& getLastGeneratedBodyFrame()
+      const noexcept {
+    return lastGeneratedBodyFrame_;
+  }
+
  protected:
   ParseResult checkFrameAllowed(FrameType type) override;
   ParseResult parseData(folly::io::Cursor& cursor,
@@ -176,6 +190,7 @@ class HQStreamCodec
                           std::unique_ptr<folly::IOBuf> chain);
 
   std::string userAgent_;
+  GeneratedBodyFrame lastGeneratedBodyFrame_;
   HeaderDecodeInfo decodeInfo_;
   QPACKCodec& headerCodec_;
   folly::IOBufQueue& qpackEncoderWriteBuf_;
