@@ -466,6 +466,8 @@ WebTransportImpl::StreamReadHandle::readStreamData() {
     if (eof_) {
       // unregister the read callback, but don't send STOP_SENDING
       impl_.stopReadingWebTransportIngress(id_, folly::none);
+      // Destroys *this.
+      impl_.closeIngressStream(id_);
     } else if (bufLen >= kMaxWTIngressBuf) {
       VLOG(4) << __func__ << " resuming reads";
       impl_.tp_.resumeWebTransportIngress(getID());
@@ -476,14 +478,16 @@ WebTransportImpl::StreamReadHandle::readStreamData() {
 
 void WebTransportImpl::StreamReadHandle::readAvailable(
     quic::StreamId id) noexcept {
-  impl_.sp_.refreshTimeout();
-  auto readRes = impl_.tp_.readWebTransportData(id, 65535);
+  // readError() and dataAvailable() can destroy *this.
+  auto& impl = impl_;
+  impl.sp_.refreshTimeout();
+  auto readRes = impl.tp_.readWebTransportData(id, 65535);
   if (readRes.hasError()) {
     LOG(ERROR) << "Got synchronous read error=" << uint32_t(readRes.error());
     readError(id,
               quic::QuicError(quic::LocalErrorCode::INTERNAL_ERROR,
                               "sync read error"));
-    impl_.closeIngressStream(id);
+    impl.closeIngressStream(id);
     return;
   }
   quic::BufPtr data = std::move(readRes.value().first);
@@ -491,12 +495,12 @@ void WebTransportImpl::StreamReadHandle::readAvailable(
   // deliver data, eof
   auto state = dataAvailable(std::move(data), eof);
   if (state == WebTransport::FCState::SESSION_CLOSED) {
-    impl_.terminateSession(WebTransport::kInternalError);
+    impl.terminateSession(WebTransport::kInternalError);
     return;
   }
   if (state == WebTransport::FCState::BLOCKED && !eof) {
     VLOG(4) << __func__ << " pausing reads";
-    impl_.tp_.pauseWebTransportIngress(id);
+    impl.tp_.pauseWebTransportIngress(id);
   }
 }
 
@@ -519,6 +523,8 @@ WebTransport::FCState WebTransportImpl::StreamReadHandle::dataAvailable(
     if (eof) {
       // unregister the read callback, but don't send STOP_SENDING
       impl_.stopReadingWebTransportIngress(getID(), folly::none);
+      // Destroys *this.
+      impl_.closeIngressStream(getID());
       return WebTransport::FCState::UNBLOCKED;
     }
   } else {

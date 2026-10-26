@@ -80,6 +80,62 @@ TEST_F(QuicWebTransportTest, PeerUniStream) {
   eventBase_.loop();
 }
 
+// FIN arrives while a read is pending.
+TEST_F(QuicWebTransportTest, PeerUniStreamFinWithPendingReadFreesHandle) {
+  bool readDone = false;
+  EXPECT_CALL(*handler_, onNewUniStream(_))
+      .WillOnce([&](WebTransport::StreamReadHandle* readHandle) {
+        readHandle->awaitNextRead(
+            &eventBase_,
+            [&](WebTransport::StreamReadHandle* handle,
+                uint64_t,
+                folly::Try<WebTransport::StreamData> data) {
+              EXPECT_EQ(handle, nullptr);
+              EXPECT_TRUE(data->fin);
+              readDone = true;
+            });
+      });
+  socketDriver_.addReadEvent(2, folly::IOBuf::copyBuffer("hello"), true);
+  eventBase_.loop();
+  EXPECT_TRUE(readDone);
+  auto wtImpl = dynamic_cast<WebTransportImpl*>(transport_.get());
+  EXPECT_EQ(wtImpl->getReadHandle(2), nullptr);
+}
+
+// FIN is buffered before the application reads.
+TEST_F(QuicWebTransportTest, PeerUniStreamBufferedFinFreesHandle) {
+  WebTransport::StreamReadHandle* readHandle = nullptr;
+  EXPECT_CALL(*handler_, onNewUniStream(_))
+      .WillOnce(
+          [&](WebTransport::StreamReadHandle* handle) { readHandle = handle; });
+  socketDriver_.addReadEvent(2, folly::IOBuf::copyBuffer("hello"), true);
+  eventBase_.loop();
+  ASSERT_NE(readHandle, nullptr);
+  auto wtImpl = dynamic_cast<WebTransportImpl*>(transport_.get());
+  EXPECT_NE(wtImpl->getReadHandle(2), nullptr);
+
+  auto data = readHandle->readStreamData().getTry();
+  EXPECT_EQ(data->data->computeChainDataLength(), 5);
+  EXPECT_TRUE(data->fin);
+  EXPECT_EQ(wtImpl->getReadHandle(2), nullptr);
+}
+
+// FIN frees the read handle and leaves the write handle open.
+TEST_F(QuicWebTransportTest, PeerBidiStreamFinFreesReadHandleOnly) {
+  WebTransport::BidiStreamHandle bidi{};
+  EXPECT_CALL(*handler_, onNewBidiStream(_))
+      .WillOnce([&](WebTransport::BidiStreamHandle handle) { bidi = handle; });
+  socketDriver_.addReadEvent(0, folly::IOBuf::copyBuffer("hello"), true);
+  eventBase_.loop();
+  ASSERT_NE(bidi.readHandle, nullptr);
+
+  auto data = bidi.readHandle->readStreamData().getTry();
+  EXPECT_TRUE(data->fin);
+  auto wtImpl = dynamic_cast<WebTransportImpl*>(transport_.get());
+  EXPECT_EQ(wtImpl->getReadHandle(0), nullptr);
+  EXPECT_NE(wtImpl->getWriteHandle(0), nullptr);
+}
+
 TEST_F(QuicWebTransportTest, PeerBidiStream) {
   EXPECT_CALL(*handler_, onNewBidiStream(_))
       .WillOnce([this](WebTransport::BidiStreamHandle bidiHandle) {
