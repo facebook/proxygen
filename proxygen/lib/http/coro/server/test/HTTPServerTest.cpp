@@ -47,8 +47,6 @@ std::string_view getTestDir() {
   return kTestDir;
 }
 
-constexpr int kTestTcpMaxSegment = 1200;
-
 struct StatsFactory : public ServerFilterFactory {
   std::pair<HTTPSourceFilter*, HTTPSourceFilter*> makeFilters() override {
     return StatsFilterUtil::makeFilters(&stats_);
