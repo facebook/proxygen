@@ -26,18 +26,19 @@ namespace {
 
 class QuicAcceptorTransportFactory : public quic::QuicServerTransportFactory {
  public:
-  explicit QuicAcceptorTransportFactory(HTTPServer& server) : server_(server) {
+  QuicAcceptorTransportFactory(
+      HTTPServer& server,
+      std::shared_ptr<const fizz::server::FizzServerContext> ctx)
+      : server_(server), ctx_(std::move(ctx)) {
   }
 
   quic::QuicServerTransport::Ptr make(
       folly::EventBase* evb,
       std::unique_ptr<quic::FollyAsyncUDPSocketAlias> socket,
       const quic::SocketAddress& /* peerAddr */,
-      quic::QuicVersion,
-      std::shared_ptr<const fizz::server::FizzServerContext> ctx) noexcept
-      override {
+      quic::QuicVersion) noexcept override {
     auto transport = quic::QuicHandshakeSocketHolder::makeServerTransport(
-        evb, std::move(socket), std::move(ctx), &server_);
+        evb, std::move(socket), ctx_, &server_);
     const auto& quicConfig = server_.getConfig().quicConfig;
     if (quicConfig->qlogger && quicConfig->qloggerSampling.isLucky()) {
       transport->setQLogger(quicConfig->qlogger);
@@ -51,6 +52,7 @@ class QuicAcceptorTransportFactory : public quic::QuicServerTransportFactory {
 
  private:
   proxygen::coro::HTTPServer& server_;
+  std::shared_ptr<const fizz::server::FizzServerContext> ctx_;
 };
 
 uint64_t getHTTPSettingValueOrDefault(const SettingsList& settings,
@@ -286,7 +288,7 @@ void HTTPServer::createQuicServer(const std::vector<folly::EventBase*>& evbs) {
   quicServer_->setCongestionControllerFactory(
       std::make_shared<quic::ServerCongestionControllerFactory>());
   quicServer_->setQuicServerTransportFactory(
-      std::make_unique<QuicAcceptorTransportFactory>(*this));
+      std::make_unique<QuicAcceptorTransportFactory>(*this, fizzCtx));
   quicServer_->setQuicUDPSocketFactory(
       std::make_unique<quic::QuicSharedUDPSocketFactory>());
   quicServer_->setHealthCheckToken("health");
