@@ -140,11 +140,12 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             testing::Invoke([this](QuicSocket::ConnectionSetupCallback* cb) {
               sock_->setupCb_ = cb;
             }));
-    EXPECT_CALL(*sock_, setConnectionCallback(testing::_))
+    EXPECT_CALL(*sock_, setConnectionCallback(testing::_, testing::_))
         .WillRepeatedly(
-            testing::Invoke([this](QuicSocket::ConnectionCallback* cb) {
+            [this](QuicSocket::ConnectionCallback* cb,
+                   QuicSocket::ConnectionCallbackOptions /* options */) {
               sock_->connCb_ = cb;
-            }));
+            });
 
     EXPECT_CALL(*sock_, getState()).WillRepeatedly(testing::Return(nullptr));
 
