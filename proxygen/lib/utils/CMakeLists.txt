@@ -173,6 +173,11 @@ proxygen_add_library(proxygen_utils_stream_compressor)
 
 proxygen_add_library(proxygen_utils_stream_decompressor)
 
+proxygen_add_library(proxygen_utils_decompression_limits
+  EXPORTED_DEPS
+    Folly::folly_constexpr_math
+)
+
 proxygen_add_library(proxygen_utils_zlib_stream
   EXPORTED_DEPS
     proxygen_utils_zlib_stream_compressor

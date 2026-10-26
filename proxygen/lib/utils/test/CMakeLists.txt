@@ -25,6 +25,7 @@ proxygen_add_test(TARGET UtilTests
     CompressionFilterUtilsTest.cpp
     ConditionalGateTest.cpp
     CryptUtilTest.cpp
+    DecompressionLimitsTest.cpp
     GenericFilterTest.cpp
     HTTPTimeTest.cpp
     LoggingTests.cpp
