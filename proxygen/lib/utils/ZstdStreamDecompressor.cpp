@@ -8,6 +8,8 @@
 
 #include <proxygen/lib/utils/ZstdStreamDecompressor.h>
 
+#include <proxygen/lib/utils/DecompressionLimits.h>
+
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 
@@ -69,12 +71,8 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
       totalInputBytes_ += (ibuf.pos - prevIbufPos);
       totalOutputBytes_ += obuf.pos;
 
-      auto maxDecompressionRatio =
-          maxDecompressionRatio_.value_or(std::numeric_limits<uint64_t>::max());
-      bool exceeded =
-          totalInputBytes_ > 0 &&
-          totalOutputBytes_ / totalInputBytes_ > maxDecompressionRatio;
-      if (exceeded) {
+      if (exceedsMaxDecompressionRatio(
+              totalInputBytes_, totalOutputBytes_, maxDecompressionRatio_)) {
         status_ = ZstdStatusType::ERROR;
         return nullptr;
       }

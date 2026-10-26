@@ -12,6 +12,7 @@
 
 #include <limits>
 
+using proxygen::decompression::exceedsMaxDecompressionRatio;
 using proxygen::decompression::maxBytesForNextDecode;
 
 TEST(DecompressionLimitsTest, MaxBytesForNextDecodeWithoutMaxIsFreeBuffer) {
@@ -46,4 +47,19 @@ TEST(DecompressionLimitsTest, MaxBytesForNextDecodeDoesNotOverflow) {
   EXPECT_EQ(maxBytesForNextDecode(max, max, 0), max);
   EXPECT_EQ(maxBytesForNextDecode(max, max, 1), max);
   EXPECT_EQ(maxBytesForNextDecode(max, max, max), 1);
+}
+
+TEST(DecompressionLimitsTest, DecompressionRatioWithoutMaxIsNeverExceeded) {
+  EXPECT_FALSE(exceedsMaxDecompressionRatio(
+      1, std::numeric_limits<uint64_t>::max(), std::nullopt));
+}
+
+TEST(DecompressionLimitsTest, DecompressionRatioWithoutInputIsNotExceeded) {
+  EXPECT_FALSE(exceedsMaxDecompressionRatio(0, 1'000'000, 10));
+}
+
+TEST(DecompressionLimitsTest, DecompressionRatioIsExceededOnlyAboveMax) {
+  EXPECT_FALSE(exceedsMaxDecompressionRatio(100, 1'000, 10));
+  EXPECT_FALSE(exceedsMaxDecompressionRatio(100, 1'099, 10));
+  EXPECT_TRUE(exceedsMaxDecompressionRatio(100, 1'100, 10));
 }

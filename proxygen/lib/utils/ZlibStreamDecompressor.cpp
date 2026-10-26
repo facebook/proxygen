@@ -8,8 +8,9 @@
 
 #include <proxygen/lib/utils/ZlibStreamDecompressor.h>
 
+#include <proxygen/lib/utils/DecompressionLimits.h>
+
 #include <folly/io/Cursor.h>
-#include <limits>
 
 using folly::IOBuf;
 
@@ -106,12 +107,8 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
     totalInputBytes_ += inConsumed;
     totalOutputBytes_ += outMove;
 
-    auto maxDecompressionRatio =
-        maxDecompressionRatio_.value_or(std::numeric_limits<uint64_t>::max());
-    bool exceeded =
-        totalInputBytes_ > 0 &&
-        totalOutputBytes_ / totalInputBytes_ > maxDecompressionRatio;
-    if (exceeded) {
+    if (exceedsMaxDecompressionRatio(
+            totalInputBytes_, totalOutputBytes_, maxDecompressionRatio_)) {
       status_ = Z_STREAM_ERROR;
       return nullptr;
     }

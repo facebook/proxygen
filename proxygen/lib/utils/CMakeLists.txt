@@ -188,6 +188,7 @@ proxygen_add_library(proxygen_utils_zlib_stream_decompressor
   SRCS
     ZlibStreamDecompressor.cpp
   DEPS
+    proxygen_utils_decompression_limits
     Folly::folly_io_iobuf
   EXPORTED_DEPS
     proxygen_utils_stream_decompressor
@@ -218,6 +219,7 @@ proxygen_add_library(proxygen_utils_zstd_stream_decompressor
   SRCS
     ZstdStreamDecompressor.cpp
   DEPS
+    proxygen_utils_decompression_limits
     Folly::folly_io_iobuf
   EXPORTED_DEPS
     proxygen_utils_stream_decompressor

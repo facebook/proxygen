@@ -29,4 +29,12 @@ inline uint64_t maxBytesForNextDecode(uint64_t freeBufferBytes,
       folly::constexpr_add_overflow_clamped<uint64_t>(remaining, 1));
 }
 
+inline bool exceedsMaxDecompressionRatio(
+    uint64_t totalInputBytes,
+    uint64_t totalOutputBytes,
+    std::optional<uint64_t> maxDecompressionRatio) {
+  return maxDecompressionRatio.has_value() && totalInputBytes > 0 &&
+         totalOutputBytes / totalInputBytes > *maxDecompressionRatio;
+}
+
 } // namespace proxygen::decompression
