@@ -40,6 +40,7 @@ proxygen_add_library(proxygen_http_session_session
     wangle::wangle_acceptor_managed
     fizz::fizz
     Folly::folly_container_f14_hash
+    Folly::folly_function
     Folly::folly_intrusive_list
     Folly::folly_io_async_async_base
     Folly::folly_io_async_async_socket
