@@ -622,6 +622,77 @@ TEST(HTTP1xCodecTest, TestInvalidContentLengthHeaders) {
   }
 }
 
+// The 80KiB cap is enforced inside http_parser and has no llhttp equivalent,
+// so a parser swap has to carry it rather than inherit it.
+//
+// The cap is only tested once per parser entry, and only while the header block
+// is still open, so an oversized block has to span more than one read to be
+// caught -- delivered whole in a single read it parses to completion and the
+// check never runs.
+TEST(HTTP1xCodecTest, TestHeaderBlockOverSizeCap) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  FakeHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+
+  codec.onIngress(*folly::IOBuf::copyBuffer(
+      "GET /url HTTP/1.1\r\nHost: www.facebook.com\r\n"));
+
+  const std::string filler(1024, 'x');
+  for (int i = 0; i < 100 && callbacks.streamErrors == 0; i++) {
+    codec.onIngress(*folly::IOBuf::copyBuffer(
+        folly::to<std::string>("X-Pad-", i, ": ", filler, "\r\n")));
+  }
+
+  EXPECT_EQ(callbacks.streamErrors, 1);
+  EXPECT_EQ(callbacks.headersComplete, 0);
+  ASSERT_NE(callbacks.lastParseError, nullptr);
+  EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
+  EXPECT_EQ(callbacks.lastParseError->getProxygenError(), kErrorParseHeader);
+}
+
+// Pipelining puts the tail of one message's body and the next message's header
+// block in the same read. Only the header block counts against the cap.
+TEST(HTTP1xCodecTest, TestHeaderBlockSizeCapIgnoresPipelinedBody) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  FakeHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+
+  const size_t kBodyLen = 100 * 1024;
+  codec.onIngress(*folly::IOBuf::copyBuffer(folly::to<std::string>(
+      "POST /upload HTTP/1.1\r\nHost: www.facebook.com\r\nContent-Length: ",
+      kBodyLen,
+      "\r\n\r\n")));
+  ASSERT_EQ(callbacks.headersComplete, 1);
+
+  codec.onIngress(*folly::IOBuf::copyBuffer(
+      std::string(kBodyLen, 'x') +
+      "GET /next HTTP/1.1\r\nHost: www.facebook.com\r\n\r\n"));
+
+  EXPECT_EQ(callbacks.streamErrors, 0);
+  EXPECT_EQ(callbacks.headersComplete, 2);
+  EXPECT_EQ(callbacks.messageComplete, 2);
+}
+
+// A header block under the cap is unaffected.
+TEST(HTTP1xCodecTest, TestHeaderBlockUnderSizeCap) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  FakeHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+
+  std::string req = "GET /url HTTP/1.1\r\nHost: www.facebook.com\r\n";
+  const std::string filler(1024, 'x');
+  for (int i = 0; i < 60; i++) {
+    req += folly::to<std::string>("X-Pad-", i, ": ", filler, "\r\n");
+  }
+  req += "\r\n";
+
+  auto reqBuf = folly::IOBuf::copyBuffer(req);
+  codec.onIngress(*reqBuf);
+
+  EXPECT_EQ(callbacks.streamErrors, 0);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+}
+
 TEST(HTTP1xCodecTest, TestCorrectTransferEncodingHeader) {
   HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);
   FakeHTTPCodecCallback callbacks;
