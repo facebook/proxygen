@@ -226,6 +226,72 @@ TEST_F(DecompressionFilterTest, InvalidCompressedDataSendsAbort) {
   filter->onError(ProxygenError::kErrorUnknown);
 }
 
+// Test: past maxIngressBytes the handler gets exactly the first
+// maxIngressBytes decompressed bytes, then the request is aborted
+TEST_F(DecompressionFilterTest,
+       MaxIngressBytesForwardsBytesUpToLimitThenAborts) {
+  constexpr uint64_t kMaxIngressBytes = 100;
+  std::string originalData;
+  for (int i = 0; i < 50; ++i) {
+    originalData += "0123456789";
+  }
+
+  EXPECT_CALL(*requestHandler_, setResponseHandler(_)).Times(1);
+  EXPECT_CALL(*requestHandler_, onRequest(_)).Times(1);
+  std::string received;
+  EXPECT_CALL(*requestHandler_, onBody(_))
+      .WillRepeatedly([&received](std::shared_ptr<folly::IOBuf> body) {
+        received += body->clone()->to<std::string>();
+      });
+  EXPECT_CALL(*requestHandler_, onEOM()).Times(0);
+  EXPECT_CALL(*responseHandler_, sendAbort(_)).Times(1);
+
+  DecompressionFilterFactory factory(kMaxIngressBytes);
+  HTTPMessage factoryMsg;
+  auto* filter = factory.onRequest(requestHandler_, &factoryMsg);
+  filter->setResponseHandler(responseHandler_.get());
+
+  auto msg = std::make_unique<HTTPMessage>();
+  msg->setURL("/test");
+  msg->getHeaders().set(HTTP_HEADER_CONTENT_ENCODING, "zstd");
+  filter->onRequest(std::move(msg));
+  filter->onBody(compressWithZstd(originalData));
+
+  EXPECT_EQ(received, originalData.substr(0, kMaxIngressBytes));
+
+  // Clean up via onError since we aborted
+  filter->onError(ProxygenError::kErrorUnknown);
+}
+
+// Test: a body exactly maxIngressBytes long is delivered in full, with no abort
+TEST_F(DecompressionFilterTest, MaxIngressBytesExactFitDoesNotAbort) {
+  const std::string originalData = "Hello, World! This is test data.";
+
+  EXPECT_CALL(*requestHandler_, setResponseHandler(_)).Times(1);
+  EXPECT_CALL(*requestHandler_, onRequest(_)).Times(1);
+  std::string received;
+  EXPECT_CALL(*requestHandler_, onBody(_))
+      .WillRepeatedly([&received](std::shared_ptr<folly::IOBuf> body) {
+        received += body->clone()->to<std::string>();
+      });
+  EXPECT_CALL(*requestHandler_, onEOM()).Times(1);
+  EXPECT_CALL(*responseHandler_, sendAbort(_)).Times(0);
+  EXPECT_CALL(*requestHandler_, requestComplete()).Times(1);
+
+  auto* filter = new DecompressionFilter(requestHandler_, originalData.size());
+  filter->setResponseHandler(responseHandler_.get());
+
+  auto msg = std::make_unique<HTTPMessage>();
+  msg->setURL("/test");
+  msg->getHeaders().set(HTTP_HEADER_CONTENT_ENCODING, "zstd");
+  filter->onRequest(std::move(msg));
+  filter->onBody(compressWithZstd(originalData));
+  filter->onEOM();
+  filter->requestComplete();
+
+  EXPECT_EQ(received, originalData);
+}
+
 // Test: Pass through when no decompressor is set (no Content-Encoding)
 TEST_F(DecompressionFilterTest, PassThroughWithoutDecompressor) {
   const std::string originalData = "Uncompressed data";

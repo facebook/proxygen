@@ -12,17 +12,24 @@
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/lib/utils/StreamDecompressor.h>
 
+#include <cstdint>
+#include <optional>
+
 namespace proxygen {
 
 /**
  * A Server filter to perform decompression of incoming request bodies.
  * Supports zstd compression format.
- * If there are any errors it will abort the request.
+ * If there are any errors it will abort the request. With `maxIngressBytes`
+ * set, the handler receives the first `maxIngressBytes` decompressed bytes and
+ * then the request is aborted.
  */
 class DecompressionFilter : public Filter {
  public:
-  explicit DecompressionFilter(RequestHandler* downstream)
-      : Filter(downstream) {
+  explicit DecompressionFilter(
+      RequestHandler* downstream,
+      std::optional<uint64_t> maxIngressBytes = std::nullopt)
+      : Filter(downstream), maxIngressBytes_(maxIngressBytes) {
   }
 
   ~DecompressionFilter() override = default;
@@ -39,6 +46,10 @@ class DecompressionFilter : public Filter {
   void onEOM() noexcept override;
 
  private:
+  // Returns false if decompression failed and the request was aborted.
+  bool forwardDecompressed(const folly::IOBuf* in) noexcept;
+
+  std::optional<uint64_t> maxIngressBytes_;
   std::unique_ptr<proxygen::decompression::StreamDecompressor> decompressor_{
       nullptr};
 };
@@ -48,7 +59,10 @@ class DecompressionFilter : public Filter {
  */
 class DecompressionFilterFactory : public RequestHandlerFactory {
  public:
-  DecompressionFilterFactory() = default;
+  explicit DecompressionFilterFactory(
+      std::optional<uint64_t> maxIngressBytes = std::nullopt)
+      : maxIngressBytes_(maxIngressBytes) {
+  }
 
   ~DecompressionFilterFactory() override = default;
 
@@ -66,6 +80,9 @@ class DecompressionFilterFactory : public RequestHandlerFactory {
 
   RequestHandler* onRequest(RequestHandler* h,
                             HTTPMessage* /*msg*/) noexcept override;
+
+ private:
+  std::optional<uint64_t> maxIngressBytes_;
 };
 
 } // namespace proxygen

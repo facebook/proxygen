@@ -18,7 +18,10 @@ void DecompressionFilter::onRequest(std::unique_ptr<HTTPMessage> msg) noexcept {
       headers.getSingleOrNullptr(HTTP_HEADER_CONTENT_ENCODING);
   if (contentEncoding && *contentEncoding == "zstd") {
     decompressor_ =
-        std::make_unique<proxygen::decompression::ZstdStreamDecompressor>();
+        std::make_unique<proxygen::decompression::ZstdStreamDecompressor>(
+            /*reuseOutBuf=*/false,
+            proxygen::decompression::kDefaultMaxZstdDecompressionRatio,
+            maxIngressBytes_);
     headers.remove(HTTP_HEADER_CONTENT_ENCODING);
     headers.remove(HTTP_HEADER_CONTENT_LENGTH);
   }
@@ -30,16 +33,7 @@ void DecompressionFilter::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
     return Filter::onBody(std::move(body));
   }
 
-  auto decompressed = decompressor_->decompress(body.get());
-
-  if (decompressor_->hasError()) {
-
-    return Filter::sendAbort(folly::none);
-  }
-
-  if (decompressed && !decompressed->empty()) {
-    Filter::onBody(std::move(decompressed));
-  }
+  forwardDecompressed(body.get());
 }
 
 void DecompressionFilter::onEOM() noexcept {
@@ -48,22 +42,28 @@ void DecompressionFilter::onEOM() noexcept {
   }
 
   folly::IOBuf emptyBuf;
-  auto decompressed = decompressor_->decompress(&emptyBuf);
-
-  if (decompressor_->hasError()) {
-    return Filter::sendAbort(folly::none);
+  if (forwardDecompressed(&emptyBuf)) {
+    Filter::onEOM();
   }
+}
 
+bool DecompressionFilter::forwardDecompressed(const folly::IOBuf* in) noexcept {
+  // Past maxIngressBytes the decompressor fails but still returns the bytes up
+  // to the cap, so the handler gets them before the abort.
+  auto decompressed = decompressor_->decompress(in);
   if (decompressed && !decompressed->empty()) {
     Filter::onBody(std::move(decompressed));
   }
-
-  return Filter::onEOM();
+  if (decompressor_->hasError()) {
+    Filter::sendAbort(folly::none);
+    return false;
+  }
+  return true;
 }
 
 RequestHandler* DecompressionFilterFactory::onRequest(
     RequestHandler* h, HTTPMessage* /*msg*/) noexcept {
-  return new DecompressionFilter(h);
+  return new DecompressionFilter(h, maxIngressBytes_);
 }
 
 } // namespace proxygen
