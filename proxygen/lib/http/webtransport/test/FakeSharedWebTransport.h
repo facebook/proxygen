@@ -170,7 +170,19 @@ class FakeStreamHandle
       auto cb = std::move(onWriteTerminal_);
       cb();
     }
-    return WebTransport::FCState::UNBLOCKED;
+    return writeBlocked_ ? WebTransport::FCState::BLOCKED
+                         : WebTransport::FCState::UNBLOCKED;
+  }
+
+  // While true, writes are accepted but report BLOCKED and awaitWritable()
+  // stays pending.
+  void setWriteBlocked(bool blocked) {
+    writeBlocked_ = blocked;
+    setWritable(!blocked);
+  }
+
+  void unblockWrite() {
+    setWriteBlocked(false);
   }
 
   folly::Expected<folly::SemiFuture<uint64_t>, WebTransport::ErrorCode>
@@ -258,6 +270,7 @@ class FakeStreamHandle
   // deliverInflightData() is called.
   bool immediateDelivery_{true};
   bool writable_{true};
+  bool writeBlocked_{false};
   std::vector<folly::Promise<uint64_t>> writablePromises_;
   folly::IOBufQueue inflightBuf_{folly::IOBufQueue::cacheChainLength()};
   folly::F14FastMap<uint64_t, std::vector<WebTransport::ByteEventCallback*>>
