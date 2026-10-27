@@ -31,7 +31,8 @@ void HeaderTable::init(uint32_t capacityVal) {
 }
 
 bool HeaderTable::add(HPACKHeader header) {
-  if (header.bytes() > capacity_) {
+  const uint32_t headerBytes = header.bytes();
+  if (headerBytes > capacity_) {
     // Per the RFC spec https://tools.ietf.org/html/rfc7541#page-11, we must
     // flush the underlying table if a request is made for a header that is
     // larger than the current table capacity
@@ -40,8 +41,8 @@ bool HeaderTable::add(HPACKHeader header) {
   }
 
   // Make the necessary room in the table if appropriate per RFC spec
-  if ((bytes_ + header.bytes()) > capacity_) {
-    if (evict(header.bytes(), capacity_) == 0) {
+  if ((bytes_ + headerBytes) > capacity_) {
+    if (evict(headerBytes, capacity_) == 0) {
       return false;
     }
   }
@@ -55,7 +56,7 @@ bool HeaderTable::add(HPACKHeader header) {
   if (indexNames_) {
     names_[header.name].push_back(head_);
   }
-  bytes_ += header.bytes();
+  bytes_ += headerBytes;
   table_[head_] = std::move(header);
 
   ++size_;

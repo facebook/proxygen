@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <folly/Conv.h>
 #include <folly/FBString.h>
 #include <glog/logging.h>
@@ -65,8 +66,8 @@ class HPACKHeader {
 
   static uint32_t realBytes(uint64_t nameSize, uint64_t valueSize) {
     DCHECK_LE(nameSize + valueSize, std::numeric_limits<uint32_t>::max());
-    return folly::tryTo<uint32_t>(nameSize + valueSize)
-        .value_or(std::numeric_limits<uint32_t>::max());
+    return static_cast<uint32_t>(std::min<uint64_t>(
+        nameSize + valueSize, std::numeric_limits<uint32_t>::max()));
   }
 
   /**
