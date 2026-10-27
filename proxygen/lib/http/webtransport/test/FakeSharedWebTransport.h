@@ -73,6 +73,9 @@ class FakeStreamHandle
   }
   GenericApiRet stopSending(uint32_t code) override {
     stopSendingCount_++;
+    if (!stopSendingErr_) {
+      stopSendingErr_ = code;
+    }
     auto& ex = WebTransport::StreamWriteHandle::ex_;
     if (!ex) {
       ex = folly::make_exception_wrapper<WebTransport::Exception>(code);
@@ -198,6 +201,7 @@ class FakeStreamHandle
   }
 
   GenericApiRet resetStream(uint32_t err) override {
+    resetCount_++;
     for (auto& [offset, deliveryCallback] : offsetToDeliveryCallback_) {
       for (auto& callback : deliveryCallback) {
         callback->onByteEventCanceled(getID(), offset);
@@ -214,6 +218,13 @@ class FakeStreamHandle
       auto cb = std::move(onWriteTerminal_);
       cb();
     }
+    // Like WtStreamManager: a local reset sets the write exception and fires
+    // the write cancel token synchronously, before resetStream returns.
+    auto& ex = WebTransport::StreamWriteHandle::ex_;
+    if (!ex) {
+      ex = folly::make_exception_wrapper<WebTransport::Exception>(err);
+    }
+    WebTransport::StreamWriteHandle::cs_.requestCancellation();
     return folly::unit;
   }
   GenericApiRet setPriority(quic::PriorityQueue::Priority priority) override {
@@ -237,6 +248,8 @@ class FakeStreamHandle
   // instead of on a use-after-free.
   uint32_t readCount_{0};
   uint32_t stopSendingCount_{0};
+  uint32_t resetCount_{0};
+  folly::Optional<uint32_t> stopSendingErr_;
   bool fin_{false};
   folly::Optional<std::tuple<uint8_t, uint64_t, bool>> pri;
   folly::Optional<uint32_t> writeErr_;
