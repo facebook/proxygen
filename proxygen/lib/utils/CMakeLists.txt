@@ -279,7 +279,6 @@ proxygen_add_library(proxygen_utils_safe_path
   SRCS
     SafePathUtils.cpp
   DEPS
-    Folly::folly_container_foreach
     Folly::folly_portability_stdlib
     Folly::folly_string
     fmt::fmt
