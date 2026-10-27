@@ -20,12 +20,15 @@ void ZstdStreamDecompressor::freeDCtx(ZSTD_DCtx* dctx) {
 }
 
 ZstdStreamDecompressor::ZstdStreamDecompressor(
-    bool reuseOutBuf, std::optional<uint64_t> maxDecompressionRatio)
+    bool reuseOutBuf,
+    std::optional<uint64_t> maxDecompressionRatio,
+    std::optional<uint64_t> maxIngressBytes)
     : status_(ZstdStatusType::NONE),
       dctx_(ZSTD_createDCtx()),
       cachedIOBuf_(nullptr),
       reuseOutBuf_(reuseOutBuf),
-      maxDecompressionRatio_(maxDecompressionRatio) {
+      maxDecompressionRatio_(maxDecompressionRatio),
+      maxIngressBytes_(maxIngressBytes) {
 }
 
 std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
@@ -56,7 +59,10 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
       DCHECK_GT(appender.length(), 0);
 
       auto prevIbufPos = ibuf.pos;
-      ZSTD_outBuffer obuf = {appender.writableData(), appender.length(), 0};
+      // Never more than appender.length(), so it fits in size_t.
+      const auto outRoom = static_cast<size_t>(maxBytesForNextDecode(
+          appender.length(), maxIngressBytes_, totalOutputBytes_));
+      ZSTD_outBuffer obuf = {appender.writableData(), outRoom, 0};
       auto ret = ZSTD_decompressStream(dctx_.get(), &obuf, &ibuf);
       if (ZSTD_isError(ret)) {
         status_ = ZstdStatusType::ERROR;
@@ -64,8 +70,6 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
       } else if (ret == 0) {
         status_ = ZstdStatusType::FINISHED;
       }
-
-      appender.append(obuf.pos);
 
       // Track cumulative bytes for ratio enforcement.
       totalInputBytes_ += (ibuf.pos - prevIbufPos);
@@ -75,6 +79,14 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
               totalInputBytes_, totalOutputBytes_, maxDecompressionRatio_)) {
         status_ = ZstdStatusType::ERROR;
         return nullptr;
+      }
+
+      appender.append(
+          bytesWithinMaxIngress(obuf.pos, maxIngressBytes_, totalOutputBytes_));
+      if (exceedsMaxIngressBytes(totalOutputBytes_, maxIngressBytes_)) {
+        // Return the bytes up to the cap; hasError() tells the caller to abort.
+        status_ = ZstdStatusType::ERROR;
+        return out;
       }
     }
   }

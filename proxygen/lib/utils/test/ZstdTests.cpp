@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <algorithm>
 #include <folly/Random.h>
 #include <folly/ScopeGuard.h>
 #include <folly/compression/Compression.h>
@@ -13,8 +14,10 @@
 #include <folly/io/IOBuf.h>
 #include <folly/portability/GTest.h>
 #include <glog/logging.h>
+#include <optional>
 #include <proxygen/lib/utils/ZstdStreamCompressor.h>
 #include <proxygen/lib/utils/ZstdStreamDecompressor.h>
+#include <string>
 
 using namespace folly;
 using namespace proxygen;
@@ -257,7 +260,7 @@ static std::unique_ptr<folly::IOBuf> makeCompressibleBuf(size_t size) {
 
 TEST_F(ZstdTests, MaxDecompressionRatio_FailsWhenRatioTooSmall) {
   // 1 MB of zeros compresses extremely well; a ratio of 10 should be exceeded.
-  constexpr size_t kOrigSize = 1024 * 1024;
+  constexpr size_t kOrigSize = size_t{1024} * 1024;
   auto original = makeCompressibleBuf(kOrigSize);
   auto compressed = compress(original);
   ASSERT_NE(compressed, nullptr);
@@ -271,7 +274,7 @@ TEST_F(ZstdTests, MaxDecompressionRatio_FailsWhenRatioTooSmall) {
 }
 
 TEST_F(ZstdTests, MaxDecompressionRatio_PassesWhenRatioLargeEnough) {
-  constexpr size_t kOrigSize = 1024 * 1024;
+  constexpr size_t kOrigSize = size_t{1024} * 1024;
   auto original = makeCompressibleBuf(kOrigSize);
   auto compressed = compress(original);
   ASSERT_NE(compressed, nullptr);
@@ -287,7 +290,7 @@ TEST_F(ZstdTests, MaxDecompressionRatio_PassesWhenRatioLargeEnough) {
 }
 
 TEST_F(ZstdTests, MaxDecompressionRatio_PassesWhenExplicitlyUnlimited) {
-  constexpr size_t kOrigSize = 1024 * 1024;
+  constexpr size_t kOrigSize = size_t{1024} * 1024;
   auto original = makeCompressibleBuf(kOrigSize);
   auto compressed = compress(original);
   ASSERT_NE(compressed, nullptr);
@@ -305,7 +308,7 @@ TEST_F(ZstdTests, MaxDecompressionRatio_PassesWhenExplicitlyUnlimited) {
 TEST_F(ZstdTests, MaxDecompressionRatio_StreamingChunksFailure) {
   // Feed compressed data in small pieces; cumulative ratio should still
   // trigger.
-  constexpr size_t kOrigSize = 1024 * 1024;
+  constexpr size_t kOrigSize = size_t{1024} * 1024;
   auto original = makeCompressibleBuf(kOrigSize);
   auto compressed = compress(original);
   ASSERT_NE(compressed, nullptr);
@@ -329,4 +332,99 @@ TEST_F(ZstdTests, MaxDecompressionRatio_StreamingChunksFailure) {
     }
   }
   EXPECT_TRUE(errorDetected);
+}
+
+namespace {
+
+constexpr uint64_t kMaxIngressBytes = 40000;
+
+std::unique_ptr<proxygen::decompression::ZstdStreamDecompressor>
+makeDecompressorWithMaxIngressBytes(bool reuseOutBuf,
+                                    uint64_t maxIngressBytes) {
+  const std::optional<uint64_t> unlimitedRatio;
+  return std::make_unique<proxygen::decompression::ZstdStreamDecompressor>(
+      reuseOutBuf, unlimitedRatio, maxIngressBytes);
+}
+
+} // namespace
+
+TEST_F(ZstdTests, MaxIngressBytes_FailsPastLimitWithBytesUpToLimit) {
+  for (bool reuseBuf : {false, true}) {
+    auto original = makeBuf(64 * 1024);
+    auto compressed = compress(original);
+    auto zd = makeDecompressorWithMaxIngressBytes(reuseBuf, kMaxIngressBytes);
+
+    auto decompressed = zd->decompress(compressed.get());
+
+    EXPECT_TRUE(zd->hasError());
+    EXPECT_EQ(decompressed->to<std::string>(),
+              original->to<std::string>().substr(0, kMaxIngressBytes));
+  }
+}
+
+TEST_F(ZstdTests, MaxIngressBytes_ExactFitSucceeds) {
+  constexpr uint32_t kSize = 5000;
+  for (bool reuseBuf : {false, true}) {
+    auto original = makeBuf(kSize);
+    auto compressed = compress(original);
+    auto zd = makeDecompressorWithMaxIngressBytes(reuseBuf, kSize);
+
+    auto decompressed = zd->decompress(compressed.get());
+
+    EXPECT_FALSE(zd->hasError());
+    EXPECT_TRUE(zd->finished());
+    EXPECT_EQ(decompressed->to<std::string>(), original->to<std::string>());
+  }
+}
+
+TEST_F(ZstdTests, MaxIngressBytes_StopsReadingInputAtLimit) {
+  auto original = makeBuf(64 * 1024);
+  auto compressed = compress(original);
+  compressed->appendToChain(IOBuf::copyBuffer("trailing bytes"));
+  proxygen::decompression::ZstdStreamDecompressor unlimited;
+  unlimited.decompress(compressed.get());
+  ASSERT_TRUE(unlimited.hasError());
+  auto zd = makeDecompressorWithMaxIngressBytes(false, kMaxIngressBytes);
+
+  auto decompressed = zd->decompress(compressed.get());
+
+  EXPECT_TRUE(zd->hasError());
+  EXPECT_EQ(decompressed->to<std::string>(),
+            original->to<std::string>().substr(0, kMaxIngressBytes));
+}
+
+TEST_F(ZstdTests, MaxIngressBytes_LimitsTotalAcrossStreamingCalls) {
+  for (bool reuseBuf : {false, true}) {
+    auto original = makeBuf(64 * 1024);
+    auto compressed = compress(original);
+    auto zd = makeDecompressorWithMaxIngressBytes(reuseBuf, kMaxIngressBytes);
+    auto coalesced = compressed->coalesce();
+    constexpr size_t kChunkSize = 128;
+    auto decompressed = IOBuf::create(0);
+
+    for (size_t offset = 0; offset < coalesced.size() && !zd->hasError();
+         offset += kChunkSize) {
+      auto chunk =
+          IOBuf::wrapBuffer(coalesced.data() + offset,
+                            std::min(kChunkSize, coalesced.size() - offset));
+      auto piece = zd->decompress(chunk.get());
+      if (piece != nullptr) {
+        decompressed->appendToChain(std::move(piece));
+      }
+    }
+
+    EXPECT_TRUE(zd->hasError());
+    EXPECT_EQ(decompressed->to<std::string>(),
+              original->to<std::string>().substr(0, kMaxIngressBytes));
+  }
+}
+
+TEST_F(ZstdTests, MaxIngressBytes_CorruptInputStillFails) {
+  auto garbage = IOBuf::copyBuffer("this is not zstd data at all");
+  auto zd = makeDecompressorWithMaxIngressBytes(false, kMaxIngressBytes);
+
+  auto decompressed = zd->decompress(garbage.get());
+
+  EXPECT_TRUE(zd->hasError());
+  EXPECT_EQ(decompressed, nullptr);
 }

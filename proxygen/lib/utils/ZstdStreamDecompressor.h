@@ -35,7 +35,8 @@ class ZstdStreamDecompressor : public StreamDecompressor {
   explicit ZstdStreamDecompressor(
       bool reuseOutBuf = false,
       std::optional<uint64_t> maxDecompressionRatio =
-          kDefaultMaxZstdDecompressionRatio);
+          kDefaultMaxZstdDecompressionRatio,
+      std::optional<uint64_t> maxIngressBytes = std::nullopt);
 
   // May return nullptr on error / no output.
   std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in) override;
@@ -71,5 +72,7 @@ class ZstdStreamDecompressor : public StreamDecompressor {
   std::optional<uint64_t> maxDecompressionRatio_;
   uint64_t totalInputBytes_{0};
   uint64_t totalOutputBytes_{0};
+
+  std::optional<uint64_t> maxIngressBytes_;
 };
 } // namespace proxygen::decompression
