@@ -41,7 +41,8 @@ class ZlibStreamDecompressor : public StreamDecompressor {
           kZlibDecompressorBufferGrowthDefault,
       uint64_t zlib_decompressor_buffer_minsize =
           kZlibDecompressorBufferMinsizeDefault,
-      std::optional<uint64_t> maxDecompressionRatio = std::nullopt);
+      std::optional<uint64_t> maxDecompressionRatio = std::nullopt,
+      std::optional<uint64_t> maxIngressBytes = std::nullopt);
 
   ZlibStreamDecompressor() = default;
 
@@ -73,5 +74,7 @@ class ZlibStreamDecompressor : public StreamDecompressor {
   std::optional<uint64_t> maxDecompressionRatio_;
   uint64_t totalInputBytes_{0};
   uint64_t totalOutputBytes_{0};
+
+  std::optional<uint64_t> maxIngressBytes_;
 };
 } // namespace proxygen::decompression

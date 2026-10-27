@@ -12,7 +12,9 @@
 
 #include <limits>
 
+using proxygen::decompression::bytesWithinMaxIngress;
 using proxygen::decompression::exceedsMaxDecompressionRatio;
+using proxygen::decompression::exceedsMaxIngressBytes;
 using proxygen::decompression::maxBytesForNextDecode;
 
 TEST(DecompressionLimitsTest, MaxBytesForNextDecodeWithoutMaxIsFreeBuffer) {
@@ -47,6 +49,37 @@ TEST(DecompressionLimitsTest, MaxBytesForNextDecodeDoesNotOverflow) {
   EXPECT_EQ(maxBytesForNextDecode(max, max, 0), max);
   EXPECT_EQ(maxBytesForNextDecode(max, max, 1), max);
   EXPECT_EQ(maxBytesForNextDecode(max, max, max), 1);
+}
+
+TEST(DecompressionLimitsTest, MaxIngressBytesWithoutMaxIsNeverExceeded) {
+  EXPECT_FALSE(exceedsMaxIngressBytes(std::numeric_limits<uint64_t>::max(),
+                                      std::nullopt));
+}
+
+TEST(DecompressionLimitsTest, MaxIngressBytesIsExceededOnlyAboveMax) {
+  EXPECT_FALSE(exceedsMaxIngressBytes(100, 100));
+  EXPECT_TRUE(exceedsMaxIngressBytes(101, 100));
+  EXPECT_TRUE(exceedsMaxIngressBytes(1, 0));
+}
+
+TEST(DecompressionLimitsTest, BytesWithinMaxIngressWithoutMaxIsAllBytes) {
+  EXPECT_EQ(bytesWithinMaxIngress(4096, std::nullopt, 1'000'000), 4096);
+}
+
+TEST(DecompressionLimitsTest, BytesWithinMaxIngressIsAllBytesUpToMax) {
+  EXPECT_EQ(bytesWithinMaxIngress(40, 100, 60), 40);
+  EXPECT_EQ(bytesWithinMaxIngress(40, 100, 100), 40);
+}
+
+TEST(DecompressionLimitsTest, BytesWithinMaxIngressDropsBytesPastMax) {
+  EXPECT_EQ(bytesWithinMaxIngress(41, 100, 101), 40);
+  EXPECT_EQ(bytesWithinMaxIngress(1, 0, 1), 0);
+}
+
+TEST(DecompressionLimitsTest, BytesWithinMaxIngressDoesNotUnderflow) {
+  EXPECT_EQ(bytesWithinMaxIngress(1, 100, 102), 0);
+  EXPECT_EQ(bytesWithinMaxIngress(1, 0, std::numeric_limits<uint64_t>::max()),
+            0);
 }
 
 TEST(DecompressionLimitsTest, DecompressionRatioWithoutMaxIsNeverExceeded) {

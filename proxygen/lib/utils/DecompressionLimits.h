@@ -29,6 +29,22 @@ inline uint64_t maxBytesForNextDecode(uint64_t freeBufferBytes,
       folly::constexpr_add_overflow_clamped<uint64_t>(remaining, 1));
 }
 
+inline bool exceedsMaxIngressBytes(uint64_t totalOutputBytes,
+                                   std::optional<uint64_t> maxIngressBytes) {
+  return maxIngressBytes.has_value() && totalOutputBytes > *maxIngressBytes;
+}
+
+// `bytesOutputSoFar` already includes `bytesJustDecoded`.
+inline uint64_t bytesWithinMaxIngress(uint64_t bytesJustDecoded,
+                                      std::optional<uint64_t> maxIngressBytes,
+                                      uint64_t bytesOutputSoFar) {
+  if (!exceedsMaxIngressBytes(bytesOutputSoFar, maxIngressBytes)) {
+    return bytesJustDecoded;
+  }
+  return folly::constexpr_sub_overflow_clamped<uint64_t>(
+      bytesJustDecoded, bytesOutputSoFar - *maxIngressBytes);
+}
+
 inline bool exceedsMaxDecompressionRatio(
     uint64_t totalInputBytes,
     uint64_t totalOutputBytes,

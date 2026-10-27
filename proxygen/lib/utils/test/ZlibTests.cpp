@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <folly/Random.h>
@@ -14,8 +15,10 @@
 #include <folly/io/IOBuf.h>
 #include <folly/portability/GTest.h>
 #include <glog/logging.h>
+#include <optional>
 #include <proxygen/lib/utils/ZlibStreamCompressor.h>
 #include <proxygen/lib/utils/ZlibStreamDecompressor.h>
+#include <string>
 
 using namespace folly;
 using namespace proxygen;
@@ -257,4 +260,102 @@ TEST_F(ZlibTests, MaxDecompressionRatio_StreamingChunksFailure) {
     }
   }
   EXPECT_TRUE(errorDetected);
+}
+
+namespace {
+
+constexpr uint64_t kMaxIngressBytes = 40000;
+
+std::unique_ptr<proxygen::decompression::ZlibStreamDecompressor>
+makeDecompressorWithMaxIngressBytes(CompressionType type,
+                                    uint64_t maxIngressBytes) {
+  const std::optional<uint64_t> unlimitedRatio;
+  return std::make_unique<proxygen::decompression::ZlibStreamDecompressor>(
+      type,
+      proxygen::decompression::kZlibDecompressorBufferGrowthDefault,
+      proxygen::decompression::kZlibDecompressorBufferMinsizeDefault,
+      unlimitedRatio,
+      maxIngressBytes);
+}
+
+} // namespace
+
+TEST_F(ZlibTests, MaxIngressBytes_FailsPastLimitWithBytesUpToLimit) {
+  for (auto type : {CompressionType::GZIP, CompressionType::DEFLATE}) {
+    auto original = makeBuf(64 * 1024);
+    auto compressed = compressBuf(type, original);
+    auto zd = makeDecompressorWithMaxIngressBytes(type, kMaxIngressBytes);
+
+    auto decompressed = zd->decompress(compressed.get());
+
+    EXPECT_TRUE(zd->hasError());
+    EXPECT_EQ(decompressed->to<std::string>(),
+              original->to<std::string>().substr(0, kMaxIngressBytes));
+  }
+}
+
+TEST_F(ZlibTests, MaxIngressBytes_ExactFitSucceeds) {
+  constexpr uint32_t kSize = 5000;
+  for (auto type : {CompressionType::GZIP, CompressionType::DEFLATE}) {
+    auto original = makeBuf(kSize);
+    auto compressed = compressBuf(type, original);
+    auto zd = makeDecompressorWithMaxIngressBytes(type, kSize);
+
+    auto decompressed = zd->decompress(compressed.get());
+
+    EXPECT_FALSE(zd->hasError());
+    EXPECT_TRUE(zd->finished());
+    EXPECT_EQ(decompressed->to<std::string>(), original->to<std::string>());
+  }
+}
+
+TEST_F(ZlibTests, MaxIngressBytes_StopsReadingInputAtLimit) {
+  auto original = makeBuf(64 * 1024);
+  auto compressed = compressBuf(CompressionType::GZIP, original);
+  compressed->appendToChain(IOBuf::copyBuffer("trailing bytes"));
+  proxygen::decompression::ZlibStreamDecompressor unlimited(
+      CompressionType::GZIP);
+  unlimited.decompress(compressed.get());
+  ASSERT_TRUE(unlimited.hasError());
+  auto zd = makeDecompressorWithMaxIngressBytes(CompressionType::GZIP,
+                                                kMaxIngressBytes);
+
+  auto decompressed = zd->decompress(compressed.get());
+
+  EXPECT_TRUE(zd->hasError());
+  EXPECT_EQ(decompressed->to<std::string>(),
+            original->to<std::string>().substr(0, kMaxIngressBytes));
+}
+
+TEST_F(ZlibTests, MaxIngressBytes_LimitsTotalAcrossStreamingCalls) {
+  auto original = makeBuf(64 * 1024);
+  auto compressed = compressBuf(CompressionType::GZIP, original);
+  auto zd = makeDecompressorWithMaxIngressBytes(CompressionType::GZIP,
+                                                kMaxIngressBytes);
+  auto coalesced = compressed->coalesce();
+  constexpr size_t kChunkSize = 128;
+  auto decompressed = IOBuf::create(0);
+
+  for (size_t offset = 0; offset < coalesced.size() && !zd->hasError();
+       offset += kChunkSize) {
+    auto chunk =
+        IOBuf::wrapBuffer(coalesced.data() + offset,
+                          std::min(kChunkSize, coalesced.size() - offset));
+    decompressed->appendToChain(zd->decompress(chunk.get()));
+  }
+
+  EXPECT_TRUE(zd->hasError());
+  EXPECT_EQ(decompressed->to<std::string>(),
+            original->to<std::string>().substr(0, kMaxIngressBytes));
+}
+
+TEST_F(ZlibTests, MaxIngressBytes_CorruptInputStillFails) {
+  auto garbage = IOBuf::copyBuffer("this is not gzip data at all");
+  auto zd = makeDecompressorWithMaxIngressBytes(CompressionType::GZIP,
+                                                kMaxIngressBytes);
+
+  auto decompressed = zd->decompress(garbage.get());
+
+  EXPECT_TRUE(zd->hasError());
+  EXPECT_EQ(decompressed, nullptr);
 }

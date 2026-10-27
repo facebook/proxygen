@@ -39,12 +39,14 @@ ZlibStreamDecompressor::ZlibStreamDecompressor(
     CompressionType type,
     uint64_t zlib_decompressor_buffer_growth,
     uint64_t zlib_decompressor_buffer_minsize,
-    std::optional<uint64_t> maxDecompressionRatio)
+    std::optional<uint64_t> maxDecompressionRatio,
+    std::optional<uint64_t> maxIngressBytes)
     : type_(CompressionType::NONE),
       decompressor_buffer_growth_(zlib_decompressor_buffer_growth),
       decompressor_buffer_minsize_(zlib_decompressor_buffer_minsize),
       status_(Z_OK),
-      maxDecompressionRatio_(maxDecompressionRatio) {
+      maxDecompressionRatio_(maxDecompressionRatio),
+      maxIngressBytes_(maxIngressBytes) {
   init(type);
 }
 
@@ -87,9 +89,10 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
 
     const size_t origAvailIn = crtBuf->length() - offset;
     zlibStream_.next_in = const_cast<uint8_t*>(crtBuf->data() + offset);
-    zlibStream_.avail_in = origAvailIn;
+    zlibStream_.avail_in = static_cast<uInt>(origAvailIn);
     zlibStream_.next_out = appender.writableData();
-    zlibStream_.avail_out = appender.length();
+    zlibStream_.avail_out = static_cast<uInt>(maxBytesForNextDecode(
+        appender.length(), maxIngressBytes_, totalOutputBytes_));
     status_ = inflate(&zlibStream_, Z_PARTIAL_FLUSH);
     if (status_ != Z_OK && status_ != Z_STREAM_END) {
       LOG(INFO) << "error uncompressing buffer: r=" << status_;
@@ -99,9 +102,8 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
     // Adjust the input offset ahead
     auto inConsumed = origAvailIn - zlibStream_.avail_in;
     offset += inConsumed;
-    // Move output buffer ahead
-    auto outMove = appender.length() - zlibStream_.avail_out;
-    appender.append(outMove);
+    // inflate() advances next_out past every byte it wrote.
+    const size_t outMove = zlibStream_.next_out - appender.writableData();
 
     // Track cumulative bytes for ratio enforcement.
     totalInputBytes_ += inConsumed;
@@ -111,6 +113,14 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
             totalInputBytes_, totalOutputBytes_, maxDecompressionRatio_)) {
       status_ = Z_STREAM_ERROR;
       return nullptr;
+    }
+
+    appender.append(
+        bytesWithinMaxIngress(outMove, maxIngressBytes_, totalOutputBytes_));
+    if (exceedsMaxIngressBytes(totalOutputBytes_, maxIngressBytes_)) {
+      // Return the bytes up to the cap; hasError() tells the caller to abort.
+      status_ = Z_STREAM_ERROR;
+      return out;
     }
   }
 
