@@ -262,6 +262,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
   void startTcp(const KeepAliveEventBaseVec& evbs);
   void startQuic(const KeepAliveEventBaseVec& vbs);
   void createQuicServer(const std::vector<folly::EventBase*>& evbs);
+  void stopQuicOnCoordinator();
   void configureFizzServerContext(
       std::shared_ptr<fizz::server::FizzServerContext> fizzCtx);
   bool onQuicWriteCipherAvailable(
@@ -287,6 +288,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
   bool setReusePortSocketOption_{false};
   folly::F14NodeMap<folly::EventBase*, std::list<HTTPCoroAcceptor>> acceptors_;
   std::shared_ptr<quic::QuicServer> quicServer_;
+  bool quicStopped_{false};
   SocketAcceptorConfigFactoryFn socketAcceptorConfigFactoryFn_{nullptr};
   enum class State : uint8_t {
     UNINIT = 0,
@@ -302,12 +304,12 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
                                   const HTTPServer::State& state);
 
   template <typename T, typename... Args>
-  void deliverObserverEvent(T callbackFn, Args&&... args) {
+  void deliverObserverEvent(T callbackFn, const Args&... args) {
     auto obsClone = observers_;
 
     for (auto& obs : obsClone) {
       if (std::find(obsClone.begin(), obsClone.end(), obs) != obsClone.end()) {
-        (obs->*callbackFn)(std::forward<Args>(args)...);
+        (obs->*callbackFn)(args...);
       }
     }
   }

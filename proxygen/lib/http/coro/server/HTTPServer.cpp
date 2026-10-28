@@ -55,6 +55,26 @@ class QuicAcceptorTransportFactory : public quic::QuicServerTransportFactory {
   std::shared_ptr<const fizz::server::FizzServerContext> ctx_;
 };
 
+void forceStopAcceptor(HTTPCoroAcceptor& acceptor) {
+  auto keepAlive = acceptor.getEventBaseKeepalive();
+  if (!keepAlive) {
+    return;
+  }
+  auto stop = [&acceptor] {
+    if (acceptor.getEventBase() == nullptr) {
+      // TLS setup can fail before Wangle initializes the acceptor's base_.
+      acceptor.releaseEventBaseKeepAlive();
+    } else {
+      acceptor.forceStop();
+    }
+  };
+  if (keepAlive->isInEventBaseThread()) {
+    stop();
+  } else {
+    keepAlive->runInEventBaseThreadAndWait(stop);
+  }
+}
+
 uint64_t getHTTPSettingValueOrDefault(const SettingsList& settings,
                                       const SettingsId id,
                                       const SettingsValue defaultValue) {
@@ -274,7 +294,7 @@ void HTTPServer::createQuicServer(const std::vector<folly::EventBase*>& evbs) {
     nRunningAcceptors_++;
     acceptor->setOnConnectionDrainedFn([this] {
       if (--nRunningAcceptors_ == 0) {
-        quicServer_->shutdown();
+        eventBase_.runInEventBaseThread([this] { stopQuicOnCoordinator(); });
       }
     });
     if (!fizzCtx) {
@@ -315,6 +335,16 @@ void HTTPServer::createQuicServer(const std::vector<folly::EventBase*>& evbs) {
   }
   quicServer_->setConnectionIdVersion(quic::ConnectionIdVersion::V2);
   quicServer_->setHostId(hostId_);
+}
+
+void HTTPServer::stopQuicOnCoordinator() {
+  XCHECK(eventBase_.isInEventBaseThread());
+  if (!quicServer_ || quicStopped_) {
+    return;
+  }
+  quicStopped_ = true;
+  quicServer_->shutdown();
+  loopKeepAlive_.reset();
 }
 
 void HTTPServer::configureFizzServerContext(
@@ -379,6 +409,12 @@ void HTTPServer::teardownImpl() {
   XLOG(DBG4) << __func__;
   globalDrainImpl();
   unregisterSignalHandlers();
+  if (quicServer_ && !quicStopped_) {
+    if (nRunningAcceptors_ == 0) {
+      stopQuicOnCoordinator();
+    }
+    return;
+  }
   loopKeepAlive_.reset();
 }
 
@@ -416,16 +452,28 @@ void HTTPServer::forceStop() {
     eventBase_.runImmediatelyOrRunInEventBaseThread([this] { teardownImpl(); });
   }
   if (state == State::DRAINING) {
-    if (quicServer_) {
-      quicServer_->shutdown();
-    }
-    for (auto& it : acceptors_) {
-      for (auto& acceptor : it.second) {
-        if (auto keepAlive = acceptor.getEventBaseKeepalive()) {
-          acceptor.forceStop();
-        } // else, the acceptor already drained
+    if (!config_.quicConfig) {
+      for (auto& it : acceptors_) {
+        for (auto& acceptor : it.second) {
+          if (auto keepAlive = acceptor.getEventBaseKeepalive()) {
+            acceptor.forceStop();
+          }
+        }
       }
+      return;
     }
+    eventBase_.runImmediatelyOrRunInEventBaseThread([this] {
+      if (quicServer_ && !quicStopped_) {
+        quicStopped_ = true;
+        quicServer_->shutdown();
+      }
+      for (auto& it : acceptors_) {
+        for (auto& acceptor : it.second) {
+          forceStopAcceptor(acceptor);
+        }
+      }
+      loopKeepAlive_.reset();
+    });
   }
 }
 

@@ -137,6 +137,13 @@ class HTTPCoroAcceptor : public wangle::Acceptor {
     return *keepAlive_.rlock();
   }
 
+  // For partial initialization where forceStop() cannot use base_.
+  // Must run on the acceptor's EventBase.
+  void releaseEventBaseKeepAlive() {
+    auto keepAlive = keepAlive_.wlock();
+    keepAlive->reset();
+  }
+
  protected:
   void onSessionReady(folly::EventBase* eventBase, HTTPCoroSession* session);
   // HTTPSessionStats* downstreamSessionStats_{nullptr};
