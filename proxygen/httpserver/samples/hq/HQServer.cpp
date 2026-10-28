@@ -16,11 +16,14 @@
 #include <vector>
 
 #include <folly/io/async/EventBaseLocal.h>
+#include <folly/system/HardwareConcurrency.h>
 #include <proxygen/httpserver/samples/hq/FizzContext.h>
 #include <proxygen/httpserver/samples/hq/H1QDownstreamSession.h>
 #include <proxygen/httpserver/samples/hq/HQLoggerHelper.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
+#include <quic/congestion_control/ServerCongestionControllerFactory.h>
 #include <quic/server/QuicSharedUDPSocketFactory.h>
+#include <quic/server/ThreadedQuicServer.h>
 
 using fizz::server::FizzServerContext;
 using quic::QuicServerTransport;
@@ -172,10 +175,15 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
     folly::EventBase* evb,
     std::unique_ptr<quic::FollyAsyncUDPSocketAlias> socket,
     const folly::SocketAddress& /* peerAddr */,
-    quic::QuicVersion,
-    std::shared_ptr<const FizzServerContext> ctx) noexcept {
+    quic::QuicVersion) noexcept {
   auto transport = quic::QuicHandshakeSocketHolder::makeServerTransport(
-      evb, std::move(socket), std::move(ctx), this);
+      evb, std::move(socket), ctx_.load(), this);
+  static auto defaultCcFactory =
+      std::make_shared<ServerCongestionControllerFactory>();
+  transport->setCongestionControllerFactory(ccFactory_ ? ccFactory_
+                                                       : defaultCcFactory);
+  transport->setShouldRegisterKnobParamHandlerFn(knobFn_);
+  transport->setQuicExperimentHandlerFn(experimentFn_);
   if (qloggerFactory_) {
     if (auto logger = qloggerFactory_(quic::VantagePoint::Server)) {
       transport->setQLogger(std::move(logger));
@@ -325,34 +333,28 @@ HQServer::HQServer(
     HQServerParams params,
     std::unique_ptr<quic::QuicServerTransportFactory> factory,
     std::shared_ptr<const fizz::server::FizzServerContext> fizzCtx)
-    : params_(std::move(params)) {
+    : params_(std::move(params)),
+      factory_(std::move(factory)),
+      fizzCtx_(std::move(fizzCtx)) {
   params_.transportSettings.datagramConfig.enabled = true;
   params_.transportSettings.advertisedKnobFrameSupport = true;
-  server_ = quic::QuicServer::createQuicServer(params_.transportSettings);
+}
 
-  server_->setBindV6Only(false);
-  if (params_.congestionControllerFactory) {
-    server_->setCongestionControllerFactory(
-        params_.congestionControllerFactory);
-  } else {
-    server_->setCongestionControllerFactory(
-        std::make_shared<ServerCongestionControllerFactory>());
+void HQServer::start(const folly::SocketAddress& localAddress,
+                     std::vector<folly::EventBase*> evbs) {
+  CHECK(!server_);
+  localAddress_ = localAddress;
+  quic::ServerOptions options;
+  options.transportSettings = params_.transportSettings;
+  if (!params_.quicVersions.empty()) {
+    options.supportedVersions = params_.quicVersions;
   }
-
-  server_->setQuicServerTransportFactory(std::move(factory));
-  server_->setQuicUDPSocketFactory(
-      std::make_unique<QuicSharedUDPSocketFactory>());
-  server_->setHealthCheckToken("health");
-  server_->setSupportedVersion(params_.quicVersions);
-  server_->setFizzContext(std::move(fizzCtx));
-
-  server_->setQuicExperimentHandlerFn(
-      [](quic::QuicConnectionStateBase& /* conn */, uint16_t experimentId) {
-        VLOG(2) << "quic_experiment handler fired: experimentId="
-                << experimentId;
-      });
-
-  // Apply UDP socket buffer size options if specified
+  options.bindOptions.bindV6Only = false;
+  options.processId = processId_;
+  options.hostId = hostId_;
+  options.cidVersion = cidVersion_;
+  options.socketFactory = std::make_unique<QuicSharedUDPSocketFactory>();
+  options.healthCheckToken = std::string("health");
   folly::SocketOptionMap socketOptions;
   if (params_.udpRecvBufferSize > 0) {
     socketOptions[{
@@ -364,61 +366,97 @@ HQServer::HQServer(
         SOL_SOCKET, SO_SNDBUF, folly::SocketOptionKey::ApplyPos::POST_BIND}] =
         static_cast<int>(params_.udpSendBufferSize);
   }
-  if (!socketOptions.empty()) {
-    server_->setSocketOptions(socketOptions);
-  }
-
+  options.socketOptions = socketOptions;
   if (params_.rateLimitPerThread) {
-    server_->setRateLimit(
-        [rateLimitPerThread = params_.rateLimitPerThread.value()]() {
-          return rateLimitPerThread;
-        },
-        1s);
+    options.rateLimitCount = [rateLimitPerThread =
+                                  params_.rateLimitPerThread.value()]() {
+      return rateLimitPerThread;
+    };
+    options.rateLimitWindow = 1s;
   }
-  server_->setShouldRegisterKnobParamHandlerFn(
-      [](TransportKnobParamId transportKnobParamId) -> bool { return true; });
-}
+  options.transportStatsFactory = std::move(statsFactory_);
+  options.transportSettingsOverrideFn = transportSettingsOverrideFn_;
+  if (rejectFn_) {
+    options.rejectNewConnections = rejectFn_;
+  }
 
-void HQServer::start(const folly::SocketAddress& localAddress,
-                     std::vector<folly::EventBase*> evbs) {
-  if (evbs.empty()) {
-    server_->start(localAddress, params_.serverThreads);
+  if (auto* hqFactory =
+          dynamic_cast<HQServerTransportFactory*>(factory_.get())) {
+    hqFactory->setFizzContext(fizzCtx_);
+    hqFactory->setCongestionControllerFactory(
+        params_.congestionControllerFactory
+            ? params_.congestionControllerFactory
+            : std::make_shared<ServerCongestionControllerFactory>());
+    hqFactory->setShouldRegisterKnobParamHandlerFn(
+        [](TransportKnobParamId) -> bool { return true; });
+    hqFactory->setQuicExperimentHandlerFn([](quic::QuicConnectionStateBase&,
+                                             uint16_t experimentId) {
+      VLOG(2) << "quic_experiment handler fired: experimentId=" << experimentId;
+    });
   } else {
-    server_->initialize(localAddress, evbs, true);
-    server_->start();
+    LOG(DFATAL) << "HQServer: custom factory is not an "
+                   "HQServerTransportFactory; TLS/CC/knob/experiment "
+                   "forwarding skipped";
   }
+
+  server_ = quic::QuicServer::createQuicServer(std::move(options));
+  if (evbs.empty()) {
+    size_t numWorkers = quic::ThreadedQuicServer::numWorkersToCreate(
+        params_.serverThreads, folly::available_concurrency());
+    for (size_t i = 0; i < numWorkers; ++i) {
+      ownedThreads_.push_back(std::make_unique<folly::ScopedEventBaseThread>());
+      evbs.push_back(ownedThreads_.back()->getEventBase());
+    }
+  }
+  workerEvbs_ = evbs;
+  server_->bind(localAddress, evbs, listeningFds_);
+  for (auto* evb : evbs) {
+    server_->addTransportFactory(evb, factory_.get());
+  }
+  server_->start();
 }
 
 const folly::SocketAddress HQServer::getAddress() const {
-  server_->waitUntilInitialized();
-  const auto& boundAddr = server_->getAddress();
+  if (!server_) {
+    return localAddress_;
+  }
+  auto boundAddr = server_->getAddress();
   LOG(INFO) << "HQ server started at: " << boundAddr.describe();
   return boundAddr;
 }
 
 void HQServer::stop() {
-  server_->shutdown();
+  if (server_) {
+    server_->shutdown();
+  }
 }
 
 void HQServer::rejectNewConnections(
     std::function<bool(const quic::SocketAddress&)> rejectFn) {
-  server_->rejectNewConnections(std::move(rejectFn));
+  rejectFn_ = rejectFn;
+  if (server_) {
+    server_->rejectNewConnections(std::move(rejectFn));
+  }
 }
 
 void HQServer::setHostId(uint32_t hostId) {
-  server_->setHostId(hostId);
+  hostId_ = hostId;
+  if (server_) {
+    server_->setHostId(hostId);
+  }
 }
 
 void HQServer::setProcessId(quic::ProcessId processId) {
-  server_->setProcessId(processId);
+  CHECK(!server_);
+  processId_ = processId;
 }
 
 void HQServer::setConnectionIdVersion(quic::ConnectionIdVersion version) {
-  server_->setConnectionIdVersion(version);
+  CHECK(!server_);
+  cidVersion_ = version;
 }
 
 void HQServer::waitUntilInitialized() {
-  server_->waitUntilInitialized();
 }
 
 void HQServer::allowBeingTakenOver(const folly::SocketAddress& addr) {
@@ -434,11 +472,12 @@ std::vector<int> HQServer::getAllListeningSocketFDs() const {
 }
 
 void HQServer::setListeningFDs(const std::vector<int>& fds) {
-  server_->setListeningFDs(fds);
+  CHECK(!server_);
+  listeningFds_ = fds;
 }
 
 quic::ProcessId HQServer::getProcessId() const {
-  return server_->getProcessId();
+  return server_ ? server_->getProcessId() : processId_;
 }
 
 TakeoverProtocolVersion HQServer::getTakeoverProtocolVersion() const {
@@ -455,13 +494,20 @@ void HQServer::pauseRead() {
 
 void HQServer::setFizzContext(
     std::shared_ptr<const fizz::server::FizzServerContext> ctx) {
-  server_->setFizzContext(std::move(ctx));
+  fizzCtx_ = ctx;
+  if (auto* hqFactory =
+          dynamic_cast<HQServerTransportFactory*>(factory_.get())) {
+    hqFactory->setFizzContext(std::move(ctx));
+  } else {
+    LOG(DFATAL) << "HQServer: custom factory is not an "
+                   "HQServerTransportFactory; TLS forwarding skipped";
+  }
 }
 
 void HQServer::setFizzContext(
-    folly::EventBase* evb,
+    folly::EventBase* /* evb */,
     std::shared_ptr<const fizz::server::FizzServerContext> ctx) {
-  server_->setFizzContext(evb, std::move(ctx));
+  setFizzContext(std::move(ctx));
 }
 
 ScopedHQServer::ScopedHQServer(HQServerParams params,

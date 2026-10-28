@@ -12,7 +12,9 @@
 #include <string>
 #include <vector>
 
+#include <folly/concurrency/AtomicSharedPtr.h>
 #include <folly/io/async/EventBaseLocal.h>
+#include <folly/io/async/ScopedEventBaseThread.h>
 #include <proxygen/httpserver/samples/hq/FizzContext.h>
 #include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <proxygen/lib/http/codec/H3EarlyDataHandler.h>
@@ -57,7 +59,7 @@ class HQServer {
   const folly::SocketAddress getAddress() const;
 
   std::vector<folly::EventBase*> getWorkerEvbs() const noexcept {
-    return server_->getWorkerEvbs();
+    return workerEvbs_;
   }
 
   // Stops both the QUIC transport AND the HTTP server handling loop
@@ -65,8 +67,8 @@ class HQServer {
 
   void setStatsFactory(
       std::unique_ptr<quic::QuicTransportStatsCallbackFactory>&& statsFactory) {
-    CHECK(server_);
-    server_->setTransportStatsCallbackFactory(std::move(statsFactory));
+    CHECK(!server_);
+    statsFactory_ = std::move(statsFactory);
   }
 
   // Forward a transport-settings override fn to the underlying QuicServer; it
@@ -74,8 +76,8 @@ class HQServer {
   // behind a JustKnob) without HQServer depending on the gating system.
   void setTransportSettingsOverrideFn(
       quic::QuicServer::TransportSettingsOverrideFn fn) {
-    CHECK(server_);
-    server_->setTransportSettingsOverrideFn(std::move(fn));
+    CHECK(!server_);
+    transportSettingsOverrideFn_ = std::move(fn);
   }
 
   // Takeover runtime wrapper methods - forward to underlying QuicServer
@@ -111,6 +113,18 @@ class HQServer {
 
  private:
   HQServerParams params_;
+  std::unique_ptr<quic::QuicServerTransportFactory> factory_;
+  std::shared_ptr<const fizz::server::FizzServerContext> fizzCtx_;
+  std::unique_ptr<quic::QuicTransportStatsCallbackFactory> statsFactory_;
+  quic::QuicServer::TransportSettingsOverrideFn transportSettingsOverrideFn_;
+  std::vector<int> listeningFds_;
+  quic::ProcessId processId_{quic::ProcessId::ZERO};
+  uint32_t hostId_{0};
+  quic::Optional<quic::ConnectionIdVersion> cidVersion_;
+  folly::SocketAddress localAddress_;
+  std::function<bool(const quic::SocketAddress&)> rejectFn_;
+  std::vector<folly::EventBase*> workerEvbs_;
+  std::vector<std::unique_ptr<folly::ScopedEventBaseThread>> ownedThreads_;
   std::shared_ptr<quic::QuicServer> server_;
 };
 
@@ -171,14 +185,28 @@ class HQServerTransportFactory
     qloggerFactory_ = std::move(fn);
   }
 
-  // Creates new quic server transport
+  void setFizzContext(
+      std::shared_ptr<const fizz::server::FizzServerContext> ctx) {
+    ctx_.store(std::move(ctx));
+  }
+  void setCongestionControllerFactory(
+      std::shared_ptr<quic::CongestionControllerFactory> factory) {
+    ccFactory_ = std::move(factory);
+  }
+  void setShouldRegisterKnobParamHandlerFn(
+      std::function<bool(quic::TransportKnobParamId)> fn) {
+    knobFn_ = std::move(fn);
+  }
+  void setQuicExperimentHandlerFn(
+      quic::QuicServerTransport::QuicExperimentHandlerFn fn) {
+    experimentFn_ = std::move(fn);
+  }
+
   quic::QuicServerTransport::Ptr make(
       folly::EventBase* evb,
       std::unique_ptr<quic::FollyAsyncUDPSocketAlias> socket,
       const folly::SocketAddress& /* peerAddr */,
-      quic::QuicVersion quicVersion,
-      std::shared_ptr<const fizz::server::FizzServerContext> ctx) noexcept
-      override;
+      quic::QuicVersion quicVersion) noexcept override;
 
   using AlpnHandlerFn = std::function<void(std::shared_ptr<quic::QuicSocket>,
                                            wangle::ConnectionManager*)>;
@@ -227,6 +255,10 @@ class HQServerTransportFactory
   proxygen::H3EarlyDataHandler h3EarlyDataHandler_;
   quic::EarlyDataAppParamsHandler* defaultEarlyDataHandler_{nullptr};
   QLoggerFactory qloggerFactory_;
+  folly::atomic_shared_ptr<const fizz::server::FizzServerContext> ctx_;
+  std::shared_ptr<quic::CongestionControllerFactory> ccFactory_;
+  std::function<bool(quic::TransportKnobParamId)> knobFn_;
+  quic::QuicServerTransport::QuicExperimentHandlerFn experimentFn_;
 };
 
 } // namespace quic::samples

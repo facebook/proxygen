@@ -24,6 +24,7 @@
 #include <folly/coro/Collect.h>
 #include <folly/coro/Timeout.h>
 #include <folly/coro/ViaIfAsync.h>
+#include <folly/io/async/ScopedEventBaseThread.h>
 #include <folly/portability/OpenSSL.h>
 #include <folly/ssl/OpenSSLCertUtils.h>
 #include <folly/ssl/OpenSSLKeyUtils.h>

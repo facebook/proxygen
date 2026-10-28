@@ -28,8 +28,11 @@ class QuicAcceptorTransportFactory : public quic::QuicServerTransportFactory {
  public:
   QuicAcceptorTransportFactory(
       HTTPServer& server,
-      std::shared_ptr<const fizz::server::FizzServerContext> ctx)
-      : server_(server), ctx_(std::move(ctx)) {
+      std::shared_ptr<const fizz::server::FizzServerContext> ctx,
+      std::shared_ptr<quic::CongestionControllerFactory> ccFactory)
+      : server_(server),
+        ctx_(std::move(ctx)),
+        ccFactory_(std::move(ccFactory)) {
   }
 
   quic::QuicServerTransport::Ptr make(
@@ -39,6 +42,7 @@ class QuicAcceptorTransportFactory : public quic::QuicServerTransportFactory {
       quic::QuicVersion) noexcept override {
     auto transport = quic::QuicHandshakeSocketHolder::makeServerTransport(
         evb, std::move(socket), ctx_, &server_);
+    transport->setCongestionControllerFactory(ccFactory_);
     const auto& quicConfig = server_.getConfig().quicConfig;
     if (quicConfig->qlogger && quicConfig->qloggerSampling.isLucky()) {
       transport->setQLogger(quicConfig->qlogger);
@@ -53,6 +57,7 @@ class QuicAcceptorTransportFactory : public quic::QuicServerTransportFactory {
  private:
   proxygen::coro::HTTPServer& server_;
   std::shared_ptr<const fizz::server::FizzServerContext> ctx_;
+  std::shared_ptr<quic::CongestionControllerFactory> ccFactory_;
 };
 
 void forceStopAcceptor(HTTPCoroAcceptor& acceptor) {
@@ -338,17 +343,17 @@ void HTTPServer::createQuicServer(const std::vector<folly::EventBase*>& evbs) {
     options.transportStatsFactory = std::move(config_.quicConfig->statsFactory);
   }
   quicServer_ = quic::QuicServer::createQuicServer(std::move(options));
-  quicServer_->setCongestionControllerFactory(
+  quicFactory_ = std::make_unique<QuicAcceptorTransportFactory>(
+      *this,
+      fizzCtx,
       config_.quicConfig->ccFactory
           ? std::move(config_.quicConfig->ccFactory)
           : std::shared_ptr<quic::CongestionControllerFactory>(
                 std::make_shared<quic::ServerCongestionControllerFactory>()));
-  quicFactory_ = std::make_unique<QuicAcceptorTransportFactory>(*this, fizzCtx);
   quicServer_->bind(config_.socketConfig.bindAddress, evbs);
   for (auto* evb : evbs) {
     quicServer_->addTransportFactory(evb, quicFactory_.get());
   }
-  quicServer_->setFizzContext(fizzCtx);
 }
 
 void HTTPServer::stopQuicOnCoordinator() {
