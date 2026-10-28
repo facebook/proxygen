@@ -72,4 +72,8 @@ const char* LlhttpParser::errorReason() const {
   return llhttp_get_error_reason(&parser_);
 }
 
+const char* LlhttpParser::methodStr() const {
+  return llhttp_method_name(static_cast<llhttp_method_t>(parser_.method));
+}
+
 } // namespace facebook::detail

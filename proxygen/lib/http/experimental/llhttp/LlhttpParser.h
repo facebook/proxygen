@@ -9,6 +9,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 #ifdef HTTP_ERRNO_MAP
 #pragma push_macro("HTTP_ERRNO_MAP")
@@ -60,6 +61,30 @@ class LlhttpParser {
   }
   [[nodiscard]] bool isActive() const {
     return active_;
+  }
+
+  [[nodiscard]] uint8_t httpMajor() const {
+    return parser_.http_major;
+  }
+  [[nodiscard]] uint8_t httpMinor() const {
+    return parser_.http_minor;
+  }
+  void setHttpVersion(uint8_t major, uint8_t minor) {
+    parser_.http_major = major;
+    parser_.http_minor = minor;
+  }
+  [[nodiscard]] uint16_t statusCode() const {
+    return parser_.status_code;
+  }
+  [[nodiscard]] const char* methodStr() const;
+  [[nodiscard]] bool isChunked() const {
+    return (parser_.flags & F_CHUNKED) != 0;
+  }
+  [[nodiscard]] uint64_t contentLength() const {
+    return parser_.content_length;
+  }
+  void skipBody() {
+    parser_.flags |= F_SKIPBODY;
   }
 
  private:

@@ -62,6 +62,10 @@ TEST(LlhttpParserTest, UsesCallerCallbacksAndContext) {
   EXPECT_EQ(callbacks.url, "/foo");
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_EQ(parser.httpMajor(), 1);
+  EXPECT_EQ(parser.httpMinor(), 1);
+  EXPECT_STREQ(parser.methodStr(), "GET");
+  EXPECT_FALSE(parser.isChunked());
   EXPECT_FALSE(parser.hasFatalError());
 }
 
@@ -109,6 +113,18 @@ TEST(LlhttpParserTest, UpgradeLeavesProtocolBytesUnconsumed) {
 
   parser.finish();
   EXPECT_EQ(parser.error(), HPE_PAUSED_UPGRADE);
+}
+
+TEST(LlhttpParserTest, ReportsChunkedFraming) {
+  CallbackState callbacks;
+  callbacks.pauseAtHeaders = true;
+  LlhttpParser parser{HTTP_REQUEST, CallbackState::settings(), &callbacks};
+  const std::string request =
+      "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n";
+
+  ASSERT_LT(parser.execute(request.data(), request.size()), request.size());
+
+  EXPECT_TRUE(parser.isChunked());
 }
 
 TEST(LlhttpParserTest, FinishReportsTruncatedMessage) {
