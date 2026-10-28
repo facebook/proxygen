@@ -14,10 +14,29 @@ namespace facebook::detail {
 
 LlhttpParser::LlhttpParser(llhttp_type_t type,
                            const llhttp_settings_t* settings,
-                           void* callbackContext) {
+                           void* callbackContext,
+                           LlhttpParserOptions options) {
   assert(settings != nullptr);
   llhttp_init(&parser_, type, settings);
   parser_.data = callbackContext;
+
+  llhttp_set_lenient_headers(&parser_, options.lenientHeaders);
+  llhttp_set_lenient_chunked_length(&parser_, options.lenientChunkedLength);
+  llhttp_set_lenient_keep_alive(&parser_, options.lenientKeepAlive);
+  llhttp_set_lenient_transfer_encoding(&parser_,
+                                       options.lenientTransferEncoding);
+  llhttp_set_lenient_version(&parser_, options.lenientVersion);
+  llhttp_set_lenient_data_after_close(&parser_, options.lenientDataAfterClose);
+  llhttp_set_lenient_optional_lf_after_cr(&parser_,
+                                          options.lenientOptionalLfAfterCr);
+  llhttp_set_lenient_optional_cr_before_lf(&parser_,
+                                           options.lenientOptionalCrBeforeLf);
+  llhttp_set_lenient_optional_crlf_after_chunk(
+      &parser_, options.lenientOptionalCrlfAfterChunk);
+  llhttp_set_lenient_spaces_after_chunk_size(
+      &parser_, options.lenientSpacesAfterChunkSize);
+  llhttp_set_lenient_header_value_relaxed(&parser_,
+                                          options.lenientHeaderValueRelaxed);
 }
 
 size_t LlhttpParser::execute(const char* data, size_t len) {

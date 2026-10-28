@@ -127,6 +127,57 @@ TEST(LlhttpParserTest, ReportsChunkedFraming) {
   EXPECT_TRUE(parser.isChunked());
 }
 
+TEST(LlhttpParserTest, RejectsBareLfLineEndingsByDefault) {
+  CallbackState callbacks;
+  LlhttpParser parser{HTTP_REQUEST, CallbackState::settings(), &callbacks};
+  const std::string request = "GET / HTTP/1.1\nHost: h\n\n";
+
+  EXPECT_LT(parser.execute(request.data(), request.size()), request.size());
+  EXPECT_TRUE(parser.hasFatalError());
+}
+
+TEST(LlhttpParserTest, AcceptsBareLfLineEndings) {
+  CallbackState callbacks;
+  LlhttpParserOptions options;
+  options.lenientOptionalLfAfterCr = true;
+  options.lenientOptionalCrBeforeLf = true;
+  LlhttpParser parser{
+      HTTP_REQUEST, CallbackState::settings(), &callbacks, options};
+  const std::string request = "GET / HTTP/1.1\nHost: h\n\n";
+
+  EXPECT_EQ(parser.execute(request.data(), request.size()), request.size());
+  EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_FALSE(parser.hasFatalError());
+}
+
+TEST(LlhttpParserTest, AcceptsFinalCrWithoutLf) {
+  CallbackState callbacks;
+  LlhttpParserOptions options;
+  options.lenientOptionalLfAfterCr = true;
+  LlhttpParser parser{
+      HTTP_REQUEST, CallbackState::settings(), &callbacks, options};
+  const std::string request = "GET / HTTP/1.1\r\nHost: h\r\n\r";
+
+  EXPECT_EQ(parser.execute(request.data(), request.size()), request.size());
+  EXPECT_FALSE(parser.hasFatalError());
+}
+
+TEST(LlhttpParserTest, AcceptsChunkedTransferEncodingWithContentLength) {
+  CallbackState callbacks;
+  LlhttpParserOptions options;
+  options.lenientChunkedLength = true;
+  LlhttpParser parser{
+      HTTP_REQUEST, CallbackState::settings(), &callbacks, options};
+  const std::string request =
+      "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\nContent-Length: "
+      "4\r\n\r\n"
+      "4\r\nbody\r\n0\r\n\r\n";
+
+  EXPECT_EQ(parser.execute(request.data(), request.size()), request.size());
+  EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_FALSE(parser.hasFatalError());
+}
+
 TEST(LlhttpParserTest, FinishReportsTruncatedMessage) {
   CallbackState callbacks;
   LlhttpParser parser{HTTP_REQUEST, CallbackState::settings(), &callbacks};

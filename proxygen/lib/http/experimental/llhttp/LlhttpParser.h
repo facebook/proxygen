@@ -27,11 +27,27 @@
 
 namespace facebook::detail {
 
+// One field per llhttp_set_lenient_*() flag
+struct LlhttpParserOptions {
+  bool lenientHeaders{false};
+  bool lenientChunkedLength{false};
+  bool lenientKeepAlive{false};
+  bool lenientTransferEncoding{false};
+  bool lenientVersion{false};
+  bool lenientDataAfterClose{false};
+  bool lenientOptionalLfAfterCr{false};
+  bool lenientOptionalCrBeforeLf{false};
+  bool lenientOptionalCrlfAfterChunk{false};
+  bool lenientSpacesAfterChunkSize{false};
+  bool lenientHeaderValueRelaxed{false};
+};
+
 class LlhttpParser {
  public:
   LlhttpParser(llhttp_type_t type,
                const llhttp_settings_t* settings,
-               void* callbackContext);
+               void* callbackContext,
+               LlhttpParserOptions options = {});
   ~LlhttpParser() = default;
 
   LlhttpParser(const LlhttpParser&) = delete;
