@@ -270,7 +270,8 @@ class HTTP2Codec
                    ErrorCode error,
                    bool newTxn = false,
                    folly::Optional<HTTPCodec::StreamID> streamId = folly::none,
-                   std::unique_ptr<HTTPMessage> partialMsg = nullptr);
+                   std::unique_ptr<HTTPMessage> partialMsg = nullptr,
+                   const std::string& headerContext = {});
   bool parsingHeaders() const;
   bool parsingTrailers() const;
 

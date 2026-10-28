@@ -197,6 +197,7 @@ bool HQFramedCodec::checkConnectionError(ParseResult err,
     if (callback_) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                        errorMessage);
+      ex.setContext(parseErrorContext_);
       ex.setHttp3ErrorCode(err.value());
       callback_->onError(kSessionStreamId, ex, false);
     }

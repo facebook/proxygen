@@ -619,6 +619,7 @@ TEST(HTTP1xCodecTest, TestInvalidContentLengthHeaders) {
     EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
     EXPECT_THAT(callbacks.lastParseError->what(),
                 HasSubstr("[Context]=invalid-content-length"));
+    EXPECT_EQ(callbacks.lastParseError->getContext(), "invalid-content-length");
   }
 }
 
@@ -691,6 +692,45 @@ TEST(HTTP1xCodecTest, TestHeaderBlockUnderSizeCap) {
 
   EXPECT_EQ(callbacks.streamErrors, 0);
   EXPECT_EQ(callbacks.headersComplete, 1);
+}
+
+TEST(HTTP1xCodecTest, InvalidHeaderErrorContextExcludesPeerBytes) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/true);
+  FakeHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer =
+      folly::IOBuf::copyBuffer(string("GET / HTTP/1.1\r\n"
+                                      "Foo: \"\\\r\\\n\"\r\n"
+                                      "Bar: b\r\n"
+                                      "\r\n"));
+  codec.onIngress(*buffer);
+
+  EXPECT_EQ(callbacks.streamErrors, 1);
+  // The verbose context names the offending header; the egressed token must
+  // stay a bounded, peer-independent value.
+  EXPECT_THAT(callbacks.lastParseError->what(),
+              HasSubstr("[Context]=invalid-header name=Foo reason=bare-cr"));
+  EXPECT_EQ(callbacks.lastParseError->getContext(), "invalid-header");
+}
+
+TEST(HTTP1xCodecTest, ParserNativeErrorContextIsLowerCaseToken) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  FakeHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer =
+      folly::IOBuf::copyBuffer(string("GET / HTTP/1.1\r\n"
+                                      "Host: www.facebook.com\r\n"
+                                      "Content-Length: 5\r\n"
+                                      "\r\n"
+                                      "body\r\n"
+                                      "GE\x01T / HTTP/1.1\r\n"
+                                      "\r\n"));
+  codec.onIngress(*buffer);
+
+  EXPECT_EQ(callbacks.streamErrors, 1);
+  EXPECT_EQ(callbacks.lastParseError->getContext(), "invalid-method");
 }
 
 TEST(HTTP1xCodecTest, TestCorrectTransferEncodingHeader) {

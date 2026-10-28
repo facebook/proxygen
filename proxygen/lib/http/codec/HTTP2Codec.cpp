@@ -584,10 +584,10 @@ HTTP2Codec::parseHeadersDecodeFrames() {
   }
 
   // Check parsing error
-  if (!decodeInfo_.parsingError.empty()) {
+  if (!decodeInfo_.error.empty()) {
     // This is "malformed" per the RFC
     LOG(ERROR) << "Failed parsing header list for stream=" << curHeader_.stream
-               << ", error=" << decodeInfo_.parsingError;
+               << ", error=" << decodeInfo_.error.combine();
     if (!decodeInfo_.headerErrorValue.empty()) {
       DVLOG(4) << " value=" << decodeInfo_.headerErrorValue;
     }
@@ -595,17 +595,17 @@ HTTP2Codec::parseHeadersDecodeFrames() {
             << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
     if (isDownstream(transportDirection_) && parsingHeaders() &&
         !parsingTrailers()) {
-      return folly::makeUnexpected(
-          DeferredParseError(ErrorCode::NO_ERROR,
-                             false,
-                             folly::to<std::string>("HTTP2Codec stream error: ",
-                                                    "stream=",
-                                                    curHeader_.stream,
-                                                    " status=",
-                                                    400,
-                                                    " error: ",
-                                                    decodeInfo_.parsingError),
-                             std::move(msg)));
+      return folly::makeUnexpected(DeferredParseError(
+          ErrorCode::NO_ERROR,
+          false,
+          folly::to<std::string>("HTTP2Codec stream error: ",
+                                 "stream=",
+                                 curHeader_.stream,
+                                 " status=",
+                                 400,
+                                 " error: ",
+                                 decodeInfo_.error.combine()),
+          std::move(msg)));
     } else {
       // Upstream, PUSH_PROMISE or trailers parsing failed:
       // PROTOCOL_ERROR
@@ -615,7 +615,7 @@ HTTP2Codec::parseHeadersDecodeFrames() {
           folly::to<string>("Field section parsing failed txn=",
                             curHeader_.stream,
                             " error: ",
-                            decodeInfo_.parsingError),
+                            decodeInfo_.error.combine()),
           std::move(msg)));
     }
   }
@@ -631,7 +631,8 @@ void HTTP2Codec::deliverDeferredParseError(
                 parseError.errorCode,
                 parsingHeaders(),
                 folly::none,
-                std::move(parseError.partialMessage));
+                std::move(parseError.partialMessage),
+                decodeInfo_.error.context);
     if (promisedStream_) {
       streamError("Malformed PUSH_PROMISE",
                   ErrorCode::REFUSED_STREAM,
@@ -643,6 +644,7 @@ void HTTP2Codec::deliverDeferredParseError(
     HTTPException err(HTTPException::Direction::INGRESS,
                       parseError.errorMessage);
     err.setHttpStatusCode(400);
+    err.setContext(decodeInfo_.error.context);
     err.setProxygenError(decodeInfo_.proxygenError.value_or(kErrorParseHeader));
     err.setPartialMsg(std::move(parseError.partialMessage));
     deliverCallbackIfAllowed(&HTTPCodec::Callback::onError,
@@ -679,7 +681,7 @@ void HTTP2Codec::onHeader(const HPACKHeaderName& name,
     }
   } else {
     VLOG(4) << "dir=" << uint32_t(transportDirection_)
-            << decodeInfo_.parsingError << " codec=" << headerCodec_;
+            << decodeInfo_.error.combine() << " codec=" << headerCodec_;
   }
 }
 
@@ -945,7 +947,11 @@ ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
       auto additionalInfo = folly::to<string>("stream=", curHeader_.stream);
       streamError(
           folly::to<string>("window-update-zero-delta-stream ", additionalInfo),
-          ErrorCode::PROTOCOL_ERROR);
+          ErrorCode::PROTOCOL_ERROR,
+          false,
+          folly::none,
+          nullptr,
+          "window-update-zero-delta-stream");
       // Stream error and protocol error
       setParseErrorContext("window-update-zero-delta-stream",
                            std::move(additionalInfo));
@@ -1559,6 +1565,7 @@ bool HTTP2Codec::checkConnectionError(ErrorCode err, const folly::IOBuf* buf) {
                        context.empty() ? std::string("Connection error")
                                        : folly::to<std::string>(
                                              "Connection error ", context));
+      ex.setContext(parseErrorContext_);
       ex.setCodecStatusCode(err);
       callback_->onError(0, ex, false);
     }
@@ -1580,9 +1587,11 @@ void HTTP2Codec::streamError(const std::string& msg,
                              ErrorCode code,
                              bool newTxn,
                              folly::Optional<HTTPCodec::StreamID> streamId,
-                             std::unique_ptr<HTTPMessage> partialMessage) {
+                             std::unique_ptr<HTTPMessage> partialMessage,
+                             const std::string& headerContext) {
   HTTPException error(HTTPException::Direction::INGRESS_AND_EGRESS, msg);
   error.setCodecStatusCode(code);
+  error.setContext(headerContext);
   if (partialMessage) {
     error.setPartialMsg(std::move(partialMessage));
   }
@@ -1616,7 +1625,7 @@ bool HTTP2Codec::parsingTrailers() const {
       // We *might* be parsing trailers even if we couldn't decode the block.
       // We probably aren't, because trailers are rare, but if we do,
       // we might miscategorize as headers and give a second onMessageBegin.
-      return decodeInfo_.parsingError.empty() && !decodeInfo_.hasStatus();
+      return decodeInfo_.error.empty() && !decodeInfo_.hasStatus();
     }
   }
   return false;

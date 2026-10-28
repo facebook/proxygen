@@ -61,7 +61,8 @@ HTTPException::HTTPException(const HTTPException& ex)
       httpStatusCode_(ex.httpStatusCode_),
       http3ErrorCode_(ex.http3ErrorCode_),
       codecStatusCode_(ex.codecStatusCode_),
-      errno_(ex.errno_) {
+      errno_(ex.errno_),
+      context_(ex.context_) {
   if (ex.partialMsg_) {
     partialMsg_ = std::make_unique<HTTPMessage>(*ex.partialMsg_.get());
   }

@@ -197,6 +197,7 @@ TEST_F(HTTP2CodecTestOmitParsePreface, OversizedNonSettingsPrefaceFrame) {
               HasSubstr("[Context]=frame-exceeds-max-size"));
   EXPECT_THAT(callbacks_.lastParseError->what(),
               Not(HasSubstr("invalid connection preface")));
+  EXPECT_EQ(callbacks_.lastParseError->getContext(), "frame-exceeds-max-size");
 }
 
 TEST_F(HTTP2CodecTest, BadHeaders) {
@@ -476,6 +477,55 @@ TEST_F(HTTP2CodecTest, EmptyHeaderName) {
   EXPECT_EQ(callbacks_.streamErrors, 1);
   EXPECT_EQ(callbacks_.lastParseError->getProxygenError(), kErrorParseHeader);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, FieldSectionErrorSetsErrorContext) {
+  output_.append(IOBuf::copyBuffer(kBufEmptyHeader, sizeof(kBufEmptyHeader)));
+  parse();
+
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getContext(), "invalid-header");
+}
+
+TEST_F(HTTP2CodecTest, VerifierErrorSetsGenericErrorContext) {
+  auto g =
+      folly::makeGuard([this] { downstreamCodec_.setStrictValidation(false); });
+  downstreamCodec_.setStrictValidation(true);
+  auto id = upstreamCodec_.createStream();
+  HTTPMessage req = getGetRequest("");
+  upstreamCodec_.generateHeader(output_, id, req, true, nullptr /* size */);
+  parse();
+
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getContext(), "malformed-request");
+}
+
+TEST_F(HTTP2CodecTest, ErrorContextNeverCarriesPeerBytes) {
+  // The parse error names the offending header, but only the bounded token may
+  // leave the process.
+  static const std::string kMethod("GET");
+  static const std::string kPath("/");
+  static const std::string kScheme("http");
+  static const std::string kEvilName("x-evil\x01name");
+  static const std::string kEvilValue("evil\x01value");
+  std::vector<proxygen::compress::Header> allHeaders = {
+      Header::makeHeaderForTest(headers::kMethod, kMethod),
+      Header::makeHeaderForTest(headers::kPath, kPath),
+      Header::makeHeaderForTest(headers::kScheme, kScheme),
+      Header::makeHeaderForTest(kEvilName, kEvilValue),
+  };
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
+  writeHeaders(output_,
+               headerCodec.encode(allHeaders),
+               /*stream=*/1,
+               http2::kNoPadding,
+               true,
+               true);
+  parse();
+
+  ASSERT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getContext(), "invalid-header");
+  EXPECT_THAT(callbacks_.lastParseError->what(), HasSubstr("x-evil"));
 }
 
 TEST_F(HTTP2CodecTest, BasicConnect) {

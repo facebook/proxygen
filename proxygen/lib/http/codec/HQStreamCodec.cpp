@@ -211,7 +211,7 @@ void HQStreamCodec::onHeader(const HPACKHeaderName& name,
     }
   } else {
     VLOG(4) << "dir=" << uint32_t(transportDirection_)
-            << decodeInfo_.parsingError << " codec=" << headerCodec_;
+            << decodeInfo_.error.combine() << " codec=" << headerCodec_;
   }
 }
 
@@ -225,9 +225,9 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
   // Check parsing error
   DCHECK_EQ(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
   // Leave msg in decodeInfo_ for now, to keep the parser paused
-  if (!decodeInfo_.parsingError.empty()) {
+  if (!decodeInfo_.error.empty()) {
     LOG(ERROR) << "Failed parsing header list for stream=" << streamId_
-               << ", error=" << decodeInfo_.parsingError;
+               << ", error=" << decodeInfo_.error.combine();
     if (!decodeInfo_.headerErrorValue.empty()) {
       DVLOG(4) << " value=" << decodeInfo_.headerErrorValue;
     }
@@ -236,7 +236,8 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
         fmt::format("HQStreamCodec stream error: stream={} status={} error:{}",
                     streamId_,
                     400,
-                    decodeInfo_.parsingError));
+                    decodeInfo_.error.combine()));
+    err.setContext(decodeInfo_.error.context);
     if (parsingTrailers_) {
       err.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_MESSAGE_ERROR);
     } else {

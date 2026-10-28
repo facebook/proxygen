@@ -8,7 +8,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <folly/Memory.h>
+#include <glog/logging.h>
 #include <proxygen/lib/http/HTTP3ErrorCode.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
@@ -120,6 +122,29 @@ class HTTPException : public proxygen::Exception {
     return partialMsg_.get();
   }
 
+  /**
+   * Whether `errContext` is a legal rejection token: empty, or matching
+   * ^[a-z0-9-]+$. The token may be egressed to peers (e.g. as the `details`
+   * parameter of Proxy-Status), so it must stay a short value from a fixed
+   * vocabulary -- never peer-supplied bytes, which could also carry control
+   * characters the header encoder rejects.
+   */
+  [[nodiscard]] static bool isValidContext(folly::StringPiece errContext) {
+    return std::all_of(errContext.begin(), errContext.end(), [](char c) {
+      return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
+    });
+  }
+
+  void setContext(std::string errContext) {
+    DCHECK(isValidContext(errContext))
+        << "rejection context must match ^[a-z0-9-]+$, got: " << errContext;
+    context_ = std::move(errContext);
+  }
+
+  [[nodiscard]] folly::StringPiece getContext() const {
+    return context_;
+  }
+
  private:
   [[nodiscard]] HTTP3::ErrorCode inferHTTP3ErrorCode() const;
 
@@ -130,6 +155,9 @@ class HTTPException : public proxygen::Exception {
   uint32_t errno_{0};
   // partial message that is being parsed
   std::unique_ptr<HTTPMessage> partialMsg_;
+  // Egressed to clients as the Proxy-Status `details` parameter, so this must
+  // only ever hold a standardized token -- never peer-supplied bytes.
+  std::string context_;
 };
 
 std::ostream& operator<<(std::ostream& os, const HTTPException& ex);

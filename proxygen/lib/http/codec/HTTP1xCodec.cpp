@@ -13,6 +13,7 @@
 
 #include <folly/Conv.h>
 #include <folly/Random.h>
+#include <folly/String.h>
 #include <folly/base64.h>
 #include <folly/io/Cursor.h>
 #include <folly/ssl/OpenSSLHash.h>
@@ -104,6 +105,22 @@ bool validateTransferEncoding(const HTTPHeaders& hdrs) noexcept {
         return err; // stop on err
       });
   return ok;
+}
+
+// http_errno_name() spells the enum constant (HPE_INVALID_METHOD), while the
+// rejection vocabulary surfaced outside the process is lowercase and
+// hyphenated (invalid-method).
+std::string parserErrorToken(http_errno err) {
+  StringPiece name(http_errno_name(err));
+  name.removePrefix("HPE_");
+  std::string token = name.str();
+  folly::toLowerAscii(token);
+  for (char& c : token) {
+    if (c == '_') {
+      c = '-';
+    }
+  }
+  return token;
 }
 
 } // anonymous namespace
@@ -350,6 +367,9 @@ void HTTP1xCodec::onParserError(const char* what) {
     }
   }
   HTTPException error(HTTPException::Direction::INGRESS, errorMsg);
+  error.setContext(parserErrorContext_.empty() && parser_errno != HPE_OK
+                       ? parserErrorToken(parser_errno)
+                       : parserErrorContext_);
 
   // generate a string of parsed headers so that we can pass it to callback
   if (msg_) {

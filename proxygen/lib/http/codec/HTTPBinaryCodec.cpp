@@ -255,9 +255,9 @@ ParseResult HTTPBinaryCodec::parseSingleHeaderHelper(
   pendingFieldName_.reset();
   if (!decodeInfo.onHeader(proxygen::HPACKHeaderName(headerName),
                            headerValue) ||
-      !decodeInfo.parsingError.empty()) {
+      !decodeInfo.error.empty()) {
     return ParseResult(fmt::format("Error parsing field section (Error: {})",
-                                   decodeInfo.parsingError));
+                                   decodeInfo.error.combine()));
   }
   numHeaders++;
   return ParseResult(ParseResultState::DONE);
