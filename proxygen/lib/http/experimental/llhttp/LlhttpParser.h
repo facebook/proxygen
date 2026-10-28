@@ -1,0 +1,70 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+#pragma once
+
+#include <cstddef>
+
+#ifdef HTTP_ERRNO_MAP
+#pragma push_macro("HTTP_ERRNO_MAP")
+#undef HTTP_ERRNO_MAP
+#define PROXYGEN_LLHTTP_RESTORE_HTTP_ERRNO_MAP
+#endif
+#include "llhttp.h"
+#ifdef PROXYGEN_LLHTTP_RESTORE_HTTP_ERRNO_MAP
+#undef HTTP_ERRNO_MAP
+#pragma pop_macro("HTTP_ERRNO_MAP")
+#undef PROXYGEN_LLHTTP_RESTORE_HTTP_ERRNO_MAP
+#else
+#undef HTTP_ERRNO_MAP
+#endif
+
+namespace facebook::detail {
+
+class LlhttpParser {
+ public:
+  LlhttpParser(llhttp_type_t type,
+               const llhttp_settings_t* settings,
+               void* callbackContext);
+  ~LlhttpParser() = default;
+
+  LlhttpParser(const LlhttpParser&) = delete;
+  LlhttpParser& operator=(const LlhttpParser&) = delete;
+  LlhttpParser(LlhttpParser&&) = delete;
+  LlhttpParser& operator=(LlhttpParser&&) = delete;
+
+  size_t execute(const char* data, size_t len);
+  void finish();
+  void setError(llhttp_errno_t error, const char* reason);
+
+  void pause();
+  void resume();
+  void resumeAfterUpgrade();
+
+  [[nodiscard]] llhttp_errno_t error() const {
+    return static_cast<llhttp_errno_t>(parser_.error);
+  }
+  [[nodiscard]] const char* errorReason() const;
+  [[nodiscard]] bool isPaused() const {
+    return error() == HPE_PAUSED;
+  }
+  [[nodiscard]] bool hasFatalError() const {
+    const auto currentError = error();
+    return currentError != HPE_OK && currentError != HPE_PAUSED &&
+           currentError != HPE_PAUSED_UPGRADE;
+  }
+  [[nodiscard]] bool isActive() const {
+    return active_;
+  }
+
+ private:
+  llhttp_t parser_{};
+  bool active_{false};
+};
+
+} // namespace facebook::detail
