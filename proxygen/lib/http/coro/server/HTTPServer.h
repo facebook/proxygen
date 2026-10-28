@@ -262,6 +262,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
   void startTcp(const KeepAliveEventBaseVec& evbs);
   void startQuic(const KeepAliveEventBaseVec& vbs);
   void createQuicServer(const std::vector<folly::EventBase*>& evbs);
+  void rollbackQuicStart();
   void stopQuicOnCoordinator();
   void configureFizzServerContext(
       std::shared_ptr<fizz::server::FizzServerContext> fizzCtx);
@@ -288,6 +289,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
   bool setReusePortSocketOption_{false};
   folly::F14NodeMap<folly::EventBase*, std::list<HTTPCoroAcceptor>> acceptors_;
   std::shared_ptr<quic::QuicServer> quicServer_;
+  std::unique_ptr<quic::QuicServerTransportFactory> quicFactory_;
   bool quicStopped_{false};
   SocketAcceptorConfigFactoryFn socketAcceptorConfigFactoryFn_{nullptr};
   enum class State : uint8_t {

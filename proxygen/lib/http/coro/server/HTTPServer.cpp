@@ -177,22 +177,35 @@ void HTTPServer::startQuic(const KeepAliveEventBaseVec& keepAliveEvbs) {
                  [](const folly::Executor::KeepAlive<folly::EventBase>& evb) {
                    return evb.get();
                  });
-  createQuicServer(evbs);
-  quicServer_->initialize(config_.socketConfig.bindAddress, evbs, true);
-  quicServer_->waitUntilInitialized();
-  quicServer_->start();
-
-  // Wait for start to install read callback for all listening sockets
-  std::atomic<size_t> started = evbs.size();
-  folly::Baton baton;
-  for (auto evb : evbs) {
-    evb->runInEventBaseThread([&] {
-      if (--started == 0) {
-        baton.post();
-      }
-    });
+  try {
+    createQuicServer(evbs);
+    quicServer_->start();
+  } catch (...) {
+    rollbackQuicStart();
+    throw;
   }
-  baton.wait();
+}
+
+void HTTPServer::rollbackQuicStart() {
+  if (quicServer_ && !quicStopped_) {
+    quicStopped_ = true;
+    try {
+      quicServer_->shutdown();
+    } catch (const std::exception& ex) {
+      XLOG(ERR) << "QUIC shutdown during start rollback failed: " << ex.what();
+    }
+  }
+  for (auto& it : acceptors_) {
+    for (auto& acceptor : it.second) {
+      try {
+        forceStopAcceptor(acceptor);
+      } catch (const std::exception& ex) {
+        XLOG(ERR) << "Acceptor stop during start rollback failed: "
+                  << ex.what();
+      }
+    }
+  }
+  quicFactory_.reset();
 }
 
 HTTPCoroAcceptor* HTTPServer::createAcceptor(
@@ -302,39 +315,40 @@ void HTTPServer::createQuicServer(const std::vector<folly::EventBase*>& evbs) {
     }
   }
   CHECK(config_.quicConfig) << "QuicConfig must be set";
-  quicServer_ =
-      quic::QuicServer::createQuicServer(config_.quicConfig->transportSettings);
-  quicServer_->setBindV6Only(false);
-  quicServer_->setCongestionControllerFactory(
-      std::make_shared<quic::ServerCongestionControllerFactory>());
-  quicServer_->setQuicServerTransportFactory(
-      std::make_unique<QuicAcceptorTransportFactory>(*this, fizzCtx));
-  quicServer_->setQuicUDPSocketFactory(
-      std::make_unique<quic::QuicSharedUDPSocketFactory>());
-  quicServer_->setHealthCheckToken("health");
-  if (!config_.quicConfig->quicVersions.empty()) {
-    quicServer_->setSupportedVersion(config_.quicConfig->quicVersions);
-  }
   configureFizzServerContext(fizzCtx);
-  quicServer_->setFizzContext(fizzCtx);
+  quic::ServerOptions options;
+  options.transportSettings = config_.quicConfig->transportSettings;
+  if (!config_.quicConfig->quicVersions.empty()) {
+    options.supportedVersions = config_.quicConfig->quicVersions;
+  }
+  options.bindOptions.bindV6Only = false;
+  options.hostId = hostId_;
+  options.cidVersion = quic::ConnectionIdVersion::V2;
+  options.socketFactory = std::make_unique<quic::QuicSharedUDPSocketFactory>();
+  options.healthCheckToken = std::string("health");
   if (config_.quicConfig->rateLimitPerThread) {
-    quicServer_->setRateLimit(
+    options.rateLimitCount =
         [rateLimitPerThread =
              config_.quicConfig->rateLimitPerThread.value()]() {
           return rateLimitPerThread;
-        },
-        std::chrono::seconds(1));
+        };
+    options.rateLimitWindow = std::chrono::seconds(1);
   }
   if (config_.quicConfig->statsFactory) {
-    quicServer_->setTransportStatsCallbackFactory(
-        std::move(config_.quicConfig->statsFactory));
+    options.transportStatsFactory = std::move(config_.quicConfig->statsFactory);
   }
-  if (config_.quicConfig->ccFactory) {
-    quicServer_->setCongestionControllerFactory(
-        std::move(config_.quicConfig->ccFactory));
+  quicServer_ = quic::QuicServer::createQuicServer(std::move(options));
+  quicServer_->setCongestionControllerFactory(
+      config_.quicConfig->ccFactory
+          ? std::move(config_.quicConfig->ccFactory)
+          : std::shared_ptr<quic::CongestionControllerFactory>(
+                std::make_shared<quic::ServerCongestionControllerFactory>()));
+  quicFactory_ = std::make_unique<QuicAcceptorTransportFactory>(*this, fizzCtx);
+  quicServer_->bind(config_.socketConfig.bindAddress, evbs);
+  for (auto* evb : evbs) {
+    quicServer_->addTransportFactory(evb, quicFactory_.get());
   }
-  quicServer_->setConnectionIdVersion(quic::ConnectionIdVersion::V2);
-  quicServer_->setHostId(hostId_);
+  quicServer_->setFizzContext(fizzCtx);
 }
 
 void HTTPServer::stopQuicOnCoordinator() {
@@ -344,6 +358,7 @@ void HTTPServer::stopQuicOnCoordinator() {
   }
   quicStopped_ = true;
   quicServer_->shutdown();
+  quicFactory_.reset();
   loopKeepAlive_.reset();
 }
 
@@ -466,6 +481,7 @@ void HTTPServer::forceStop() {
       if (quicServer_ && !quicStopped_) {
         quicStopped_ = true;
         quicServer_->shutdown();
+        quicFactory_.reset();
       }
       for (auto& it : acceptors_) {
         for (auto& acceptor : it.second) {

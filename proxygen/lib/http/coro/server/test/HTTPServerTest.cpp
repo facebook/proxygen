@@ -28,8 +28,10 @@
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 #include <folly/portability/Sockets.h>
+#include <folly/portability/Unistd.h>
 #include <folly/testing/TestUtil.h>
 #include <proxygen/lib/http/coro/test/TestUtils.h>
+#include <quic/api/test/MockQuicSocket.h>
 #include <quic/api/test/Mocks.h>
 #include <quic/logging/test/Mocks.h>
 #include <quic/state/test/MockQuicStats.h>
@@ -961,6 +963,182 @@ TEST(ZeroCopyAcceptor, ZeroCopyNotAppliedWithoutThreshold) {
   ::close(clientFd.toFd());
   // forceStop defers dropAllConnections via runInLoop, so we must let the
   // EventBase process that callback before destroying the acceptor.
+  evb->runInEventBaseThreadAndWait([&]() { acceptor->forceStop(); });
+  evb->runInEventBaseThreadAndWait([&]() { acceptor.reset(); });
+}
+
+// Rollback scenarios run in a forked child: a start() deadlock or crash
+// then fails only this test instead of blocking the whole binary (a
+// std::async future's destructor would block forever on a deadlocked
+// start thread). The child exits 0 only after the start error surfaces
+// and the server is destroyed.
+using HTTPServerDeathTest = HTTPServerTests;
+
+TEST_F(HTTPServerDeathTest, QuicBindFailureRollsBackAndReturns) {
+  GTEST_FLAG_SET(death_test_style, "threadsafe");
+  auto runChild = [&](bool useOnError) {
+    HTTPServer::Config config;
+    config.numIOThreads = 2;
+    // Non-local TEST-NET address: bind fails without depending on whether
+    // the port is already in use under SO_REUSEPORT.
+    config.socketConfig.bindAddress.setFromIpPort("192.0.2.1", 4433);
+    config.socketConfig.sslContextConfigs.emplace_back(getTLSConfig());
+    config.quicConfig = HTTPServer::QuicConfig();
+
+    std::exception_ptr error;
+    {
+      HTTPServer server(std::move(config), handler_);
+      if (useOnError) {
+        server.start(nullptr, [&](std::exception_ptr ex) { error = ex; });
+      } else {
+        try {
+          server.start();
+        } catch (const std::exception&) {
+          error = std::current_exception();
+        }
+      }
+    }
+    ::_exit(error != nullptr ? 0 : 1);
+  };
+  EXPECT_EXIT(runChild(true), ::testing::ExitedWithCode(0), ".*");
+  EXPECT_EXIT(runChild(false), ::testing::ExitedWithCode(0), ".*");
+}
+
+TEST_F(HTTPServerDeathTest, QuicTlsInitFailureRollsBackAndReturns) {
+  GTEST_FLAG_SET(death_test_style, "threadsafe");
+  auto runChild = [&](bool useOnError) {
+    HTTPServer::Config config;
+    config.numIOThreads = 2;
+    config.socketConfig.bindAddress.setFromIpPort("127.0.0.1", 0);
+    // Invalid TLS credentials make wangle Acceptor::init throw after
+    // HTTPCoroAcceptor stored its EventBase keepalive but before base_
+    // is assigned. Rollback must release the keepalive instead of
+    // force-stopping the partially initialized acceptor.
+    auto tlsConfig = getTLSConfig();
+    tlsConfig.setCertificate(
+        "/nonexistent/test_cert.pem", "/nonexistent/test_key.pem", "");
+    config.socketConfig.sslContextConfigs.emplace_back(std::move(tlsConfig));
+    config.quicConfig = HTTPServer::QuicConfig();
+
+    std::exception_ptr error;
+    {
+      HTTPServer server(std::move(config), handler_);
+      if (useOnError) {
+        server.start(nullptr, [&](std::exception_ptr ex) { error = ex; });
+      } else {
+        try {
+          server.start();
+        } catch (const std::exception&) {
+          error = std::current_exception();
+        }
+      }
+    }
+    ::_exit(error != nullptr ? 0 : 1);
+  };
+  EXPECT_EXIT(runChild(true), ::testing::ExitedWithCode(0), ".*");
+  EXPECT_EXIT(runChild(false), ::testing::ExitedWithCode(0), ".*");
+}
+
+TEST(QuicAcceptorDrain, HandoffAfterDrainClosesSocket) {
+  auto accConfig = std::make_shared<AcceptorConfiguration>();
+  accConfig->plaintextProtocol = "http/1.1";
+  auto handler = std::make_shared<TestHandler>();
+
+  folly::ScopedEventBaseThread evbThread;
+  auto* evb = evbThread.getEventBase();
+
+  auto acceptor = std::make_unique<HTTPCoroAcceptor>(accConfig, handler);
+  evb->runInEventBaseThreadAndWait([&]() { acceptor->init(nullptr, evb); });
+  evb->runInEventBaseThreadAndWait([&]() { acceptor->stopAcceptingQuic(); });
+
+  auto socket = std::make_shared<quic::MockQuicSocket>();
+  EXPECT_CALL(*socket, closeNow(_)).Times(1);
+  evb->runInEventBaseThreadAndWait(
+      [&]() { acceptor->onNewConnection(socket, wangle::TransportInfo{}); });
+
+  evb->runInEventBaseThreadAndWait([&]() { acceptor->forceStop(); });
+  evb->runInEventBaseThreadAndWait([&]() { acceptor.reset(); });
+}
+
+// A newConnectionFilter that drains inline must not let onNewConnection
+// proceed to session creation: drain resets the wangle connection
+// manager, so addConnection() would dereference a null manager.
+TEST(QuicAcceptorDrain, FilterThatDrainsClosesQuicSocket) {
+  auto accConfig = std::make_shared<AcceptorConfiguration>();
+  accConfig->plaintextProtocol = "http/1.1";
+  auto handler = std::make_shared<TestHandler>();
+
+  folly::ScopedEventBaseThread evbThread;
+  auto* evb = evbThread.getEventBase();
+
+  HTTPCoroAcceptor::NewConnectionFilter filter;
+  std::unique_ptr<HTTPCoroAcceptor> acceptor;
+  filter = [&](const folly::SocketAddress* /* address */,
+               const folly::AsyncTransportCertificate* /* peerCert */,
+               const std::string& /* nextProtocolName */,
+               SecureTransportType /* secureTransportType */,
+               const wangle::TransportInfo& /* tinfo */) {
+    acceptor->stopAcceptingQuic();
+    return true;
+  };
+  acceptor = std::make_unique<HTTPCoroAcceptor>(accConfig, handler, &filter);
+  evb->runInEventBaseThreadAndWait([&]() { acceptor->init(nullptr, evb); });
+
+  auto socket = std::make_shared<quic::MockQuicSocket>();
+  quic::SocketAddress peerAddr("127.0.0.1", 4433);
+  ON_CALL(*socket, getAppProtocol()).WillByDefault(Return(std::string("h3")));
+  ON_CALL(*socket, getPeerAddress()).WillByDefault(ReturnRef(peerAddr));
+  ON_CALL(*socket, getPeerCertificate())
+      .WillByDefault(Return(std::shared_ptr<const fizz::Cert>{nullptr}));
+  EXPECT_CALL(*socket, closeNow(_)).Times(1);
+  evb->runInEventBaseThreadAndWait(
+      [&]() { acceptor->onNewConnection(socket, wangle::TransportInfo{}); });
+
+  evb->runInEventBaseThreadAndWait([&]() { acceptor->forceStop(); });
+  evb->runInEventBaseThreadAndWait([&]() { acceptor.reset(); });
+}
+
+TEST(TcpAcceptorDrain, FilterThatDrainsClosesTcpTransport) {
+  auto [serverFd, clientFd] = createTcpSocketPair();
+
+  auto accConfig = std::make_shared<AcceptorConfiguration>();
+  accConfig->plaintextProtocol = "http/1.1";
+  auto handler = std::make_shared<TestHandler>();
+
+  folly::ScopedEventBaseThread evbThread;
+  auto* evb = evbThread.getEventBase();
+
+  HTTPCoroAcceptor::NewConnectionFilter filter;
+  std::unique_ptr<TestableHTTPCoroAcceptor> acceptor;
+  filter = [&](const folly::SocketAddress* /* address */,
+               const folly::AsyncTransportCertificate* /* peerCert */,
+               const std::string& /* nextProtocolName */,
+               SecureTransportType /* secureTransportType */,
+               const wangle::TransportInfo& /* tinfo */) {
+    acceptor->stopAcceptingQuic();
+    return true;
+  };
+  acceptor =
+      std::make_unique<TestableHTTPCoroAcceptor>(accConfig, handler, &filter);
+  evb->runInEventBaseThreadAndWait([&]() { acceptor->init(nullptr, evb); });
+
+  // Without the post-filter drained recheck this crashes in
+  // Acceptor::addConnection() on the reset connection manager.
+  evb->runInEventBaseThreadAndWait([&]() {
+    auto socket = folly::AsyncSocket::newSocket(evb, serverFd);
+    folly::SocketAddress addr;
+    wangle::TransportInfo tinfo;
+    acceptor->onNewConnection(
+        folly::AsyncTransport::UniquePtr(socket.release()),
+        &addr,
+        "http/1.1",
+        wangle::SecureTransportType::NONE,
+        tinfo);
+  });
+  EXPECT_EQ(acceptor->getNumConnections(), 0u);
+  EXPECT_FALSE(static_cast<bool>(acceptor->getEventBaseKeepalive()));
+
+  ::close(clientFd.toFd());
   evb->runInEventBaseThreadAndWait([&]() { acceptor->forceStop(); });
   evb->runInEventBaseThreadAndWait([&]() { acceptor.reset(); });
 }

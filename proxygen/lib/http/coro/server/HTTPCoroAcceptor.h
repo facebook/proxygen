@@ -159,6 +159,7 @@ class HTTPCoroAcceptor : public wangle::Acceptor {
   }
 
   void onConnectionsDrained() override {
+    drained_ = true;
     {
       auto keepAlive = keepAlive_.wlock();
       keepAlive->reset();
@@ -173,6 +174,7 @@ class HTTPCoroAcceptor : public wangle::Acceptor {
   HTTPCoroAcceptor& operator=(const HTTPCoroAcceptor&) = delete;
 
   HTTPCoroDownstreamSessionFactory factory_;
+  bool drained_{false};
   std::shared_ptr<HTTPHandler> handler_;
   NewConnectionFilter* newConnectionFilter_{nullptr};
   std::function<void()> onConnectionsDrainedFn_;

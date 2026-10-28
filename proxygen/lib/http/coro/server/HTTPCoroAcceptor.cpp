@@ -165,6 +165,13 @@ void HTTPCoroAcceptor::onNewConnection(
     }
   }
 
+  // The filter may have drained this acceptor inline; never create a
+  // session (and addConnection()) after drain.
+  if (drained_) {
+    transport->closeWithReset();
+    return;
+  }
+
   auto eventBase = transport->getEventBase();
 
   if (zeroCopyEnableThreshold_ > 0) {
@@ -195,6 +202,11 @@ void HTTPCoroAcceptor::onSessionReady(folly::EventBase* eventBase,
 
 void HTTPCoroAcceptor::onNewConnection(
     std::shared_ptr<quic::QuicSocket> quicSocket, wangle::TransportInfo tinfo) {
+  if (drained_) {
+    quicSocket->closeNow(quic::QuicError(
+        quic::TransportErrorCode::INTERNAL_ERROR, "Acceptor drained"));
+    return;
+  }
   if (newConnectionFilter_ && *newConnectionFilter_) {
     auto nextProtocol = quicSocket->getAppProtocol().value_or("");
     auto peerAddr = quic::toFollySocketAddress(quicSocket->getPeerAddress());
@@ -212,6 +224,13 @@ void HTTPCoroAcceptor::onNewConnection(
                                                : "Connection Filtered")));
       return;
     }
+  }
+  // The filter may have drained this acceptor inline; never create a
+  // session (and addConnection()) after drain.
+  if (drained_) {
+    quicSocket->closeNow(quic::QuicError(
+        quic::TransportErrorCode::INTERNAL_ERROR, "Acceptor drained"));
+    return;
   }
   auto eventBase = quicSocket->getEventBase()
                        ->getTypedEventBase<quic::FollyQuicEventBase>()
