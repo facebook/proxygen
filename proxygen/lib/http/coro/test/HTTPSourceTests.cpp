@@ -313,6 +313,28 @@ TEST_F(HTTPStreamSourceTest, ContentLengthLongerBody) {
   EXPECT_EQ(bodyEvents_.size(), 0);
 }
 
+TEST_F(HTTPStreamSourceTest, AbortPreservesErrorContext) {
+  stream_.abort(
+      HTTPErrorCode::PROTOCOL_ERROR, "malformed headers", "invalid-header");
+
+  co_withExecutor(&evb_, drainSource()).start();
+  run();
+
+  ASSERT_TRUE(error_.hasValue());
+  EXPECT_EQ(error_->code, HTTPErrorCode::PROTOCOL_ERROR);
+  EXPECT_EQ(error_->context, "invalid-header");
+}
+
+TEST_F(HTTPStreamSourceTest, AbortWithoutContextLeavesContextEmpty) {
+  stream_.abort(HTTPErrorCode::PROTOCOL_ERROR, "malformed headers");
+
+  co_withExecutor(&evb_, drainSource()).start();
+  run();
+
+  ASSERT_TRUE(error_.hasValue());
+  EXPECT_TRUE(error_->context.empty());
+}
+
 TEST_F(HTTPStreamSourceTest, ContentLengthMalformed) {
   auto req = std::make_unique<HTTPMessage>();
   req->getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "xxx");

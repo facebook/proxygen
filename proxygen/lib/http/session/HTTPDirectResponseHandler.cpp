@@ -55,8 +55,13 @@ void HTTPDirectResponseHandler::onHeadersComplete(
     response.getHeaders().add(HTTP_HEADER_CONNECTION, "close");
   }
   if (errorPage_) {
-    HTTPErrorPage::Page page = errorPage_->generate(
-        0, statusCode_, statusMessage_, nullptr, empty_string, err_);
+    HTTPErrorPage::Page page = errorPage_->generate(0,
+                                                    statusCode_,
+                                                    statusMessage_,
+                                                    nullptr,
+                                                    empty_string,
+                                                    err_,
+                                                    errorContext_);
     VLOG(4) << "sending error page with type " << page.contentType;
     response.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, page.contentType);
     responseBody = std::move(page.content);
@@ -93,6 +98,7 @@ void HTTPDirectResponseHandler::onUpgrade(
 void HTTPDirectResponseHandler::onError(const HTTPException& error) noexcept {
   if (error.hasProxygenError()) {
     err_ = error.getProxygenError();
+    errorContext_ = error.getContext().str();
   }
 
   if (error.getDirection() == HTTPException::Direction::INGRESS) {

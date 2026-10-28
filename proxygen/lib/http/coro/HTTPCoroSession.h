@@ -644,7 +644,8 @@ class HTTPCoroSession
                          StreamState* stream,
                          HTTPErrorCode error,
                          bool fromSource = false,
-                         bool bidirectionalReset = true);
+                         bool bidirectionalReset = true,
+                         std::string context = {});
   virtual void handleDeferredStopSending(HTTPCodec::StreamID id) = 0;
 
   // error is delivered to any queued byte events that get cancelled

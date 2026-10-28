@@ -115,7 +115,9 @@ class HTTPStreamSource : public HTTPSource {
   void trailers(std::unique_ptr<HTTPHeaders> trailers);
   void padding(uint16_t bytes);
   void eom();
-  void abort(HTTPErrorCode error, std::string_view details = "");
+  void abort(HTTPErrorCode error,
+             std::string_view details = "",
+             std::string context = {});
 
   // HTTPSource methods
   folly::coro::Task<HTTPHeaderEvent> readHeaderEvent() override;
@@ -200,8 +202,14 @@ class HTTPStreamSource : public HTTPSource {
     return error_ || !bodyQueue_.empty();
   }
 
-  void setError(HTTPErrorCode error, std::string msg, bool ingress = false);
-  void setErrorImpl(HTTPErrorCode error, std::string msg, bool ingress);
+  void setError(HTTPErrorCode error,
+                std::string msg,
+                bool ingress = false,
+                std::string context = {});
+  void setErrorImpl(HTTPErrorCode error,
+                    std::string msg,
+                    bool ingress,
+                    std::string context = {});
 
   void enableSinkMode();
 

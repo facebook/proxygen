@@ -230,8 +230,10 @@ struct HTTPCoroSession::StreamState {
     return *writeBuf_;
   }
 
-  void abortIngress(HTTPErrorCode err, std::string_view details = "") {
-    streamSource.abort(err, details);
+  void abortIngress(HTTPErrorCode err,
+                    std::string_view details = "",
+                    std::string context = {}) {
+    streamSource.abort(err, details, std::move(context));
     cs.ingress.requestCancellation();
   }
 
@@ -1233,7 +1235,7 @@ void HTTPCoroSession::onError(HTTPCodec::StreamID streamID,
   }
 
   // queue up an error for the handler if stream exists
-  auto ec = HTTPException2HTTPErrorCode(error);
+  auto httpError = HTTPExceptionToHTTPError(error);
   auto* stream = findStream(streamID);
   if (isDownstream() && stream && stream->canSendHeaders() &&
       error.hasHttpStatusCode()) {
@@ -1246,10 +1248,16 @@ void HTTPCoroSession::onError(HTTPCodec::StreamID streamID,
         partialMsg && stream->streamSource.headersAllowed()) {
       stream->streamSource.headers(std::make_unique<HTTPMessage>(*partialMsg));
     }
-    stream->abortIngress(ec, error.what());
+    stream->abortIngress(
+        httpError.code, httpError.msg, std::move(httpError.context));
     stream->setErrorStatusCode(error.getHttpStatusCode());
   } else {
-    egressResetStream(streamID, stream, ec);
+    egressResetStream(streamID,
+                      stream,
+                      httpError.code,
+                      /*fromSource=*/false,
+                      /*bidirectionalReset=*/true,
+                      std::move(httpError.context));
   }
 
   deliverLifecycleEvent(&LifecycleObserver::onIngressError,
@@ -2391,7 +2399,8 @@ void HTTPCoroSession::egressResetStream(HTTPCodec::StreamID id,
                                         StreamState* stream,
                                         HTTPErrorCode error,
                                         bool fromSource,
-                                        bool bidirectionalReset) {
+                                        bool bidirectionalReset,
+                                        std::string context) {
   generateResetStream(id, error, fromSource, bidirectionalReset);
   writeEvent_.signal();
   if (!stream) {
@@ -2406,10 +2415,12 @@ void HTTPCoroSession::egressResetStream(HTTPCodec::StreamID id,
       } else if (isNoError(error)) {
         error = HTTPErrorCode::CANCEL;
       }
-      stream->abortIngress(error, details);
+      stream->abortIngress(error, details, context);
     }
     // TODO: message will be suboptimal when receiving a STOP_SENDING
-    resetStreamState(*stream, HTTPError(error, std::string(details)));
+    auto err = HTTPError(error, std::string(details));
+    err.context = std::move(context);
+    resetStreamState(*stream, err);
   }
 }
 

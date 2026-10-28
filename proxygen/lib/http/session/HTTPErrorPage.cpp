@@ -26,7 +26,8 @@ HTTPErrorPage::Page HTTPStaticErrorPage::generate(
     const std::string& /*reason*/,
     std::unique_ptr<folly::IOBuf> /*body*/,
     const std::string& /*detailReason*/,
-    ProxygenError err) const {
+    ProxygenError err,
+    folly::StringPiece /*errorContext*/) const {
 
   HTTPHeaders headers;
   VLOG(4) << "adding server-status header for proxygen error";

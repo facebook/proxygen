@@ -298,6 +298,7 @@ ProxygenError HTTPErrorCode2ProxygenError(HTTPErrorCode code) {
 HTTPException HTTPErrorToHTTPException(const HTTPError& err) {
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, err.what());
   ex.setProxygenError(HTTPErrorCode2ProxygenError(err.code));
+  ex.setContext(err.context);
   auto ec = static_cast<ErrorCode>(err.code);
   if (ec >= ErrorCode::PROTOCOL_ERROR && ec <= ErrorCode::HTTP_1_1_REQUIRED) {
     ex.setCodecStatusCode(ec);
@@ -307,5 +308,11 @@ HTTPException HTTPErrorToHTTPException(const HTTPError& err) {
         std::make_unique<HTTPMessage>(std::move(*err.httpMessage)));
   }
   return ex;
+}
+
+HTTPError HTTPExceptionToHTTPError(const HTTPException& ex) {
+  HTTPError error(HTTPException2HTTPErrorCode(ex), ex.what());
+  error.context = ex.getContext().str();
+  return error;
 }
 } // namespace proxygen::coro

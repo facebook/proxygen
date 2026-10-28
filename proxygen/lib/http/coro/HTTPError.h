@@ -172,6 +172,7 @@ inline bool isNoError(HTTPErrorCode ec) {
 struct HTTPError : public std::exception {
   HTTPErrorCode code;
   std::string msg;
+  std::string context;
   std::unique_ptr<HTTPMessage> httpMessage;
 
   explicit HTTPError(HTTPErrorCode inCode)
@@ -184,7 +185,8 @@ struct HTTPError : public std::exception {
 
   HTTPError(HTTPError&& goner) = default;
   HTTPError& operator=(HTTPError&& goner) = default;
-  HTTPError(const HTTPError& other) : code(other.code), msg(other.msg) {
+  HTTPError(const HTTPError& other)
+      : code(other.code), msg(other.msg), context(other.context) {
     if (other.httpMessage) {
       httpMessage = std::make_unique<HTTPMessage>(*other.httpMessage);
     }
@@ -192,6 +194,7 @@ struct HTTPError : public std::exception {
   HTTPError& operator=(const HTTPError& other) {
     code = other.code;
     msg = other.msg;
+    context = other.context;
     if (other.httpMessage) {
       httpMessage = std::make_unique<HTTPMessage>(*other.httpMessage);
     }
@@ -227,4 +230,6 @@ ProxygenError HTTPErrorCode2ProxygenError(HTTPErrorCode code);
 // convert HTTPError to HTTPException (usage of HTTPException is discouraged)
 HTTPException HTTPErrorToHTTPException(const HTTPError& err);
 
+// convert HTTPException to HTTPError; does not carry over the partial message
+HTTPError HTTPExceptionToHTTPError(const HTTPException& ex);
 } // namespace proxygen::coro

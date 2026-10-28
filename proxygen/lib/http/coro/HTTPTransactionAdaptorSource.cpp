@@ -113,7 +113,8 @@ void HTTPTransactionAdaptorSource::onUpgrade(
 
 void HTTPTransactionAdaptorSource::onError(
     const HTTPException& error) noexcept {
-  ingressSource_.abort(HTTPException2HTTPErrorCode(error));
+  ingressSource_.abort(
+      HTTPException2HTTPErrorCode(error), "", error.getContext().str());
   txn_->sendAbort();
   requestCancellation();
 }

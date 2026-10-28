@@ -9,6 +9,7 @@
 #pragma once
 
 #include <cstdint>
+#include <folly/Range.h>
 #include <memory>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/ProxygenErrorEnum.h>
@@ -50,12 +51,14 @@ class HTTPErrorPage {
   virtual ~HTTPErrorPage() {
   }
 
+  // errorContext is the codec's bounded rejection token, when it named one.
   virtual Page generate(uint64_t requestID,
                         unsigned httpStatusCode,
                         const std::string& reason,
                         std::unique_ptr<folly::IOBuf> body,
                         const std::string& detailReason,
-                        ProxygenError err) const = 0;
+                        ProxygenError err,
+                        folly::StringPiece errorContext = {}) const = 0;
 };
 
 /**
@@ -72,7 +75,8 @@ class HTTPStaticErrorPage : public HTTPErrorPage {
                 const std::string& reason,
                 std::unique_ptr<folly::IOBuf> body,
                 const std::string& detailReason,
-                ProxygenError err) const override;
+                ProxygenError err,
+                folly::StringPiece errorContext = {}) const override;
 
  protected:
   std::unique_ptr<folly::IOBuf> content_;

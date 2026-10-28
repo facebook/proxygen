@@ -46,6 +46,7 @@ class HTTPDirectResponseHandler : public HTTPTransaction::Handler {
   std::string statusMessage_;
   unsigned statusCode_;
   ProxygenError err_{kErrorNone};
+  std::string errorContext_;
   bool headersSent_ : 1;
   bool eomSent_ : 1;
   bool forceConnectionClose_ : 1;
