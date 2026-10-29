@@ -2097,6 +2097,30 @@ TEST_P(HQUpstreamSessionTestWebTransport, PairOfUnisReset) {
   closeWTSession();
 }
 
+TEST_P(HQUpstreamSessionTestWebTransport, ResetKeepsStreamPrefaceReliable) {
+  socketDriver_->reliableResetSupported_ = true;
+  socketDriver_->setMaxUniStreams(10);
+  folly::IOBufQueue capsuleQueue;
+  WTMaxStreamsCapsule maxStreamsCapsule{.maximumStreams = 10};
+  EXPECT_TRUE(
+      writeWTMaxStreams(capsuleQueue, maxStreamsCapsule, false).has_value());
+  sendPartialBody(sessionId_, capsuleQueue.move(), false);
+  flushAndLoopN(2);
+
+  auto writeHandle = wt_->createUniStream().value();
+  auto writeId = writeHandle->getID();
+  writeHandle->resetStream(77);
+
+  folly::IOBufQueue preface(folly::IOBufQueue::cacheChainLength());
+  hq::writeWTStreamPreface(
+      preface, hq::WebTransportStreamType::UNI, sessionId_);
+  auto& stream = socketDriver_->streams_[writeId];
+  EXPECT_EQ(WebTransport::toApplicationErrorCode(*stream.error).value(), 77);
+  EXPECT_EQ(stream.reliableSize, preface.chainLength());
+
+  closeWTSession();
+}
+
 TEST_P(HQUpstreamSessionTestWebTransport, Datagrams) {
   InSequence enforceOrder;
   EXPECT_TRUE(wt_->sendDatagram(makeBuf(10)));

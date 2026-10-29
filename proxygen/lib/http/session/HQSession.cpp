@@ -3716,6 +3716,7 @@ HQSession::HQStreamTransport::newWebTransportBidiStream() {
     return folly::makeUnexpected(
         WebTransport::ErrorCode::STREAM_CREATION_ERROR);
   }
+  session_.sock_->updateReliableDeliveryCheckpoint(*id);
   return *id;
 }
 
@@ -3738,6 +3739,7 @@ HQSession::HQStreamTransport::newWebTransportUniStream() {
     return folly::makeUnexpected(
         WebTransport::ErrorCode::STREAM_CREATION_ERROR);
   }
+  session_.sock_->updateReliableDeliveryCheckpoint(*id);
   return *id;
 }
 
@@ -3803,10 +3805,9 @@ folly::Expected<folly::Unit, WebTransport::ErrorCode>
 HQSession::HQStreamTransport::resetWebTransportEgress(HTTPCodec::StreamID id,
                                                       uint32_t errorCode) {
   if (session_.sock_) {
-    auto res = session_.sock_->resetStream(
-        id,
-        quic::ApplicationErrorCode(WebTransport::toHTTPErrorCode(errorCode)));
-    if (res.hasError()) {
+    auto quicErrorCode =
+        quic::ApplicationErrorCode(WebTransport::toHTTPErrorCode(errorCode));
+    if (session_.sock_->resetStreamReliably(id, quicErrorCode).hasError()) {
       return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
     }
   }

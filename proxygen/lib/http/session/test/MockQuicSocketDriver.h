@@ -105,6 +105,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     uint64_t lastSkipOffset{0};
     uint64_t fakePeekOffset{0};
     uint64_t numWriteChainInvocations{0};
+    folly::Optional<uint64_t> reliableResetCheckpoint;
+    folly::Optional<uint64_t> reliableSize;
   };
 
  public:
@@ -614,19 +616,38 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         .WillRepeatedly(testing::Invoke(
             [this](quic::StreamId id, quic::ApplicationErrorCode error)
                 -> quic::Expected<void, quic::LocalErrorCode> {
-              if (isReceivingStream(id)) {
-                return quic::make_unexpected(LocalErrorCode::INVALID_OPERATION);
-              }
+              return resetStreamImpl(id, error, folly::none);
+            }));
+    EXPECT_CALL(*sock_, updateReliableDeliveryCheckpoint(testing::_))
+        .WillRepeatedly(
+            testing::Invoke([this](quic::StreamId id)
+                                -> quic::Expected<void, quic::LocalErrorCode> {
+              checkNotReadOnlyStream(id);
               auto& stream = streams_[id];
-              stream.error = error;
-              stream.writeState = ERROR;
-              stream.unsentBuf.move();
-              stream.pendingWriteBuf.move();
-              stream.pendingWriteCb.stream = nullptr;
-              stream.pendingBufMetaLength = 0;
-              cancelDeliveryCallbacks(id, stream);
+
+              if (stream.writeState == ERROR) {
+                return quic::make_unexpected(
+                    quic::LocalErrorCode::INVALID_OPERATION);
+              }
+
+              stream.reliableResetCheckpoint =
+                  stream.nextWriteOffset + stream.unsentBuf.chainLength();
+
               return {};
             }));
+    EXPECT_CALL(*sock_, resetStreamReliably(testing::_, testing::_))
+        .WillRepeatedly(testing::Invoke(
+            [this](quic::StreamId id, quic::ApplicationErrorCode error)
+                -> quic::Expected<void, quic::LocalErrorCode> {
+              return resetStreamImpl(id,
+                                     error,
+                                     reliableResetSupported_
+                                         ? streams_[id].reliableResetCheckpoint
+                                         : folly::none);
+            }));
+    EXPECT_CALL(*sock_, isReliableResetSupported())
+        .WillRepeatedly(testing::Invoke(
+            [this]() -> bool { return reliableResetSupported_; }));
     EXPECT_CALL(*sock_, unsetAllReadCallbacks())
         .WillRepeatedly(testing::Invoke([this]() {
           for (auto& stream : streams_) {
@@ -1004,6 +1025,25 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
           {id, stream.deliveryCallbacks.front().first, ByteEvent::Type::ACK});
       stream.deliveryCallbacks.pop_front();
     }
+  }
+
+  quic::Expected<void, quic::LocalErrorCode> resetStreamImpl(
+      quic::StreamId id,
+      quic::ApplicationErrorCode error,
+      folly::Optional<uint64_t> reliableSize) {
+    if (isReceivingStream(id)) {
+      return quic::make_unexpected(LocalErrorCode::INVALID_OPERATION);
+    }
+    auto& stream = streams_[id];
+    stream.error = error;
+    stream.reliableSize = reliableSize;
+    stream.writeState = ERROR;
+    stream.unsentBuf.move();
+    stream.pendingWriteBuf.move();
+    stream.pendingWriteCb.stream = nullptr;
+    stream.pendingBufMetaLength = 0;
+    cancelDeliveryCallbacks(id, stream);
+    return {};
   }
 
   // Delivers the ACK byte events for bytes already written, without waiting for
@@ -1719,6 +1759,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   }
 
   bool strictErrorCheck_{true};
+  bool reliableResetSupported_{false};
   folly::EventBase* eventBase_;
   std::shared_ptr<quic::FollyQuicEventBase> quicEventBase_;
   TransportSettings transportSettings_;
