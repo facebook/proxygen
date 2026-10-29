@@ -3960,6 +3960,16 @@ void HQSession::HQStreamTransportBase::DatagramScheduler::
   }
 }
 
+folly::Expected<folly::Unit, WebTransport::ErrorCode>
+HQSession::HQStreamTransport::updateReliableDeliveryCheckpoint(
+    HTTPCodec::StreamID id) {
+  if (!session_.sock_ ||
+      session_.sock_->updateReliableDeliveryCheckpoint(id).hasError()) {
+    return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
+  }
+  return folly::unit;
+}
+
 std::ostream& operator<<(std::ostream& os, const HQSession& session) {
   session.describe(os);
   return os;

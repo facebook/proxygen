@@ -198,7 +198,8 @@ struct WriteHandle : public WebTransport::StreamWriteHandle {
   folly::Expected<FcState, ErrCode> writeStreamData(
       std::unique_ptr<folly::IOBuf> data,
       bool fin,
-      WebTransport::ByteEventCallback* byteEventCallback) override;
+      WebTransport::ByteEventCallback* byteEventCallback,
+      bool checkpoint) override;
   folly::Expected<folly::Unit, ErrCode> resetStream(uint32_t error) override;
   folly::Expected<folly::Unit, ErrCode> setPriority(
       quic::PriorityQueue::Priority priority) override;
@@ -1044,11 +1045,11 @@ WriteHandle::WriteHandle(uint64_t id,
 }
 
 folly::Expected<WriteHandle::FcState, WriteHandle::ErrCode>
-WriteHandle::writeStreamData(
-    std::unique_ptr<folly::IOBuf> data,
-    bool fin,
-    WebTransport::ByteEventCallback* byteEventCallback) {
-  if (state_ == WriteHandleState::Closed) {
+WriteHandle::writeStreamData(std::unique_ptr<folly::IOBuf> data,
+                             bool fin,
+                             WebTransport::ByteEventCallback* byteEventCallback,
+                             bool checkpoint) {
+  if (state_ == WriteHandleState::Closed || checkpoint) {
     return folly::makeUnexpected(WriteHandle::ErrCode::SEND_ERROR);
   }
   // TODO(@damlaj): elide unnecessarily recomputing len

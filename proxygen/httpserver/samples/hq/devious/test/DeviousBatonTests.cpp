@@ -24,13 +24,14 @@ struct Message {
 folly::SemiFuture<Message> expectSendMessage(MockWebTransport& wt) {
   auto [promise, future] = folly::makePromiseContract<Message>();
 
-  EXPECT_CALL(wt, writeStreamData(_, _, _, _))
+  EXPECT_CALL(wt, writeStreamData(_, _, _, _, _))
       .WillOnce([&wt, promise = folly::MoveWrapper(std::move(promise))](
                     uint64_t id,
                     std::unique_ptr<folly::IOBuf> data,
                     bool eof,
                     proxygen::WebTransport::ByteEventCallback*
-                    /* deliveryCallback */) mutable
+                    /* deliveryCallback */,
+                    bool /* checkpoint */) mutable
                     -> folly::Expected<proxygen::WebTransport::FCState,
                                        proxygen::WebTransport::ErrorCode> {
         Message m;

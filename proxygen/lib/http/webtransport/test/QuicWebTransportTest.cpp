@@ -463,6 +463,28 @@ TEST_F(QuicWebTransportTest, DestructorTerminatesOpenStreams) {
   EXPECT_TRUE(bidiReadErrorReceived);
 }
 
+TEST_F(QuicWebTransportTest, Checkpoint) {
+  auto* handle = webTransport()->createUniStream().value();
+  const auto id = handle->getID();
+  auto* wtImpl =
+      CHECK_NOTNULL(dynamic_cast<WebTransportImpl*>(transport_.get()));
+  auto data = [](size_t len) {
+    return folly::IOBuf::copyBuffer(std::string(len, 'a'));
+  };
+
+  // 50 of the 150 bytes exceed the session flow control window, so the
+  // transport checkpoint waits until they are flushed
+  wtImpl->setFlowControlLimits(/*sendWindow=*/100);
+  handle->writeStreamData(data(150), false, nullptr, /*checkpoint=*/true);
+  EXPECT_FALSE(socketDriver_.streams_[id].reliableResetCheckpoint);
+  wtImpl->onMaxData(1000);
+  EXPECT_EQ(socketDriver_.streams_[id].reliableResetCheckpoint, 150u);
+
+  EXPECT_TRUE(webTransport()
+                  ->writeStreamData(id, nullptr, false, nullptr, true)
+                  .hasError());
+}
+
 // TODO:
 //
 // new streams with no handler

@@ -97,6 +97,10 @@ class WebTransportImpl
         stopReadingWebTransportIngress(
             HTTPCodec::StreamID /*id*/,
             folly::Optional<uint32_t> /*errorCode*/) = 0;
+
+    virtual folly::Expected<folly::Unit, WebTransport::ErrorCode>
+        updateReliableDeliveryCheckpoint(HTTPCodec::StreamID /*id*/) = 0;
+
     virtual folly::Expected<folly::Unit, WebTransport::ErrorCode> sendDatagram(
         std::unique_ptr<folly::IOBuf> /*datagram*/) = 0;
 
@@ -170,16 +174,19 @@ class WebTransportImpl
     }
     return it->second.stopSending(error);
   }
+  using WebTransport::writeStreamData;
   folly::Expected<FCState, ErrorCode> writeStreamData(
       uint64_t id,
       std::unique_ptr<folly::IOBuf> data,
       bool fin,
-      ByteEventCallback* deliveryCallback) override {
+      ByteEventCallback* deliveryCallback,
+      bool checkpoint) override {
     auto it = wtEgressStreams_.find(id);
     if (it == wtEgressStreams_.end()) {
       return folly::makeUnexpected(WebTransport::ErrorCode::INVALID_STREAM_ID);
     }
-    return it->second.writeStreamData(std::move(data), fin, deliveryCallback);
+    return it->second.writeStreamData(
+        std::move(data), fin, deliveryCallback, checkpoint);
   }
   folly::Expected<folly::Unit, WebTransport::ErrorCode> resetStream(
       uint64_t id, uint32_t error) override {
@@ -252,7 +259,8 @@ class WebTransportImpl
     folly::Expected<FCState, WebTransport::ErrorCode> writeStreamData(
         std::unique_ptr<folly::IOBuf> data,
         bool fin,
-        ByteEventCallback* deliveryCallback) override;
+        ByteEventCallback* deliveryCallback,
+        bool checkpoint) override;
 
     folly::Expected<folly::Unit, WebTransport::ErrorCode> resetStream(
         uint32_t errorCode) override {
@@ -283,13 +291,16 @@ class WebTransportImpl
       folly::IOBufQueue buf;
       ByteEventCallback* deliveryCallback;
       bool fin;
+      bool checkpoint;
 
       BufferedWrite(std::unique_ptr<folly::IOBuf> data,
                     ByteEventCallback* callback,
-                    bool fin)
+                    bool fin,
+                    bool checkpoint)
           : buf(folly::IOBufQueue::cacheChainLength()),
             deliveryCallback(callback),
-            fin(fin) {
+            fin(fin),
+            checkpoint(checkpoint) {
         if (data) {
           buf.append(std::move(data));
         }

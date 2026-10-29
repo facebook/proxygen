@@ -287,6 +287,11 @@ class WebTransportFilter
                  : folly::unit;
   }
 
+  folly::Expected<folly::Unit, WebTransport::ErrorCode>
+  updateReliableDeliveryCheckpoint(HTTPCodec::StreamID id) override {
+    return h3Tp_ ? h3Tp_->updateReliableDeliveryCheckpoint(id) : folly::unit;
+  }
+
   folly::SemiFuture<folly::Unit> awaitUniStreamCredit() override {
     return folly::makeFuture(folly::unit);
   }

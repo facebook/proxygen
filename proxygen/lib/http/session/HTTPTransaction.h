@@ -660,6 +660,12 @@ class HTTPTransaction
       folly::assume_unreachable();
     }
 
+    folly::Expected<folly::Unit, WebTransport::ErrorCode>
+    updateReliableDeliveryCheckpoint(HTTPCodec::StreamID /*id*/) override {
+      LOG(FATAL) << __func__ << " not supported";
+      folly::assume_unreachable();
+    }
+
     /**
      * Ask transport to track and ack body delivery.
      */

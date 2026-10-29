@@ -468,9 +468,11 @@ WtExpected<FCState>::Type WtSessionBase::writeStreamData(
     StreamId id,
     IoBufPtr data,
     bool fin,
-    ByteEventCallback* byteEventCallback) noexcept {
+    ByteEventCallback* byteEventCallback,
+    bool checkpoint) noexcept {
   if (auto* wh = sm_.getBidiHandle(id).writeHandle) {
-    return wh->writeStreamData(std::move(data), fin, byteEventCallback);
+    return wh->writeStreamData(
+        std::move(data), fin, byteEventCallback, checkpoint);
   }
   return folly::makeUnexpected(WtErrCode::INVALID_STREAM_ID);
 }

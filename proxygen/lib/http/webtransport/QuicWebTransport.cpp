@@ -223,6 +223,16 @@ QuicWebTransport::stopReadingWebTransportIngress(
 }
 
 folly::Expected<folly::Unit, WebTransport::ErrorCode>
+QuicWebTransport::updateReliableDeliveryCheckpoint(HTTPCodec::StreamID id) {
+  XCHECK(quicSocket_);
+  auto res = quicSocket_->updateReliableDeliveryCheckpoint(id);
+  if (res.hasError()) {
+    return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
+  }
+  return folly::unit;
+}
+
+folly::Expected<folly::Unit, WebTransport::ErrorCode>
 QuicWebTransport::sendDatagram(std::unique_ptr<folly::IOBuf> datagram) {
   XCHECK(quicSocket_);
   auto writeRes = quicSocket_->writeDatagram(std::move(datagram));

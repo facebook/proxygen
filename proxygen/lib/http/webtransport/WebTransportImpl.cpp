@@ -252,7 +252,8 @@ folly::Expected<WebTransport::FCState, WebTransport::ErrorCode>
 WebTransportImpl::StreamWriteHandle::writeStreamData(
     std::unique_ptr<folly::IOBuf> data,
     bool fin,
-    ByteEventCallback* deliveryCallback) {
+    ByteEventCallback* deliveryCallback,
+    bool checkpoint) {
   VLOG(4) << __func__ << " data=" << data.get() << " fin=" << fin
           << " deliveryCallback=" << deliveryCallback << " ex=" << bool(ex_)
           << " bufferedWrites_.size()=" << bufferedWrites_.size();
@@ -260,8 +261,8 @@ WebTransportImpl::StreamWriteHandle::writeStreamData(
   if (ex_) {
     return folly::makeUnexpected(WebTransport::ErrorCode::STOP_SENDING);
   }
-  if (!data && !fin) {
-    LOG(ERROR) << "Empty write with no FIN";
+  if (!data && (!fin || checkpoint)) {
+    LOG(ERROR) << "Empty write with no FIN or with a checkpoint";
     return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
   }
 
@@ -269,7 +270,8 @@ WebTransportImpl::StreamWriteHandle::writeStreamData(
 
   if (bufferedWrites_.empty()) {
     VLOG(4) << __func__ << " Emplacing new buffered write (empty queue)";
-    bufferedWrites_.emplace_back(std::move(data), deliveryCallback, fin);
+    bufferedWrites_.emplace_back(
+        std::move(data), deliveryCallback, fin, checkpoint);
   } else {
     auto& last = bufferedWrites_.back();
     if (last.fin) {
@@ -277,16 +279,18 @@ WebTransportImpl::StreamWriteHandle::writeStreamData(
                  << " Last buffered write has FIN, ret=GENERIC_ERROR";
       return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
     }
-    if (last.deliveryCallback == nullptr) {
+    if (last.deliveryCallback == nullptr && !last.checkpoint) {
       VLOG(4) << __func__ << " Updating last buffered write";
       if (data) {
         last.buf.append(std::move(data));
       }
       last.deliveryCallback = deliveryCallback;
       last.fin = fin;
+      last.checkpoint = checkpoint;
     } else {
       VLOG(4) << __func__ << " Emplacing new buffered write";
-      bufferedWrites_.emplace_back(std::move(data), deliveryCallback, fin);
+      bufferedWrites_.emplace_back(
+          std::move(data), deliveryCallback, fin, checkpoint);
     }
   }
 
@@ -367,10 +371,12 @@ WebTransportImpl::StreamWriteHandle::flushBufferedWrites() {
     availableSpace -= bufToSendLen;
     ByteEventCallback* sendDeliveryCallback = nullptr;
     bool sendFin = false;
+    bool checkpoint = false;
 
     if (frontEntry.buf.empty()) {
       sendDeliveryCallback = frontEntry.deliveryCallback;
       sendFin = frontEntry.fin;
+      checkpoint = frontEntry.checkpoint;
       VLOG(4) << __func__ << " frontEntry.buf empty, sendFin=" << sendFin;
       bufferedWrites_.pop_front();
     }
@@ -385,6 +391,10 @@ WebTransportImpl::StreamWriteHandle::flushBufferedWrites() {
       VLOG(4) << __func__
               << " sendWebTransportStreamData error=" << uint32_t(res.error());
       return folly::makeUnexpected(res.error());
+    }
+    if (checkpoint &&
+        impl_.tp_.updateReliableDeliveryCheckpoint(id_).hasError()) {
+      LOG(ERROR) << __func__ << " checkpoint failed id=" << id_;
     }
 
     if (sendFin || *res == WebTransport::FCState::BLOCKED) {

@@ -56,20 +56,21 @@ class FakeStreamHandle
   folly::SemiFuture<WebTransport::StreamData> readStreamData() override {
     XCHECK(!promise_) << "One read at a time";
     readCount_++;
-    if (writeErr_) {
+    if (!buf_.empty() || (fin_ && inflightBuf_.empty())) {
+      return folly::makeFuture(WebTransport::StreamData{
+          .data = takeReadData(), .fin = fin_ && inflightBuf_.empty()});
+    }
+
+    if (writeErr_ && dataRead_ >= reliableResetCheckpoint_) {
       auto exwrapper =
           folly::make_exception_wrapper<WebTransport::Exception>(*writeErr_);
       return folly::makeFuture<WebTransport::StreamData>(exwrapper);
-    } else if (!buf_.empty() || (fin_ && inflightBuf_.empty())) {
-      return folly::makeFuture(WebTransport::StreamData(
-          {buf_.move(), fin_ && inflightBuf_.empty()}));
-    } else {
-      // need a new promise
-      auto [promise, future] =
-          folly::makePromiseContract<WebTransport::StreamData>();
-      promise_ = std::move(promise);
-      return std::move(future);
     }
+
+    auto [promise, future] =
+        folly::makePromiseContract<WebTransport::StreamData>();
+    promise_ = std::move(promise);
+    return std::move(future);
   }
   GenericApiRet stopSending(uint32_t code) override {
     stopSendingCount_++;
@@ -102,12 +103,41 @@ class FakeStreamHandle
     XLOG(DBG4) << "deliverInflightData bytes=" << bytes
                << " inflightBuf_ size=" << inflightBuf_.chainLength()
                << " fin=" << (fin_ ? "true" : "false");
+
+    // After a reset, only data below the reliable checkpoint is delivered
+    if (writeErr_) {
+      uint64_t maxDeliver = reliableResetCheckpoint_ > dataDelivered_
+                                ? reliableResetCheckpoint_ - dataDelivered_
+                                : 0;
+      bytes = std::min(bytes, static_cast<size_t>(maxDeliver));
+      if (bytes == 0) {
+        inflightBuf_.move();
+        if (promise_) {
+          promise_->setException(WebTransport::Exception(*writeErr_));
+          promise_.reset();
+        }
+        return;
+      }
+    }
+
     auto buf = inflightBuf_.splitAtMost(bytes);
     dataDelivered_ += buf->computeChainDataLength();
     buf_.append(std::move(buf));
+
+    if (writeErr_ && dataDelivered_ >= reliableResetCheckpoint_) {
+      inflightBuf_.move();
+      if (promise_) {
+        // the next read gets the reset error
+        promise_->setValue(
+            WebTransport::StreamData{.data = takeReadData(), .fin = false});
+        promise_.reset();
+      }
+      return;
+    }
+
     if (promise_) {
-      promise_->setValue(WebTransport::StreamData(
-          {buf_.move(), fin_ && inflightBuf_.empty()}));
+      promise_->setValue(WebTransport::StreamData{
+          .data = takeReadData(), .fin = fin_ && inflightBuf_.empty()});
       promise_.reset();
     }
     for (auto it = offsetToDeliveryCallback_.begin();
@@ -131,15 +161,23 @@ class FakeStreamHandle
 
   using WriteStreamDataRet =
       folly::Expected<WebTransport::FCState, WebTransport::ErrorCode>;
+  using WebTransport::StreamWriteHandle::writeStreamData;
   WriteStreamDataRet writeStreamData(
       std::unique_ptr<folly::IOBuf> data,
       bool fin,
-      WebTransport::ByteEventCallback* deliveryCallback) override {
+      WebTransport::ByteEventCallback* deliveryCallback,
+      bool checkpoint) override {
     bool wasTerminal = fin_ || writeErr_.has_value();
     size_t length = 0;
     if (data) {
       length = data->computeChainDataLength();
       dataWritten_ += length;
+    }
+    if (checkpoint && length == 0) {
+      return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
+    }
+    if (checkpoint) {
+      reliableResetCheckpoint_ = dataWritten_;
     }
     if (immediateDelivery_) {
       if (data) {
@@ -154,7 +192,8 @@ class FakeStreamHandle
     fin_ = fin;
     if (promise_) {
       if (immediateDelivery_) {
-        promise_->setValue(WebTransport::StreamData({buf_.move(), fin_}));
+        promise_->setValue(
+            WebTransport::StreamData{.data = takeReadData(), .fin = fin_});
         promise_.reset();
       }
     }
@@ -219,13 +258,28 @@ class FakeStreamHandle
         callback->onByteEventCanceled(getID(), offset);
       }
     }
-    if (promise_) {
+
+    writeErr_ = err;
+
+    // Drop buffered data beyond the reliable checkpoint
+    if (reliableResetCheckpoint_ > dataRead_) {
+      uint64_t maxBuffered = reliableResetCheckpoint_ - dataRead_;
+      if (buf_.chainLength() > maxBuffered) {
+        auto keep = buf_.split(maxBuffered);
+        buf_.move();
+        buf_.append(std::move(keep));
+      }
+    } else {
+      buf_.move();
+    }
+
+    // A pending read stays pending while reliable data is still inflight
+    if (promise_ && dataDelivered_ >= reliableResetCheckpoint_) {
       promise_->setException(WebTransport::Exception(err));
       promise_.reset();
     }
     // Guard via onWriteTerminal_ presence (cleared on first fire) — writeErr_
     // may already be set by an earlier stopSending and must not gate this.
-    writeErr_ = err;
     if (!fin_ && onWriteTerminal_) {
       auto cb = std::move(onWriteTerminal_);
       cb();
@@ -250,6 +304,12 @@ class FakeStreamHandle
     return !fin_ && !writeErr_ && (!promise_ || !promise_->isFulfilled());
   }
 
+  std::unique_ptr<folly::IOBuf> takeReadData() {
+    auto data = buf_.move();
+    dataRead_ += data ? data->computeChainDataLength() : 0;
+    return data;
+  }
+
   uint64_t id{0};
   std::function<void()> onWriteTerminal_;
   folly::Optional<folly::Promise<WebTransport::StreamData>> promise_;
@@ -262,6 +322,8 @@ class FakeStreamHandle
   uint32_t stopSendingCount_{0};
   uint32_t resetCount_{0};
   folly::Optional<uint32_t> stopSendingErr_;
+  uint32_t dataRead_{0};
+  uint32_t reliableResetCheckpoint_{0};
   bool fin_{false};
   folly::Optional<std::tuple<uint8_t, uint64_t, bool>> pri;
   folly::Optional<uint32_t> writeErr_;
@@ -506,16 +568,19 @@ class FakeSharedWebTransport : public WebTransport {
     return h->second->readStreamData();
   }
 
+  using WebTransport::writeStreamData;
   folly::Expected<FCState, ErrorCode> writeStreamData(
       uint64_t id,
       std::unique_ptr<folly::IOBuf> data,
       bool fin,
-      WebTransport::ByteEventCallback* deliveryCallback) override {
+      WebTransport::ByteEventCallback* deliveryCallback,
+      bool checkpoint) override {
     auto h = writeHandles.find(id);
     if (h == writeHandles.end()) {
       return folly::makeUnexpected(WebTransport::ErrorCode::GENERIC_ERROR);
     }
-    return h->second->writeStreamData(std::move(data), fin, deliveryCallback);
+    return h->second->writeStreamData(
+        std::move(data), fin, deliveryCallback, checkpoint);
   }
 
   folly::Expected<folly::SemiFuture<uint64_t>, ErrorCode> awaitWritable(

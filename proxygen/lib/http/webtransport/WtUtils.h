@@ -176,11 +176,13 @@ class WtSessionBase : public WebTransport {
   WtExpected<folly::SemiFuture<StreamData>>::Type readStreamData(
       StreamId id) noexcept override;
 
+  using WebTransport::writeStreamData;
   WtExpected<FCState>::Type writeStreamData(
       StreamId id,
       IoBufPtr data,
       bool fin,
-      ByteEventCallback* byteEventCallback) noexcept override;
+      ByteEventCallback* byteEventCallback,
+      bool checkpoint) noexcept override;
 
   WtExpected<folly::Unit>::Type resetStream(StreamId id,
                                             uint32_t error) noexcept override;

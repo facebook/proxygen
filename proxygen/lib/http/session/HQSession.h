@@ -1876,6 +1876,9 @@ class HQSession
             HTTPCodec::StreamID /*id*/,
             folly::Optional<uint32_t> /*errorCode*/) override;
 
+    folly::Expected<folly::Unit, WebTransport::ErrorCode>
+        updateReliableDeliveryCheckpoint(HTTPCodec::StreamID /*id*/) override;
+
   }; // HQStreamTransport
 
 #ifdef _MSC_VER

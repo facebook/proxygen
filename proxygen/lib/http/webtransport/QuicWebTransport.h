@@ -146,6 +146,9 @@ class QuicWebTransport
           HTTPCodec::StreamID /*id*/,
           folly::Optional<uint32_t> /*errorCode*/) override;
 
+  folly::Expected<folly::Unit, WebTransport::ErrorCode>
+      updateReliableDeliveryCheckpoint(HTTPCodec::StreamID /*id*/) override;
+
   folly::Expected<folly::Unit, WebTransport::ErrorCode> sendDatagram(
       std::unique_ptr<folly::IOBuf> /*datagram*/) override;
 

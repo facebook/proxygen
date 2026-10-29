@@ -195,10 +195,21 @@ class WebTransport {
     // CancellationCallback.  Calling writeStreamData from the callback will
     // fail with a WebTransport::Exception with the stopSendingErrorCode.
     // After the cancellation callback, the StreamWriteHandle is invalid.
+    //
+    // With checkpoint=true, the stream data through the end of this write is
+    // delivered even if the stream is later reset. A checkpoint needs data.
     virtual folly::Expected<FCState, ErrorCode> writeStreamData(
         std::unique_ptr<folly::IOBuf> data,
         bool fin,
-        ByteEventCallback* byteEventCallback) = 0;
+        ByteEventCallback* byteEventCallback,
+        bool checkpoint) = 0;
+
+    folly::Expected<FCState, ErrorCode> writeStreamData(
+        std::unique_ptr<folly::IOBuf> data,
+        bool fin,
+        ByteEventCallback* byteEventCallback) {
+      return writeStreamData(std::move(data), fin, byteEventCallback, false);
+    }
 
     // Reset the stream with the given error
     virtual folly::Expected<folly::Unit, ErrorCode> resetStream(
@@ -257,7 +268,15 @@ class WebTransport {
       uint64_t id,
       std::unique_ptr<folly::IOBuf> data,
       bool fin,
-      ByteEventCallback* deliveryCallback) = 0;
+      ByteEventCallback* deliveryCallback,
+      bool checkpoint) = 0;
+  folly::Expected<FCState, ErrorCode> writeStreamData(
+      uint64_t id,
+      std::unique_ptr<folly::IOBuf> data,
+      bool fin,
+      ByteEventCallback* deliveryCallback) {
+    return writeStreamData(id, std::move(data), fin, deliveryCallback, false);
+  }
   virtual folly::Expected<folly::Unit, ErrorCode> resetStream(
       uint64_t streamId, uint32_t error) = 0;
   virtual folly::Expected<folly::Unit, ErrorCode> setPriority(
