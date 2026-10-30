@@ -476,6 +476,7 @@ WebTransportImpl::StreamReadHandle::readStreamData() {
     if (eof_) {
       // unregister the read callback, but don't send STOP_SENDING
       impl_.stopReadingWebTransportIngress(id_, folly::none);
+      finDelivered_ = true;
       // Destroys *this.
       impl_.closeIngressStream(id_);
     } else if (bufLen >= kMaxWTIngressBuf) {
@@ -533,6 +534,7 @@ WebTransport::FCState WebTransportImpl::StreamReadHandle::dataAvailable(
     if (eof) {
       // unregister the read callback, but don't send STOP_SENDING
       impl_.stopReadingWebTransportIngress(getID(), folly::none);
+      finDelivered_ = true;
       // Destroys *this.
       impl_.closeIngressStream(getID());
       return WebTransport::FCState::UNBLOCKED;

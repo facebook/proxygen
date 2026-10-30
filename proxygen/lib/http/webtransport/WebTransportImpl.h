@@ -322,7 +322,9 @@ class WebTransportImpl
     StreamReadHandle(WebTransportImpl& impl, HTTPCodec::StreamID id);
 
     ~StreamReadHandle() override {
-      cs_.requestCancellation();
+      if (!finDelivered_) {
+        cs_.requestCancellation();
+      }
     }
 
     folly::SemiFuture<WebTransport::StreamData> readStreamData() override;
@@ -356,6 +358,7 @@ class WebTransportImpl
     folly::Promise<WebTransport::StreamData> readPromise_;
     folly::IOBufQueue buf_{folly::IOBufQueue::cacheChainLength()};
     bool eof_{false};
+    bool finDelivered_{false};
     bool readCallbackRegistered_{true};
   };
 

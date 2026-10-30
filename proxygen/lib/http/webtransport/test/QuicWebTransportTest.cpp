@@ -83,8 +83,10 @@ TEST_F(QuicWebTransportTest, PeerUniStream) {
 // FIN arrives while a read is pending.
 TEST_F(QuicWebTransportTest, PeerUniStreamFinWithPendingReadFreesHandle) {
   bool readDone = false;
+  folly::CancellationToken token;
   EXPECT_CALL(*handler_, onNewUniStream(_))
       .WillOnce([&](WebTransport::StreamReadHandle* readHandle) {
+        token = readHandle->getCancelToken();
         readHandle->awaitNextRead(
             &eventBase_,
             [&](WebTransport::StreamReadHandle* handle,
@@ -100,6 +102,7 @@ TEST_F(QuicWebTransportTest, PeerUniStreamFinWithPendingReadFreesHandle) {
   EXPECT_TRUE(readDone);
   auto wtImpl = dynamic_cast<WebTransportImpl*>(transport_.get());
   EXPECT_EQ(wtImpl->getReadHandle(2), nullptr);
+  EXPECT_FALSE(token.isCancellationRequested());
 }
 
 // FIN is buffered before the application reads.
@@ -113,11 +116,31 @@ TEST_F(QuicWebTransportTest, PeerUniStreamBufferedFinFreesHandle) {
   ASSERT_NE(readHandle, nullptr);
   auto wtImpl = dynamic_cast<WebTransportImpl*>(transport_.get());
   EXPECT_NE(wtImpl->getReadHandle(2), nullptr);
+  auto token = readHandle->getCancelToken();
 
   auto data = readHandle->readStreamData().getTry();
   EXPECT_EQ(data->data->computeChainDataLength(), 5);
   EXPECT_TRUE(data->fin);
   EXPECT_EQ(wtImpl->getReadHandle(2), nullptr);
+  EXPECT_FALSE(token.isCancellationRequested());
+}
+
+// A FIN the application never read still cancels when the session ends.
+TEST_F(QuicWebTransportTest, PeerUniStreamUnreadFinCancelsOnClose) {
+  folly::CancellationToken token;
+  EXPECT_CALL(*handler_, onNewUniStream(_))
+      .WillOnce([&](WebTransport::StreamReadHandle* handle) {
+        token = handle->getCancelToken();
+      });
+  socketDriver_.addReadEvent(2, folly::IOBuf::copyBuffer("hello"), true);
+  eventBase_.loop();
+  EXPECT_FALSE(token.isCancellationRequested());
+
+  EXPECT_CALL(*handler_, onSessionEnd(_));
+  socketDriver_.deliverConnectionError(quic::QuicError(
+      quic::ApplicationErrorCode(WT_ERROR_1), "connection close"));
+  eventBase_.loop();
+  EXPECT_TRUE(token.isCancellationRequested());
 }
 
 // FIN frees the read handle and leaves the write handle open.
@@ -128,12 +151,14 @@ TEST_F(QuicWebTransportTest, PeerBidiStreamFinFreesReadHandleOnly) {
   socketDriver_.addReadEvent(0, folly::IOBuf::copyBuffer("hello"), true);
   eventBase_.loop();
   ASSERT_NE(bidi.readHandle, nullptr);
+  auto readToken = bidi.readHandle->getCancelToken();
 
   auto data = bidi.readHandle->readStreamData().getTry();
   EXPECT_TRUE(data->fin);
   auto wtImpl = dynamic_cast<WebTransportImpl*>(transport_.get());
   EXPECT_EQ(wtImpl->getReadHandle(0), nullptr);
   EXPECT_NE(wtImpl->getWriteHandle(0), nullptr);
+  EXPECT_FALSE(readToken.isCancellationRequested());
 }
 
 TEST_F(QuicWebTransportTest, PeerBidiStream) {
