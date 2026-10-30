@@ -22,8 +22,10 @@
 #include <folly/SocketAddress.h>
 #include <folly/coro/AsyncScope.h>
 #include <folly/coro/Collect.h>
+#include <folly/coro/Sleep.h>
 #include <folly/coro/Timeout.h>
 #include <folly/coro/ViaIfAsync.h>
+#include <folly/io/async/Request.h>
 #include <folly/io/async/ScopedEventBaseThread.h>
 #include <folly/portability/OpenSSL.h>
 #include <folly/ssl/OpenSSLCertUtils.h>
@@ -159,6 +161,37 @@ class EventBaseBackend : public folly::EventBaseBackendBase {
   event_base* evb_;
 };
 
+// Counts RequestContext activations for one context. Shared with the test so
+// the counts stay readable after every reference to the context is dropped.
+struct ActivationCounters {
+  std::atomic<uint64_t> set{0};
+  std::atomic<uint64_t> unset{0};
+  std::atomic<bool> cleared{false};
+};
+
+class CountingRequestData : public folly::RequestData {
+ public:
+  explicit CountingRequestData(std::shared_ptr<ActivationCounters> counters)
+      : counters_(std::move(counters)) {
+  }
+
+  bool hasCallback() override {
+    return true;
+  }
+  void onSet() override {
+    counters_->set++;
+  }
+  void onUnset() override {
+    counters_->unset++;
+  }
+  void onClear() override {
+    counters_->cleared = true;
+  }
+
+ private:
+  std::shared_ptr<ActivationCounters> counters_;
+};
+
 } // namespace
 
 namespace proxygen::coro::test {
@@ -184,6 +217,57 @@ CO_TEST_P_X(HTTPClientTests, ConnectorConnect) {
     EXPECT_EQ(*tinfo.appProtocol, transportTypeToAlpn(GetParam()));
   }
   (*sess)->dropConnection();
+}
+
+CO_TEST_P_X(HTTPClientTests, SessionLoopsDoNotRetainCreatorContext) {
+  if (GetParam() != TransportType::TCP) {
+    co_return;
+  }
+  // The write loop wakes every writeTimeout without draining an idle session,
+  // so a short writeTimeout gives deterministic loop wakeups with no traffic.
+  // The read timeout is kept long so the session is not drained mid-test.
+  HTTPCoroConnector::SessionParams sessParams;
+  sessParams.connReadTimeout = std::chrono::seconds(60);
+  sessParams.writeTimeout = std::chrono::milliseconds(100);
+
+  auto counters = std::make_shared<ActivationCounters>();
+  HTTPCoroSession* session = nullptr;
+  {
+    // Install a fresh counting context, then connect: setupSession starts the
+    // session loops under their own session context, so they must not capture
+    // this one.
+    folly::RequestContextScopeGuard guard;
+    folly::RequestContext::saveContext()->setContextData(
+        "SessionLoopsDoNotRetainCreatorContext",
+        std::make_unique<CountingRequestData>(counters));
+    auto sess = co_await co_awaitTry(
+        HTTPCoroConnector_connect(&evb_,
+                                  serverAddress_,
+                                  seconds(1),
+                                  getConnParams(GetParam()),
+                                  sessParams));
+    EXPECT_FALSE(sess.hasException());
+    if (sess.hasException()) {
+      co_return;
+    }
+    session = *sess;
+    // Guard destruction restores the previous context on this thread. The
+    // session loops must not hold the counting context.
+  }
+  // The test holds no reference to the counting context anymore, and the
+  // session loops must not retain it, so it is cleared by now.
+  EXPECT_TRUE(counters->cleared.load());
+  const uint64_t setBefore = counters->set.load();
+  const uint64_t unsetBefore = counters->unset.load();
+  // Let the idle session's write loop wake on its timeout several times.
+  // None of those wakeups may re-activate the creator's context.
+  co_await folly::coro::sleep(std::chrono::milliseconds(550));
+  EXPECT_TRUE(counters->cleared.load());
+  EXPECT_EQ(counters->set.load(), setBefore);
+  EXPECT_EQ(counters->unset.load(), unsetBefore);
+  session->dropConnection();
+  co_await folly::coro::sleep(std::chrono::milliseconds(500));
+  EXPECT_TRUE(counters->cleared.load());
 }
 
 CO_TEST_P_X(HTTPClientTests, IdentityVerificationE2E) {

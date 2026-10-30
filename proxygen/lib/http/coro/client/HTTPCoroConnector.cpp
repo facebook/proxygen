@@ -30,6 +30,7 @@
 #include <folly/coro/SharedPromise.h>
 #include <folly/coro/Sleep.h>
 #include <folly/io/async/AsyncSSLSocket.h>
+#include <folly/io/async/Request.h>
 #include <folly/io/async/SSLOptions.h>
 #include <proxygen/lib/http/codec/DefaultHTTPCodecFactory.h>
 #include <quic/QuicException.h>
@@ -228,6 +229,9 @@ void setupSession(CoroSessionHandle session,
   if (sessionParams.sessionStats) {
     session->setSessionStats(sessionParams.sessionStats);
   }
+  // The session loops outlive the connecting request: start them under a
+  // fresh session context so they never inherit (and retain) its context.
+  folly::RequestContextScopeGuard sessionContextGuard;
   session->run().start();
 }
 
