@@ -1601,6 +1601,7 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
     tinfo->sslSetupTime = transportInfo_.sslSetupTime;
     tinfo->sslVersion = transportInfo_.sslVersion;
     tinfo->sslCipher = transportInfo_.sslCipher;
+    tinfo->sslCipherId = transportInfo_.sslCipherId;
     tinfo->sslResume = transportInfo_.sslResume;
     tinfo->appProtocol = transportInfo_.appProtocol;
     tinfo->sslError = transportInfo_.sslError;

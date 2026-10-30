@@ -1488,6 +1488,7 @@ bool HTTPCoroSession::getCurrentTransportInfo(wangle::TransportInfo* tinfo,
     tinfo->sslSetupTime = setupTransportInfo_.sslSetupTime;
     tinfo->sslVersion = setupTransportInfo_.sslVersion;
     tinfo->sslCipher = setupTransportInfo_.sslCipher;
+    tinfo->sslCipherId = setupTransportInfo_.sslCipherId;
     tinfo->sslResume = setupTransportInfo_.sslResume;
     tinfo->appProtocol = setupTransportInfo_.appProtocol;
     tinfo->sslError = setupTransportInfo_.sslError;
