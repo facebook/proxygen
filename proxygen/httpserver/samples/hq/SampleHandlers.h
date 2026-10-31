@@ -24,9 +24,9 @@
 
 #include <folly/File.h>
 #include <folly/FileUtil.h>
-#include <folly/Format.h>
 #include <folly/Memory.h>
 #include <folly/Random.h>
+#include <folly/String.h>
 #include <folly/ThreadLocal.h>
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/io/async/AsyncTimeout.h>
