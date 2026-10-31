@@ -146,10 +146,15 @@ folly::coro::Task<void> CoroWtSession::writeLoop(Ptr self) {
       auto id = wh->getID();
       const auto atMost = kMaxWriteSize - egressBuf.chainLength();
       auto dequeue = sm.dequeue(*wh, /*atMost=*/atMost);
+      auto* deliveryCallback = dequeue.deliveryCallback;
+      auto deliveredOffset = dequeue.lastByteStreamOffset;
       writeWTStream(egressBuf,
                     WTStreamCapsule{.streamId = id,
                                     .streamData = std::move(dequeue.data),
                                     .fin = dequeue.fin});
+      if (deliveryCallback) {
+        deliveryCallback->onByteEvent(id, deliveredOffset);
+      }
       wh = sm.nextWritable();
     }
     if (wh) {

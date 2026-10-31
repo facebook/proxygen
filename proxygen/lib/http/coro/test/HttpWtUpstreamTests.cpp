@@ -483,6 +483,41 @@ CO_TEST_P_X(WtTest, SimpleUniEgress) {
 }
 
 /**
+ * A write's delivery callback fires once the write loop serializes its data.
+ */
+CO_TEST_P_X(WtTest, DeliveryCallbackFires) {
+  XCHECK(wt);
+  struct DeliveryCallback : public WebTransport::ByteEventCallback {
+    void onByteEvent(quic::StreamId id, uint64_t offset) noexcept override {
+      delivered.emplace_back(id, offset);
+    }
+    void onByteEventCanceled(quic::StreamId, uint64_t) noexcept override {
+      ++canceled;
+    }
+    std::vector<std::pair<quic::StreamId, uint64_t>> delivered;
+    size_t canceled{0};
+  } deliveryCb;
+
+  evb_.runInLoop([&]() {
+    writeWTMaxStreams(wtBuf, /*capsule=*/{1}, /*isBidi=*/false);
+    deliverWtData(wtBuf.move());
+  });
+  co_await wt->awaitUniStreamCredit();
+  auto id = wt->createUniStream().value()->getID();
+
+  constexpr uint16_t kBufLen = 100;
+  grantMaxData(kInvalidVarint, kBufLen);
+  grantMaxData(id, kBufLen);
+  wt->writeStreamData(id, makeBuf(kBufLen), /*fin=*/false, &deliveryCb);
+  co_await wtCodecCb.waitForEvent();
+
+  const std::vector<std::pair<quic::StreamId, uint64_t>> expected{
+      {id, kBufLen - 1}};
+  EXPECT_EQ(deliveryCb.delivered, expected);
+  EXPECT_EQ(deliveryCb.canceled, 0);
+}
+
+/**
  * Tests the following ingress related behaviours:
  *  - Receiving data on a new stream id implicitly creates the data
  *
