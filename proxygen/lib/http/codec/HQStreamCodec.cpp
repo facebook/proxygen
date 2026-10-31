@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 
-#include <folly/Format.h>
+#include <folly/Conv.h>
 #include <folly/ScopeGuard.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/HTTP3ErrorCode.h>

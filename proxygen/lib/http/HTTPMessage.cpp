@@ -9,7 +9,7 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 
 #include <array>
-#include <folly/Format.h>
+#include <folly/Conv.h>
 #include <folly/Range.h>
 #include <folly/SingletonThreadLocal.h>
 #include <folly/String.h>

@@ -7,7 +7,6 @@
  */
 
 #include <folly/Conv.h>
-#include <folly/Format.h>
 #include <folly/portability/GTest.h>
 #include <glog/logging.h>
 #include <limits>
