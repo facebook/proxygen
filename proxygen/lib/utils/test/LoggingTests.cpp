@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/Format.h>
+#include <folly/Conv.h>
 #include <folly/io/IOBuf.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/utils/Logging.h>

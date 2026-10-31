@@ -8,7 +8,8 @@
 
 #pragma once
 
-#include <folly/Format.h>
+#include <folly/Optional.h>
+#include <folly/Range.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <proxygen/lib/transport/test/MockAsyncTransportCertificate.h>
