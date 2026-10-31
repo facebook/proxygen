@@ -193,10 +193,13 @@ class TestWtHandler : public WebTransportHandler {
   void onNewBidiStream(WebTransport::BidiStreamHandle bh) noexcept override {
     newBidiStreamIds.push_back(bh.writeHandle->getID());
   }
-  void onDatagram(std::unique_ptr<folly::IOBuf> dg) noexcept override {
-    datagrams.push_back(
-        dg ? dg->cloneCoalescedAsValue().moveToFbString().toStdString()
-           : std::string{});
+  void onDatagrams(
+      std::vector<std::unique_ptr<folly::IOBuf>> dgs) noexcept override {
+    for (auto& dg : dgs) {
+      datagrams.push_back(
+          dg ? dg->cloneCoalescedAsValue().moveToFbString().toStdString()
+             : std::string{});
+    }
   }
   void onSessionEnd(folly::Optional<uint32_t> err) noexcept override {
     sessionEndCount++;

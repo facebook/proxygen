@@ -274,10 +274,11 @@ TEST_F(QuicWtSessionTest, Datagram) {
   socketDriver_.addDatagram(folly::IOBuf::copyBuffer("in2"));
 
   std::vector<std::string> received;
-  EXPECT_CALL(*handler_, onDatagram(_))
-      .Times(2)
-      .WillRepeatedly([&](std::unique_ptr<folly::IOBuf> datagram) {
-        received.push_back(datagram->toString());
+  EXPECT_CALL(*handler_, onDatagrams(_))
+      .WillOnce([&](std::vector<std::unique_ptr<folly::IOBuf>> datagrams) {
+        for (auto& datagram : datagrams) {
+          received.push_back(datagram->toString());
+        }
       });
   socketDriver_.addDatagramsAvailableReadEvent();
   eventBase_.loop();

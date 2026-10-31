@@ -273,10 +273,16 @@ QuicWtSessionBase::closeSession(folly::Optional<uint32_t> error) noexcept {
   return folly::unit;
 }
 
-void QuicWtSessionBase::onDatagram(IoBufPtr dgram) noexcept {
+void QuicWtSessionBase::onDatagrams(std::vector<IoBufPtr> dgrams) noexcept {
   if (wtHandler_) {
-    wtHandler_->onDatagram(std::move(dgram));
+    wtHandler_->onDatagrams(std::move(dgrams));
   }
+}
+
+void QuicWtSessionBase::onDatagram(IoBufPtr dgram) noexcept {
+  std::vector<IoBufPtr> dgrams;
+  dgrams.push_back(std::move(dgram));
+  onDatagrams(std::move(dgrams));
 }
 
 // -- QuicReadCallback overrides --
@@ -537,9 +543,7 @@ void QuicWtSession::QuicDgramCallback::onDatagramsAvailable() noexcept {
   }
 
   XLOG(DBG4) << "rx nDatagrams=" << result->size();
-  for (auto& dgram : result.value()) {
-    sess.onDatagram(std::move(dgram));
-  }
+  sess.onDatagrams(std::move(result.value()));
 }
 
 H3WtSession::H3WtSession(std::shared_ptr<quic::QuicSocket> quicSocket,

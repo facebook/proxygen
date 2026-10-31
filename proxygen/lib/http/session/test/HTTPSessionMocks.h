@@ -198,6 +198,12 @@ class MockHTTPHandler
   void onDatagram(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     _onDatagram(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
+  void onDatagrams(
+      std::vector<std::unique_ptr<folly::IOBuf>> chains) noexcept override {
+    for (auto& chain : chains) {
+      _onDatagram(std::shared_ptr<folly::IOBuf>(chain.release()));
+    }
+  }
   MOCK_METHOD(void, _onDatagram, (std::shared_ptr<folly::IOBuf>));
 
   MOCK_METHOD(void,

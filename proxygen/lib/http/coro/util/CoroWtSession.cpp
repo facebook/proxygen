@@ -103,9 +103,9 @@ folly::coro::Task<void> CoroWtSession::readLoop(Ptr self) {
       NotifyPeerStreamsGuard notify{wtSmIngressCb, sm, *wtHandler_};
     }
 
-    auto ingressDatagrams = moveIngressDatagrams();
-    for (auto& dgram : ingressDatagrams) {
-      wtHandler_->onDatagram(std::move(dgram));
+    if (auto ingressDatagrams = moveIngressDatagrams();
+        !ingressDatagrams.empty()) {
+      wtHandler_->onDatagrams(std::move(ingressDatagrams));
     }
 
     if (eom) {

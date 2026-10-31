@@ -237,9 +237,8 @@ void WebTransportReadLoop::runLoopCallback() noexcept {
   }
 
   // deliver datagrams to application
-  auto datagrams = ingressDatagrams();
-  for (auto& datagram : datagrams) {
-    wtHandler_->onDatagram(std::move(datagram));
+  if (auto datagrams = ingressDatagrams(); !datagrams.empty()) {
+    wtHandler_->onDatagrams(std::move(datagrams));
   }
 
   if (eom || txnHandler.ex_) {

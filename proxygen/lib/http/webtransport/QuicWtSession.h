@@ -83,6 +83,7 @@ class QuicWtSessionBase
                     H3ConnectStreamCallback* observer = nullptr);
   ~QuicWtSessionBase() override = 0;
 
+  void onDatagrams(std::vector<IoBufPtr> dgrams) noexcept;
   void onDatagram(IoBufPtr dgram) noexcept;
 
   struct QuicReadCallback : public quic::QuicSocket::ReadCallback {

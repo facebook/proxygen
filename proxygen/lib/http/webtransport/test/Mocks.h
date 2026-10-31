@@ -148,8 +148,8 @@ class MockWebTransportHandler : public WebTransportHandler {
               (WebTransport::BidiStreamHandle bidiHandle),
               (noexcept, override));
   MOCK_METHOD(void,
-              onDatagram,
-              (std::unique_ptr<folly::IOBuf> datagram),
+              onDatagrams,
+              (std::vector<std::unique_ptr<folly::IOBuf>> datagrams),
               (noexcept, override));
   MOCK_METHOD(void,
               onSessionEnd,
@@ -168,8 +168,11 @@ struct DummyWtHandler : public WebTransportHandler {
       WebTransport::BidiStreamHandle bidiHandle) noexcept override {
     ctx->peerStreams.push_back(bidiHandle);
   }
-  void onDatagram(std::unique_ptr<folly::IOBuf> datagram) noexcept override {
-    ctx->dgrams.push_back(std::move(datagram));
+  void onDatagrams(
+      std::vector<std::unique_ptr<folly::IOBuf>> datagrams) noexcept override {
+    for (auto& datagram : datagrams) {
+      ctx->dgrams.push_back(std::move(datagram));
+    }
   }
   void onSessionEnd(folly::Optional<uint32_t> error) noexcept override {
     ctx->err = error.value_or(0);

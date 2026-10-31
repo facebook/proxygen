@@ -324,7 +324,13 @@ class WebTransportHandler {
   virtual void onNewBidiStream(
       WebTransport::BidiStreamHandle bidiHandle) noexcept = 0;
 
-  virtual void onDatagram(std::unique_ptr<folly::IOBuf> datagram) noexcept = 0;
+  virtual void onDatagrams(
+      std::vector<std::unique_ptr<folly::IOBuf>> datagrams) noexcept = 0;
+  void onDatagram(std::unique_ptr<folly::IOBuf> datagram) noexcept {
+    std::vector<std::unique_ptr<folly::IOBuf>> datagrams;
+    datagrams.push_back(std::move(datagram));
+    onDatagrams(std::move(datagrams));
+  }
   virtual void onSessionEnd(folly::Optional<uint32_t> error) noexcept = 0;
   virtual void onSessionDrain() noexcept = 0;
 

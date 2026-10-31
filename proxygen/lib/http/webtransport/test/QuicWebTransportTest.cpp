@@ -206,27 +206,20 @@ TEST_F(QuicWebTransportTest, Datagram) {
   webTransport()->sendDatagram(folly::IOBuf::copyBuffer("hello"));
   EXPECT_EQ(socketDriver_.outDatagrams_.front().chainLength(), 5);
   socketDriver_.addDatagram(folly::IOBuf::copyBuffer("world!"));
-  EXPECT_CALL(*handler_, onDatagram(_))
-      .WillOnce([](std::unique_ptr<folly::IOBuf> datagram) {
-        EXPECT_EQ(datagram->computeChainDataLength(), 6);
+  EXPECT_CALL(*handler_, onDatagrams(_))
+      .WillOnce([](std::vector<std::unique_ptr<folly::IOBuf>> datagrams) {
+        ASSERT_EQ(datagrams.size(), 1);
+        EXPECT_EQ(datagrams[0]->computeChainDataLength(), 6);
       });
   socketDriver_.addDatagramsAvailableReadEvent();
   eventBase_.loop();
 }
 
-// Two datagrams are delivered in a single onDatagramsAvailable() callback. The
-// handler closes the session while processing the first one (mirroring
-// MoQSession::onDatagram() calling close() on a protocol violation), which
-// clears handler_ mid-loop. The loop must drop the remaining datagram rather
-// than dispatch it to the cleared handler_, which previously caused a
-// remotely-triggerable null-deref / use-after-free crash.
 TEST_F(QuicWebTransportTest, DatagramHandlerClosesSessionMidLoop) {
   socketDriver_.addDatagram(folly::IOBuf::copyBuffer("first"));
   socketDriver_.addDatagram(folly::IOBuf::copyBuffer("second"));
-  // onDatagram must be invoked exactly once: processing the first datagram
-  // tears down the session, so the second must not be delivered.
-  EXPECT_CALL(*handler_, onDatagram(_))
-      .WillOnce([this](std::unique_ptr<folly::IOBuf>) {
+  EXPECT_CALL(*handler_, onDatagrams(SizeIs(2)))
+      .WillOnce([this](std::vector<std::unique_ptr<folly::IOBuf>>) {
         webTransport()->closeSession();
       });
   socketDriver_.addDatagramsAvailableReadEvent();

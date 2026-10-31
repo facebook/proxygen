@@ -338,14 +338,8 @@ void QuicWebTransport::onDatagramsAvailable() noexcept {
     return;
   }
   VLOG(4) << "Received " << result.value().size() << " datagrams";
-  for (auto& datagram : result.value()) {
-    // Delivering a datagram may close the session and clear handler_ (e.g.
-    // MoQSession closes on a protocol violation); re-check each iteration so a
-    // later datagram never dereferences a null/freed handler_.
-    if (!handler_) {
-      break;
-    }
-    handler_->onDatagram(std::move(datagram));
+  if (handler_) {
+    handler_->onDatagrams(std::move(result.value()));
   }
 }
 
