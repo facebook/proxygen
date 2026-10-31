@@ -174,7 +174,6 @@ proxygen_add_library(proxygen_http_message
   SRCS
     HTTPMessage.cpp
   DEPS
-    Folly::folly_format
     Folly::folly_range
     Folly::folly_singleton_thread_local
     Folly::folly_string

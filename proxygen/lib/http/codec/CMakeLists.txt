@@ -172,7 +172,7 @@ proxygen_add_library(proxygen_http_codec_hq_codec
   DEPS
     proxygen_http_priority_functions
     proxygen_utils_logging
-    Folly::folly_format
+    Folly::folly_conv
     Folly::folly_random
     Folly::folly_scope_guard
     Folly::folly_tracing_scoped_trace_section
